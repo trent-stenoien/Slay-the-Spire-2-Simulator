@@ -145,6 +145,7 @@ export function checkCard(r: Reporter, c: Obj): void {
   r.bool(c, 'simulated');
   r.bool(c, 'multiplayerOnly');
   if (has(c, 'hidden')) r.bool(c, 'hidden');
+  if (has(c, 'maxCopies')) r.int(c, 'maxCopies', 1);
   if (has(c, 'triggers')) checkTriggers(r, c.triggers, 'triggers');
   if (has(c, 'playableIf')) checkCondition(r, c.playableIf, 'playableIf');
   if (has(c, 'costLessPer')) checkPer(r, c.costLessPer, 'costLessPer');

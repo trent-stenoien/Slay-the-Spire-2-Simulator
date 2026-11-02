@@ -8,6 +8,7 @@ import {
   DEFAULT_FILTERS,
   automaticCards,
   foldersForFilter,
+  atCopyLimit,
   changeCount,
   combatDeckSize,
   copiesOf,
@@ -153,6 +154,11 @@ function CardRow({
   const locked = autoLevel !== undefined;
   const n = locked ? 1 : copiesOf(deck, card.id, false);
   const nUp = copiesOf(deck, card.id, true);
+  const limit = card.maxCopies;
+  const limitNote =
+    limit !== undefined && atCopyLimit(deck, card)
+      ? `Limited to ${limit} ${limit === 1 ? 'copy' : 'copies'} for now (untested with multiple copies)`
+      : undefined;
   return (
     <li className={`card-row row-${colorKey} type-${card.type}${n + nUp > 0 ? ' in-deck' : ''}`}>
       <div className="card-head">
@@ -207,6 +213,7 @@ function CardRow({
           label={base.name}
           tag="Standard"
           n={n}
+          addBlocked={limitNote}
           onStep={(d) => onChange(changeCount(deck, card.id, false, d))}
         />
       )}
@@ -222,6 +229,7 @@ function CardRow({
             label={up.name}
             tag="Upgraded"
             n={nUp}
+            addBlocked={limitNote}
             onStep={(d) => onChange(changeCount(deck, card.id, true, d))}
           />
         </>
@@ -234,11 +242,14 @@ function Stepper({
   label,
   tag,
   n,
+  addBlocked,
   onStep,
 }: {
   label: string;
   tag: string;
   n: number;
+  /** Tooltip explaining why + is disabled by a copy limit; undefined when not limited. */
+  addBlocked?: string | undefined;
   onStep: (delta: number) => void;
 }) {
   return (
@@ -257,7 +268,8 @@ function Stepper({
       <button
         type="button"
         aria-label={`Add one ${tag.toLowerCase()} ${label}`}
-        disabled={n >= 99}
+        disabled={n >= 99 || addBlocked !== undefined}
+        title={addBlocked}
         onClick={() => onStep(1)}
       >
         +

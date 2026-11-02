@@ -29,5 +29,6 @@
   "upgradedDescription": "At the start of your turn, deal 10 damage to ALL enemies and increase this damage by 5.",
   "simulated": true,
   "multiplayerOnly": false,
+  "maxCopies": 1,
   "lastUpdateVersion": "v0.107.1"
 }

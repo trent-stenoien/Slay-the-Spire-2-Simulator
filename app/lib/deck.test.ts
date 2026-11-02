@@ -6,6 +6,8 @@ import {
   combatDeckSize,
   changeCount,
   copiesOf,
+  atCopyLimit,
+  totalCopies,
   costColorKey,
   deckPool,
   deckPowerNames,
@@ -81,6 +83,24 @@ describe('deck edits', () => {
   it('removes a group at zero and ignores removing what is absent', () => {
     expect(changeCount(deck, 'defend', false, -4)).toEqual([deck[0]]);
     expect(changeCount(deck, 'bash', false, -1)).toBe(deck);
+  });
+});
+
+describe('copy limits (#137)', () => {
+  const boulder = gameData.cards.rolling_boulder!;
+  const strike = gameData.cards.strike!;
+  it('counts Standard and Upgraded together', () => {
+    const d: Deck = [{ cardId: 'rolling_boulder', upgraded: true, count: 1 }];
+    expect(totalCopies(d, 'rolling_boulder')).toBe(1);
+    expect(totalCopies([...d, { cardId: 'rolling_boulder', upgraded: false, count: 2 }], 'rolling_boulder')).toBe(3);
+  });
+  it('is at the limit once maxCopies is reached, in either version', () => {
+    expect(atCopyLimit([], boulder)).toBe(false);
+    expect(atCopyLimit([{ cardId: 'rolling_boulder', upgraded: false, count: 1 }], boulder)).toBe(true);
+    expect(atCopyLimit([{ cardId: 'rolling_boulder', upgraded: true, count: 1 }], boulder)).toBe(true);
+  });
+  it('never limits a card without maxCopies', () => {
+    expect(atCopyLimit([{ cardId: 'strike', upgraded: false, count: 50 }], strike)).toBe(false);
   });
 });
 
