@@ -2,6 +2,8 @@
 import { describe, expect, it } from 'vitest';
 import { CONTRACT_EFFECT_SAMPLES } from '../engine/testFixtures';
 import { fixture, errorsOf } from './dataTestHelpers';
+import { SIMULATED_POWERS } from './validate/lists';
+import { SIMULATED_POWER_IDS } from '../engine/combat';
 
 /** Contract effects the engine simulates now (#106, #107, #108); a simulated card may use them. */
 const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards'];
@@ -21,6 +23,16 @@ describe('#105 contract shapes', () => {
     const d = fixture();
     d.cards.strike.effects.push(structuredClone(effect));
     d.cards.strike.upgraded.effects.push(structuredClone(effect));
+    expect(errorsOf(d)).toEqual([]);
+  });
+
+  it('SIMULATED_POWERS matches the powers the engine simulates (#109)', () => {
+    expect([...SIMULATED_POWERS].sort()).toEqual([...SIMULATED_POWER_IDS].sort());
+  });
+
+  it.each([...SIMULATED_POWER_IDS])('accepts applyPower "%s" on a simulated card (#107, #109)', (power) => {
+    const d = fixture();
+    d.cards.strike.effects.push({ type: 'applyPower', power, amount: 1 });
     expect(errorsOf(d)).toEqual([]);
   });
 

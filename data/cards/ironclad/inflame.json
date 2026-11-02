@@ -25,7 +25,7 @@
   },
   "description": "Gain 2 Strength.",
   "upgradedDescription": "Gain 3 Strength.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

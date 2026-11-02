@@ -74,10 +74,28 @@ export const UNSIMULATED_EFFECTS = new Set<string>(
 );
 
 /**
- * Powers the engine simulates. `applyPower` stays unsimulated in general (#109), but a
- * simulated card may apply one of these: #107 noDraw (Battle Trance).
+ * Powers the engine simulates (engine/combat.ts SIMULATED_POWER_IDS); a simulated card may apply
+ * only these: #107 noDraw (Battle Trance) and the #109 simple powers. Temporary (#110) and
+ * trigger powers (#113, #115, #116) are not simulated yet.
  */
-export const SIMULATED_POWERS = new Set<string>(['noDraw']);
+export const SIMULATED_POWERS = new Set<string>([
+  'noDraw',
+  'demonForm',
+  'energyPerTurn',
+  'rollingBoulder',
+  'crimsonMantle',
+  'plating',
+  'barricade',
+  'cruelty',
+  'dexterity',
+  'fasten',
+  'thorns',
+  'vigorPerTurn',
+  'vigor',
+  'powersCostLess',
+  'upgradeAtCombatEnd',
+  'corruption',
+]);
 
 /** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */
 export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded']);

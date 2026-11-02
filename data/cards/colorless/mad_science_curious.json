@@ -9,7 +9,13 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "powersCostLess",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "keywords": [
       "innate"
@@ -17,7 +23,7 @@
   },
   "description": "Powers cost 1 [E] less.",
   "upgradedDescription": "Innate. / Powers cost 1 [E] less.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

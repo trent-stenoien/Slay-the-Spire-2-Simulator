@@ -1,5 +1,14 @@
 /** Plain-language card text, e.g. "Deal 8 damage. Apply 2 Vulnerable." */
-import type { CardDef, CardFilter, CardKeyword, CardTrigger, CardType, Effect, PileName } from '../../engine/types';
+import type {
+  CardDef,
+  CardFilter,
+  CardKeyword,
+  CardTrigger,
+  CardType,
+  Effect,
+  PileName,
+  PowerId,
+} from '../../engine/types';
 
 const KEYWORD_LABEL: Record<CardKeyword, string> = {
   unplayable: 'Unplayable',
@@ -57,8 +66,7 @@ export function effectText(e: Effect): string {
     }
     // #105: plain fallback text for mechanics that are not simulated yet.
     case 'applyPower':
-      if (e.power === 'noDraw') return 'You cannot draw additional cards this turn';
-      return `Gain ${e.amount} ${cap(e.power)}`;
+      return powerText(e.power, e.amount);
     case 'applyEnemyPower':
       return `Apply ${e.amount} ${cap(e.power)} to the enemy`;
     case 'schedule':
@@ -106,6 +114,46 @@ export function effectText(e: Effect): string {
       if (e.id === 'fiendFire') return `Exhaust your Hand. Deal ${e.values?.[0] ?? 0} damage for each card Exhausted`;
       if (e.id === 'thrash') return 'Exhaust a random Attack in your Hand and add its damage to this card';
       return 'Special effect';
+  }
+}
+
+/** #107/#109: card text for the simulated powers; others get "Gain N <Power>". */
+function powerText(power: PowerId, n: number): string {
+  switch (power) {
+    case 'noDraw':
+      return 'You cannot draw additional cards this turn';
+    case 'demonForm':
+      return `At the start of your turn, gain ${n} Strength`;
+    case 'energyPerTurn':
+      return `Gain ${n} Energy at the start of each turn`;
+    case 'rollingBoulder':
+      return `At the start of your turn, deal ${n} damage to ALL enemies and increase this damage by 5`;
+    case 'crimsonMantle':
+      return `At the start of your turn, lose 1 HP and gain ${n} Block`;
+    case 'plating':
+      return `Gain ${n} Plating`;
+    case 'barricade':
+      return 'Block is not removed at the start of your turn';
+    case 'cruelty':
+      return `Vulnerable enemies take an additional ${n}% damage`;
+    case 'dexterity':
+      return `Gain ${n} Dexterity`;
+    case 'fasten':
+      return `Gain an additional ${n} Block from Defend cards`;
+    case 'thorns':
+      return `Whenever you are attacked, deal ${n} damage back`;
+    case 'vigorPerTurn':
+      return `At the start of your turn, gain ${n} Vigor`;
+    case 'vigor':
+      return `Gain ${n} Vigor`;
+    case 'powersCostLess':
+      return `Powers cost ${n} Energy less`;
+    case 'upgradeAtCombatEnd':
+      return 'At the end of combat, Upgrade a random card';
+    case 'corruption':
+      return 'Skills cost 0 Energy. Whenever you play a Skill, Exhaust it';
+    default:
+      return `Gain ${n} ${cap(power)}`;
   }
 }
 

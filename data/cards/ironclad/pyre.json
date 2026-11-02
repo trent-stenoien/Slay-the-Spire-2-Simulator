@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "energyPerTurn",
+      "amount": 1
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "energyPerTurn",
+        "amount": 2
+      }
+    ]
+  },
   "description": "Gain [E] at the start of each turn.",
   "upgradedDescription": "Gain [E][E] at the start of each turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

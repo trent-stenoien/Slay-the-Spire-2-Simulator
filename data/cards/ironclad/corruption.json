@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "corruption",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 2
   },
   "description": "Skills cost 0 [E]. / Whenever you play a Skill, Exhaust it.",
   "upgradedDescription": "Skills cost 0 [E]. / Whenever you play a Skill, Exhaust it.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

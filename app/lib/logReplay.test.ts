@@ -3,6 +3,7 @@ import { gameData } from '../../data';
 import { runCombat, deriveSeed } from '../../engine';
 import { ascensionLabel, buildReplay, describeEvent, enemyIntentLabel, intendedMoveId, type Round } from './logReplay';
 import { GREEDY_CONFIG } from '../../engine/strategies';
+import type { PowerId } from '../../engine/types';
 
 describe('log replay', () => {
   const result = runCombat(
@@ -115,6 +116,29 @@ describe('log replay', () => {
       'You cannot draw additional cards this turn',
     );
     expect(describeEvent({ t: 'powerRemoved', side: 'player', power: 'noDraw' }, name)).toBeNull();
+  });
+
+  it('describes the #109 powers', () => {
+    const name = (id: string) => gameData.cards[id]?.name ?? id;
+    const applied = (power: PowerId, amount: number, total: number) =>
+      describeEvent({ t: 'powerApplied', side: 'player', power, amount, total }, name);
+    expect(applied('demonForm', 3, 3)).toBe('You gain 3 Demon Form (total 3)');
+    expect(applied('plating', 4, 4)).toBe('You gain 4 Plating (total 4)');
+    expect(applied('plating', -1, 3)).toBe('Your Plating drops by 1 (3 left)');
+    expect(applied('energyPerTurn', 1, 1)).toBe('You gain 1 Pyre (total 1)');
+    expect(applied('vigorPerTurn', 4, 4)).toBe('You gain 4 Prep Time (total 4)');
+    expect(applied('vigor', 4, 4)).toBe('You gain 4 Vigor (total 4)');
+    expect(applied('powersCostLess', 1, 1)).toBe('You gain 1 Curious (total 1)');
+    expect(applied('rollingBoulder', 5, 5)).toBe('Rolling Boulder: 5 damage at the start of your turn');
+    expect(applied('rollingBoulder', 5, 10)).toBe('Rolling Boulder grows by 5 (10 damage)');
+    expect(applied('cruelty', 25, 25)).toBe('Cruelty: Vulnerable enemies take 25% more damage');
+    expect(applied('barricade', 1, 1)).toBe('Barricade: Block is no longer removed at the start of your turn');
+    expect(applied('corruption', 1, 1)).toBe('Corruption: Skills cost 0 and are Exhausted when played');
+    expect(applied('upgradeAtCombatEnd', 1, 1)).toBe(
+      'Improvement: a random card is Upgraded at the end of combat (no effect in this combat)',
+    );
+    expect(describeEvent({ t: 'powerRemoved', side: 'player', power: 'vigor' }, name)).toBe('Your Vigor is used up');
+    expect(describeEvent({ t: 'powerRemoved', side: 'player', power: 'plating' }, name)).toBe('Your Plating ends');
   });
 
   it('works out the intended move, including after a kill', () => {

@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "barricade",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 2
   },
   "description": "Block is not removed at the start of your turn.",
   "upgradedDescription": "Block is not removed at the start of your turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

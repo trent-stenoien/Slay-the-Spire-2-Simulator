@@ -5,6 +5,7 @@ import type {
   DeepReadonly,
   Decision,
   Effect,
+  PowerId,
   Strategy,
   StrategyConfig,
   StrategyGroup,
@@ -80,10 +81,16 @@ export function stopsDrawing(card: Card): boolean {
   return card.effects.some((e) => e.type === 'applyPower' && e.power === 'noDraw');
 }
 
-/** #106: HP the card makes you lose when played (sum of its `loseHp` effects). */
+/**
+ * #106: HP the card makes you lose when played (sum of its `loseHp` effects). #109: a Crimson
+ * Mantle power counts its 1 HP per turn, so it is never played at 1 HP.
+ */
 export function selfDamage(card: Card): number {
   let sum = 0;
-  for (const e of card.effects) if (e.type === 'loseHp') sum += e.amount;
+  for (const e of card.effects) {
+    if (e.type === 'loseHp') sum += e.amount;
+    if (e.type === 'applyPower' && e.power === 'crimsonMantle') sum += 1;
+  }
   return sum;
 }
 
@@ -323,7 +330,14 @@ export function fiendFireKills(view: StrategyView, card: Card): boolean {
   const { player, enemy } = view.state;
   const hits = wouldExhaust(view, card);
   if (hits === 0) return false;
-  const perHit = attackDamage(fiendFirePerCard(card), player.strength, player.debuffs.weak, enemy.debuffs.vulnerable);
+  const cruelty = player.powers?.cruelty ?? 0;
+  const perHit = attackDamage(
+    fiendFirePerCard(card),
+    player.strength,
+    player.debuffs.weak,
+    enemy.debuffs.vulnerable,
+    cruelty,
+  );
   return perHit * hits >= enemy.hp + enemy.block;
 }
 
@@ -445,12 +459,46 @@ export function isPowerCard(card: Card): boolean {
 }
 
 /**
- * #130: best Power to play: X-cost Powers only once no other Power is playable (never at 0
- * energy), then the highest cardValue, ties → lowest uid. No Power is simulated yet (#109).
+ * #109: worth of one stack of each simple power, in cardValue's units (4 per Strength or energy,
+ * 1 per Block or damage). Per-turn powers count one turn's worth; on/off powers a flat value.
+ * The orchestrator's default ("highest immediate value first"), not a rule from Trent.
+ */
+const POWER_VALUE: Partial<Record<PowerId, number>> = {
+  demonForm: 4,
+  energyPerTurn: 4,
+  rollingBoulder: 1,
+  crimsonMantle: 1,
+  plating: 1,
+  dexterity: 4,
+  fasten: 1,
+  thorns: 1,
+  vigorPerTurn: 1,
+  vigor: 1,
+  powersCostLess: 4,
+  /** Per 1%: Cruelty 25 → 5. */
+  cruelty: 0.2,
+};
+
+/** #109: flat worth of on/off powers. Improvement does nothing inside one combat (0). */
+const POWER_FLAT_VALUE: Partial<Record<PowerId, number>> = { barricade: 6, corruption: 10, upgradeAtCombatEnd: 0 };
+
+/** #109: a Power card's immediate value: cardValue (Inflame's Strength) plus its powers (POWER_VALUE). */
+export function powerValue(card: Card): number {
+  let v = cardValue(card);
+  for (const e of card.effects) {
+    if (e.type !== 'applyPower') continue;
+    v += POWER_FLAT_VALUE[e.power] ?? (POWER_VALUE[e.power] ?? 0) * e.amount;
+  }
+  return v;
+}
+
+/**
+ * #130/#109: best Power to play: X-cost Powers only once no other Power is playable (never at 0
+ * energy), then the highest immediate value (powerValue), then the cheaper, ties → lowest uid.
  */
 export function pickPower(playable: readonly Card[], energy = 0): Card | undefined {
   const powers = playable.filter((c) => isPowerCard(c) && xCostPlayable(c, energy));
-  return best(powers, (c) => [notXCost(c), cardValue(c)]);
+  return best(powers, (c) => [notXCost(c), powerValue(c), -(c.cost ?? 0)]);
 }
 
 /** #130: a base card (named Strike or Defend, upgraded or not). */

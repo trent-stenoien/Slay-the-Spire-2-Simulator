@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "rollingBoulder",
+      "amount": 5
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "rollingBoulder",
+        "amount": 10
+      }
+    ]
+  },
   "description": "At the start of your turn, deal 5 damage to ALL enemies and increase this damage by 5.",
   "upgradedDescription": "At the start of your turn, deal 10 damage to ALL enemies and increase this damage by 5.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

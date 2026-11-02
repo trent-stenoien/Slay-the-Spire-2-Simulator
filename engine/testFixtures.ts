@@ -222,7 +222,7 @@ export const CONTRACT_EFFECT_SAMPLES: Effect[] = [
   { type: 'draw', amount: 2 }, // Soul
   { type: 'drawUntil', stopOn: { notTypes: ['attack'] } }, // Pillage
   { type: 'exhaustCards', count: 3, mode: 'choose', upTo: true }, // Purity
-  { type: 'applyPower', power: 'demonForm', amount: 3 }, // Demon Form
+  { type: 'applyPower', power: 'rupture', amount: 1 }, // Rupture (#113; the #109 simple powers are simulated)
   { type: 'applyEnemyPower', power: 'strengthLossThisTurn', amount: 9 }, // Dark Shackles
   { type: 'schedule', delay: 1, effects: [{ type: 'gainEnergy', amount: 2 }] }, // Outmaneuver
   { type: 'dealDamage', amount: 40, allEnemies: true }, // The Bomb (inside a schedule)
