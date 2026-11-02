@@ -577,6 +577,8 @@ export interface CardDef {
   playableIf?: Condition;
   /** #110: costs `amount` less per counter value, minimum 0 (Stomp: per Attack played this turn). Not simulated yet. */
   costLessPer?: PerCounter;
+  /** #137: most copies a deck may hold, Standard and Upgraded combined. Absent means no limit. */
+  maxCopies?: number;
   /** Game version this entry was last checked against. */
   lastUpdateVersion: GameVersion;
 }

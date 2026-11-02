@@ -49,6 +49,16 @@ export function copiesOf(deck: Deck, cardId: string, upgraded: boolean): number 
   return deck.find((e) => e.cardId === cardId && e.upgraded === upgraded)?.count ?? 0;
 }
 
+/** Total copies of a card in the deck, Standard and Upgraded together. */
+export function totalCopies(deck: Deck, cardId: string): number {
+  return copiesOf(deck, cardId, false) + copiesOf(deck, cardId, true);
+}
+
+/** #137: true when the card has a `maxCopies` limit and the deck already holds that many. */
+export function atCopyLimit(deck: Deck, card: CardDef): boolean {
+  return card.maxCopies !== undefined && totalCopies(deck, card.id) >= card.maxCopies;
+}
+
 /** Add `delta` copies (may be negative). Entries reaching 0 are removed; new entries are appended. */
 export function changeCount(deck: Deck, cardId: string, upgraded: boolean, delta: number): Deck {
   const idx = deck.findIndex((e) => e.cardId === cardId && e.upgraded === upgraded);

@@ -61,6 +61,18 @@ describe('deck encoding', () => {
     if (!r.ok) expect(r.error).toMatch(msg);
   });
 
+  it('rejects more copies than a card allows, counting Standard and Upgraded together (#137)', () => {
+    const rb = data.cards.rolling_boulder!;
+    const cm = data.cards.crimson_mantle!;
+    expect(decodeDeck(data, 'ironclad', `${rb.code}1`).ok).toBe(true);
+    expect(decodeDeck(data, 'ironclad', `${cm.code}+1`).ok).toBe(true);
+    for (const text of [`${rb.code}2`, `${rb.code}1${rb.code}+1`, `${cm.code}+2`, `${cm.code}1${cm.code}+1`]) {
+      const r = decodeDeck(data, 'ironclad', text);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error).toMatch(/limited to 1 copy/);
+    }
+  });
+
   it('is case-sensitive on codes', () => {
     expect(decodeDeck(data, 'ironclad', 'st1').ok).toBe(false);
   });

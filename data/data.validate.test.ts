@@ -251,6 +251,24 @@ describe('validateGameData on broken fixtures', () => {
     }
   });
 
+  it('reports a bad "maxCopies" and accepts a positive integer or absent (#137)', () => {
+    for (const bad of [0, -1, 1.5, '1', null]) {
+      const d = fixture();
+      d.cards.strike.maxCopies = bad;
+      expect(errorsOf(d)).toContainEqual(expect.stringMatching(/cards\/strike.*maxCopies/));
+    }
+    for (const ok of [1, 3, undefined]) {
+      const f = fixture();
+      f.cards.strike.maxCopies = ok;
+      expect(errorsOf(f)).toEqual([]);
+    }
+  });
+
+  it('limits Rolling Boulder and Crimson Mantle to one copy (#137)', () => {
+    expect(gameData.cards.rolling_boulder?.maxCopies).toBe(1);
+    expect(gameData.cards.crimson_mantle?.maxCopies).toBe(1);
+  });
+
   it('beta-only cards are removed and their codes reserved (#59)', () => {
     for (const { code, id } of reservedCodes.cards) {
       expect(gameData.cards[id]).toBeUndefined();

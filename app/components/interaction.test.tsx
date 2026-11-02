@@ -183,6 +183,23 @@ describe('deck builder interactions', () => {
     ]);
   });
 
+  it("disables both + buttons at a card's copy limit, with a tooltip (#137)", async () => {
+    render(<DeckHarness initial={[]} />);
+    const addStd = () => screen.getByRole('button', { name: 'Add one standard Crimson Mantle' }) as HTMLButtonElement;
+    const addUp = () => screen.getByRole('button', { name: 'Add one upgraded Crimson Mantle+' }) as HTMLButtonElement;
+    expect(addStd().disabled).toBe(false);
+    expect(addUp().disabled).toBe(false);
+    await userEvent.click(addUp());
+    expect(addStd().disabled).toBe(true);
+    expect(addUp().disabled).toBe(true);
+    expect(addStd().title).toBe('Limited to 1 copy for now (untested with multiple copies)');
+    expect(deckState()).toEqual([{ cardId: 'crimson_mantle', upgraded: true, count: 1 }]);
+    await userEvent.click(screen.getByRole('button', { name: 'Remove one upgraded Crimson Mantle+' }));
+    expect(addStd().disabled).toBe(false);
+    // Cards without a limit are unaffected.
+    expect((screen.getByRole('button', { name: 'Add one standard Strike' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it.each([
     ['Statuses', 'statuses'],
     ['Curses', 'curses'],

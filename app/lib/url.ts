@@ -129,6 +129,16 @@ export function decodeDeck(data: GameData, characterId: string, text: string): D
     const key = `${card.id}${upgraded ? '+' : ''}`;
     if (seen.has(key)) return { ok: false, error: `Deck: ${code}${plus} appears more than once` };
     seen.add(key);
+    const limit = card.maxCopies;
+    if (limit !== undefined) {
+      const total = deck.filter((e) => e.cardId === card.id).reduce((n, e) => n + e.count, 0) + count;
+      if (total > limit) {
+        return {
+          ok: false,
+          error: `Deck: ${card.name} is limited to ${limit} ${limit === 1 ? 'copy' : 'copies'} (Standard and Upgraded combined), got ${total}`,
+        };
+      }
+    }
     deck.push({ cardId: card.id, upgraded, count });
     pos += whole.length;
   }
