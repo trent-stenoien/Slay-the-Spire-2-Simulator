@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { CONTRACT_EFFECT_SAMPLES } from '../engine/testFixtures';
 import { fixture, errorsOf } from './dataTestHelpers';
 
-/** Contract effects the engine simulates now (#106, #107); a simulated card may use them. */
-const SIMULATED = ['loseHp', 'draw', 'drawUntil'];
+/** Contract effects the engine simulates now (#106, #107, #108); a simulated card may use them. */
+const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards'];
 const UNSIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => !SIMULATED.includes(e.type));
 const SIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => SIMULATED.includes(e.type));
 
@@ -75,10 +75,44 @@ describe('#105 contract shapes', () => {
     );
   });
 
-  it('accepts triggers, playableIf and costLessPer on unsimulated cards and rejects them on simulated ones', () => {
+  it('#108: accepts "when exhausted" triggers with simulated effects on a simulated card', () => {
     const d = fixture();
     d.cards.strike.triggers = [{ when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 2 }] }];
     d.cards.strike.upgraded.triggers = [{ when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 3 }] }];
+    expect(errorsOf(d)).toEqual([]);
+    d.cards.strike.upgraded.triggers = [{ when: 'exhausted', effects: [{ type: 'heal', amount: 3 }] }];
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"heal"/)]);
+  });
+
+  it('#108: repeat only per lastEffectCount with simulated inner effects; script only fiendFire / thrash', () => {
+    const d = fixture();
+    d.cards.strike.effects.push(
+      { type: 'exhaustCards', mode: 'all', filter: { notTypes: ['attack'] } },
+      { type: 'repeat', per: 'lastEffectCount', effects: [{ type: 'gainBlock', amount: 5 }] },
+      { type: 'script', id: 'fiendFire', values: [7] },
+      { type: 'script', id: 'thrash' },
+    );
+    expect(errorsOf(d)).toEqual([]);
+    d.cards.strike.effects.push({ type: 'repeat', per: 'lastEffectCount', effects: [{ type: 'heal', amount: 1 }] });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"heal"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({ type: 'script', id: 'perfectedStrike' });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"script"/)]);
+  });
+
+  it('#108: rejects exhaustCards from the exhaust pile or with an unmatched filter field on a simulated card', () => {
+    const d = fixture();
+    d.cards.strike.effects.push({ type: 'exhaustCards', from: 'exhaust', count: 1, mode: 'random' });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"exhaustCards\.from\.exhaust"/)]);
+    d.cards.strike.effects.at(-1).from = 'hand';
+    d.cards.strike.effects.at(-1).filter = { rarity: ['rare'] };
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"exhaustCards\.filter\.rarity"/)]);
+  });
+
+  it('accepts triggers, playableIf and costLessPer on unsimulated cards and rejects them on simulated ones', () => {
+    const d = fixture();
+    d.cards.strike.triggers = [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }];
+    d.cards.strike.upgraded.triggers = [{ when: 'drawn', effects: [] }];
     d.cards.defend.playableIf = { kind: 'handAll', filter: { types: ['attack'] } };
     d.cards.bash.costLessPer = { per: 'attacksPlayedThisTurn', amount: 1 };
     const errs = errorsOf(d);

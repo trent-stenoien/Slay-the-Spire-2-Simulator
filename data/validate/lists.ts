@@ -54,8 +54,20 @@ export const CONTRACT_EFFECTS = [
   'script',
 ] as const;
 
-/** Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil. */
-export const SIMULATED_CONTRACT_EFFECTS = new Set<string>(['loseHp', 'draw', 'drawUntil']);
+/** Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards. */
+export const SIMULATED_CONTRACT_EFFECTS = new Set<string>(['loseHp', 'draw', 'drawUntil', 'exhaustCards']);
+
+/**
+ * #108: `repeat` stays unsimulated in general (#111), but a simulated card may repeat "for each
+ * card Exhausted" (Second Wind) with these counters.
+ */
+export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount']);
+
+/** #108: `script` ids the engine runs (Fiend Fire, Thrash); other scripts are not simulated yet. */
+export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash']);
+
+/** #108: card triggers the engine runs (Drum of Battle); the others wait for #114 / #115. */
+export const SIMULATED_TRIGGERS = new Set<string>(['exhausted']);
 
 export const UNSIMULATED_EFFECTS = new Set<string>(
   ['gainStars', ...CONTRACT_EFFECTS].filter((t) => !SIMULATED_CONTRACT_EFFECTS.has(t)),
@@ -67,11 +79,11 @@ export const UNSIMULATED_EFFECTS = new Set<string>(
  */
 export const SIMULATED_POWERS = new Set<string>(['noDraw']);
 
-/** CardFilter fields the engine matches on (#107: Pillage's `stopOn`); others are not simulated yet. */
+/** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */
 export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded']);
 
-/** CardDef fields from #105 that the engine does not simulate yet. */
-export const UNSIMULATED_CARD_FIELDS = ['triggers', 'playableIf', 'costLessPer'] as const;
+/** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS). */
+export const UNSIMULATED_CARD_FIELDS = ['playableIf', 'costLessPer'] as const;
 
 export const PILES = ['hand', 'draw', 'discard', 'exhaust'] as const;
 

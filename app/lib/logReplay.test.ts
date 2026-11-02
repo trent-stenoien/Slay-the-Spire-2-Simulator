@@ -57,6 +57,16 @@ describe('log replay', () => {
     );
   });
 
+  it('#108: describes exhausts by reason', () => {
+    const name = (id: string) => gameData.cards[id]?.name ?? id;
+    const ex = (reason: 'ethereal' | 'keyword' | 'effect' | 'power') =>
+      describeEvent({ t: 'exhaust', uid: 1, cardId: 'drum_of_battle', reason }, name);
+    expect(ex('effect')).toBe('Drum of Battle exhausted (by a card effect)');
+    expect(ex('keyword')).toBe('Drum of Battle exhausted');
+    expect(ex('ethereal')).toBe('Drum of Battle exhausted (Ethereal)');
+    expect(ex('power')).toBe('Drum of Battle exhausted (by a power)');
+  });
+
   it('tracks Poison stacks and Poison HP loss', () => {
     const log = [
       { t: 'combatStart', seed: 1, enemyHp: 40, playerHp: 70 },

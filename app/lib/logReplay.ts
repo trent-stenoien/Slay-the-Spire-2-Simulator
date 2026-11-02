@@ -219,7 +219,8 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
     case 'powerRemoved':
       return ev.power === 'noDraw' ? null : `${ev.side === 'player' ? 'Your' : "Enemy's"} ${powerName(ev.power)} ends`;
     case 'exhaust':
-      return `${name(ev.cardId)} exhausted${ev.reason === 'ethereal' ? ' (Ethereal)' : ''}`;
+      // #108: 'effect' = a card's effect picked it (Burning Pact, True Grit, Fiend Fire).
+      return `${name(ev.cardId)} exhausted${EXHAUST_NOTE[ev.reason]}`;
     case 'discard':
       return ev.reason === 'handLimit' ? `${name(ev.cardId)} discarded (hand full)` : null;
     case 'shuffle':
@@ -230,6 +231,13 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
       return null;
   }
 }
+
+const EXHAUST_NOTE: Record<Extract<GameEvent, { t: 'exhaust' }>['reason'], string> = {
+  ethereal: ' (Ethereal)',
+  keyword: '',
+  effect: ' (by a card effect)',
+  power: ' (by a power)',
+};
 
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);

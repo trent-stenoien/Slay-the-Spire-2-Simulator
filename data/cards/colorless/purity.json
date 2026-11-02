@@ -12,11 +12,27 @@
     "retain",
     "exhaust"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "exhaustCards",
+      "count": 3,
+      "mode": "choose",
+      "upTo": true
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "exhaustCards",
+        "count": 5,
+        "mode": "choose",
+        "upTo": true
+      }
+    ]
+  },
   "description": "Retain. / Exhaust up to 3 cards in your Hand. / Exhaust.",
   "upgradedDescription": "Retain. / Exhaust up to 5 cards in your Hand. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

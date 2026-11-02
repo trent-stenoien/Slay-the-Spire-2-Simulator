@@ -11,12 +11,28 @@
   "keywords": [],
   "effects": [
     {
-      "type": "attack",
+      "type": "attackFrom",
       "damage": 6,
-      "hits": 1
+      "hits": 1,
+      "bonusPer": {
+        "per": "exhaustPileSize",
+        "amount": 3
+      }
     }
   ],
-  "upgraded": {},
+  "upgraded": {
+    "effects": [
+      {
+        "type": "attackFrom",
+        "damage": 6,
+        "hits": 1,
+        "bonusPer": {
+          "per": "exhaustPileSize",
+          "amount": 4
+        }
+      }
+    ]
+  },
   "description": "Deal 6 damage. / Deals 3 additional damage for each card in your Exhaust Pile.",
   "upgradedDescription": "Deal 6 damage. / Deals 4 additional damage for each card in your Exhaust Pile.",
   "simulated": false,
