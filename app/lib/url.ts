@@ -2,8 +2,10 @@
  * Shareable URL format (v=1).
  *
  *   ?v=1&c=I&e=Nb&a=0&d=St5De4Ba1            setup link
- *   ?v=1&c=I&e=Nb&a=0&d=St5De4Ba1&s=123&st=b4 combat-log link
- *   ?v=1&c=I&e=Nb&a=0&d=St5De4Ba1&s=123&st=b4,g,b0&k=b,r,g&n=41  compare link
+ *   ?v=1&c=I&e=Nb&a=0&d=St5De4Ba1&s=123&st=b4pa combat-log link
+ *   ?v=1&c=I&e=Nb&a=0&d=St5De4Ba1&s=123&st=b4pa,apb,b0pa&k=b,r,g&n=41  compare link
+ *   (st codes, #130: group letters a/b/p in priority order, X after "b" unless Block is last;
+ *   the old "g" and "b<X>" still parse)
  *
  * Log params:
  *   s   per-combat seed (required for a log link)
@@ -290,8 +292,10 @@ export function parseStrategyList(
   for (const code of codes) {
     const config = parseStrategyCode(code);
     if (!config) return { ok: false, error: `Unknown strategy code "${code}"` };
-    if (seen.has(code)) return { ok: false, error: `Strategy code "${code}" appears more than once` };
-    seen.add(code);
+    // Compare canonical codes, so an old code and its new form ("g" and "apb") count as the same.
+    const canonical = strategyCode(config);
+    if (seen.has(canonical)) return { ok: false, error: `Strategy code "${code}" appears more than once` };
+    seen.add(canonical);
     strategies.push(config);
   }
   return { ok: true, strategies };

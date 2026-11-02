@@ -14,6 +14,7 @@ import {
   sortResultRows,
   type ResultRow,
 } from './results';
+import { GREEDY_CONFIG, blockFirstConfig } from '../../engine/strategies';
 
 function fakeSummary(strategyId: string, over: Partial<StrategySummary> = {}): StrategySummary {
   return {
@@ -39,9 +40,9 @@ const result: RunResult = {
     ascension: 0,
     runSeed: 7,
     strategies: [
-      { strategy: { id: 'a', name: 'Greedy', config: { kind: 'greedyDamage' } }, color: 'blue' },
-      { strategy: { id: 'b', name: 'Scared', config: { kind: 'block', allowThrough: 0 } }, color: 'red' },
-      { strategy: { id: 'c', name: 'Missing', config: { kind: 'block', allowThrough: 3 } }, color: 'purple' },
+      { strategy: { id: 'a', name: 'Greedy', config: GREEDY_CONFIG }, color: 'blue' },
+      { strategy: { id: 'b', name: 'Scared', config: blockFirstConfig(0) }, color: 'red' },
+      { strategy: { id: 'c', name: 'Missing', config: blockFirstConfig(3) }, color: 'purple' },
     ],
   },
   summaries: [fakeSummary('b', { avgTurnsToKill: null }), fakeSummary('a')],

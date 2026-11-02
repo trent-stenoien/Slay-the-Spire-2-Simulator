@@ -6,6 +6,7 @@ import { readCollapsed, writeCollapsed } from '../lib/panelState';
 import { DeckBuilder } from './DeckBuilder';
 import { Panel } from './Panel';
 import { StrategyPanel } from './StrategyPanel';
+import { blockFirstConfig } from '../../engine/strategies';
 
 const throwing = {
   getItem: () => {
@@ -56,7 +57,7 @@ describe('Panel', () => {
     expect(deck.indexOf('Reset to starter deck')).toBeGreaterThan(deck.indexOf('</h2>'));
     expect(deck).toContain('cards)');
 
-    const custom = { id: 'c1', name: 'Mine', config: { kind: 'block' as const, allowThrough: 3 } };
+    const custom = { id: 'c1', name: 'Mine', config: blockFirstConfig(3) };
     const strat = renderToStaticMarkup(
       <StrategyPanel
         library={[...DEFAULT_STRATEGIES, custom]}
@@ -66,7 +67,7 @@ describe('Panel', () => {
         onColor={() => {}}
         onAdd={() => {}}
         onRename={() => {}}
-        onAllowThrough={() => {}}
+        onConfig={() => {}}
         onDelete={() => {}}
         onClearAll={() => {}}
       />,

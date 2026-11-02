@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { makeCardInstance } from './combat';
-import { createStrategy, parseStrategyCode, pickAttack, pickBlock, strategyCode } from './strategies';
+import {
+  createStrategy,
+  normalizeConfig,
+  parseStrategyCode,
+  pickAttack,
+  pickBlock,
+  sameConfig,
+  strategyCode,
+  GREEDY_CONFIG,
+  blockFirstConfig,
+} from './strategies';
 import { cards } from './testFixtures';
 import type { CardDef, CardInstance, CombatState, StrategyConfig, StrategyView } from './types';
 
@@ -142,20 +152,20 @@ function starterHand(): CardInstance[] {
 
 describe('block strategy (allow through X)', () => {
   it('X=1 with 6 incoming plays exactly one Defend, then attacks', () => {
-    expect(playTurn({ kind: 'block', allowThrough: 1 }, starterHand(), 6)).toEqual([D, S, S]);
+    expect(playTurn(blockFirstConfig(1), starterHand(), 6)).toEqual([D, S, S]);
   });
 
   it('X=1 with 7 incoming plays two Defends', () => {
-    expect(playTurn({ kind: 'block', allowThrough: 1 }, starterHand(), 7)).toEqual([D, D, S]);
+    expect(playTurn(blockFirstConfig(1), starterHand(), 7)).toEqual([D, D, S]);
   });
 
   it('X=0 blocks everything possible', () => {
-    expect(playTurn({ kind: 'block', allowThrough: 0 }, starterHand(), 5)).toEqual([D, S, S]);
-    expect(playTurn({ kind: 'block', allowThrough: 0 }, starterHand(), 11)).toEqual([D, D, D]);
+    expect(playTurn(blockFirstConfig(0), starterHand(), 5)).toEqual([D, S, S]);
+    expect(playTurn(blockFirstConfig(0), starterHand(), 11)).toEqual([D, D, D]);
   });
 
   it('X=4 blocks with a 5-block Defend only when it is fully used', () => {
-    const b4: StrategyConfig = { kind: 'block', allowThrough: 4 };
+    const b4: StrategyConfig = blockFirstConfig(4);
     expect(playTurn(b4, starterHand(), 4)).toEqual([S, S, D]);
     expect(playTurn(b4, starterHand(), 5)).toEqual([D, S, S]);
     expect(playTurn(b4, starterHand(), 9)).toEqual([D, S, S]);
@@ -163,35 +173,35 @@ describe('block strategy (allow through X)', () => {
   });
 
   it('non-attack intent: no blocking before attacks, leftover energy goes to block', () => {
-    expect(playTurn({ kind: 'block', allowThrough: 0 }, starterHand(), 0)).toEqual([S, S, D]);
+    expect(playTurn(blockFirstConfig(0), starterHand(), 0)).toEqual([S, S, D]);
   });
 
   it('plays the largest block card first', () => {
     const hand = [card(D), card('ultimate_defend'), card(S)];
-    expect(playTurn({ kind: 'block', allowThrough: 0 }, hand, 20, 1)).toEqual(['ultimate_defend']);
+    expect(playTurn(blockFirstConfig(0), hand, 20, 1)).toEqual(['ultimate_defend']);
   });
 });
 
 describe('greedy damage strategy', () => {
   it('plays Bash before Strikes with 2+ energy', () => {
     const hand = [card(S), card(S), card(B), card(D), card(D)];
-    expect(playTurn({ kind: 'greedyDamage' }, hand, 12)).toEqual([B, S]);
+    expect(playTurn(GREEDY_CONFIG, hand, 12)).toEqual([B, S]);
   });
 
   it('plays a Strike when Bash is unaffordable, then block with leftovers', () => {
     const hand = [card(B), card(S), card(D)];
-    expect(playTurn({ kind: 'greedyDamage' }, hand, 12, 2)).toEqual([B]);
-    expect(playTurn({ kind: 'greedyDamage' }, [card(B), card(S), card(D)], 12, 1)).toEqual([S]);
-    expect(playTurn({ kind: 'greedyDamage' }, [card(S), card(D), card(D)], 12)).toEqual([S, D, D]);
+    expect(playTurn(GREEDY_CONFIG, hand, 12, 2)).toEqual([B]);
+    expect(playTurn(GREEDY_CONFIG, [card(B), card(S), card(D)], 12, 1)).toEqual([S]);
+    expect(playTurn(GREEDY_CONFIG, [card(S), card(D), card(D)], 12)).toEqual([S, D, D]);
   });
 
   it('prefers the highest total base damage', () => {
     const hand = [card(S), card('ultimate_strike'), card(S, true)];
-    expect(playTurn({ kind: 'greedyDamage' }, hand, 0, 1)).toEqual(['ultimate_strike']);
+    expect(playTurn(GREEDY_CONFIG, hand, 0, 1)).toEqual(['ultimate_strike']);
   });
 
   it('ends turn when nothing is playable', () => {
-    expect(playTurn({ kind: 'greedyDamage' }, [card('ascenders_bane')], 0)).toEqual([]);
+    expect(playTurn(GREEDY_CONFIG, [card('ascenders_bane')], 0)).toEqual([]);
   });
 });
 
@@ -212,18 +222,22 @@ describe('pick helpers', () => {
   });
 });
 
-const G: StrategyConfig = { kind: 'greedyDamage' };
-const B0: StrategyConfig = { kind: 'block', allowThrough: 0 };
-const B4: StrategyConfig = { kind: 'block', allowThrough: 4 };
+const G: StrategyConfig = GREEDY_CONFIG;
+const B0: StrategyConfig = blockFirstConfig(0);
+const B4: StrategyConfig = blockFirstConfig(4);
 
 describe('Tremble first (#1)', () => {
   it('Greedy plays Tremble before Bash and Strikes', () => {
     expect(playTurn(G, [card(S), card(B), card('tremble'), card(D)], 12)).toEqual(['tremble', B]);
   });
 
-  it('block strategies play Tremble before blocking', () => {
-    expect(playTurn(B0, [card(D), card(D), card('tremble'), card(S)], 10)).toEqual(['tremble', D, D]);
+  it('#130: Tremble is first within the Attack group, so block-first strategies block before it', () => {
+    expect(playTurn(B0, [card(D), card(D), card('tremble'), card(S)], 10)).toEqual([D, D, 'tremble']);
+    // Nothing to block: the Block group is done, so the Attack group starts with Tremble.
     expect(playTurn(B4, [card(S), card(D), card('tremble')], 0)).toEqual(['tremble', S, D]);
+    // Powers, Attack, Block: no Power in hand, so Tremble then attacks.
+    const pab: StrategyConfig = { order: ['powers', 'attack', 'block'], allowThrough: 0 };
+    expect(playTurn(pab, [card(D), card(S), card('tremble')], 10)).toEqual(['tremble', S, D]);
   });
 
   it('upgraded Tremble counts too; two Trembles go lowest uid first', () => {
@@ -305,22 +319,83 @@ describe('X-cost (#23)', () => {
   });
 });
 
-describe('strategy codes', () => {
-  it('encodes', () => {
-    expect(strategyCode({ kind: 'greedyDamage' })).toBe('g');
-    expect(strategyCode({ kind: 'block', allowThrough: 4 })).toBe('b4');
-    expect(strategyCode({ kind: 'block', allowThrough: 0 })).toBe('b0');
+describe('strategy codes (#130)', () => {
+  const cfg = (order: string, allowThrough = 0): StrategyConfig => ({
+    order: order.split('').map((l) => ({ a: 'attack', b: 'block', p: 'powers' })[l]!) as StrategyConfig['order'],
+    allowThrough,
   });
 
-  it('round-trips', () => {
-    for (const c of ['g', 'b0', 'b1', 'b4', 'b12'] as const) {
-      expect(strategyCode(parseStrategyCode(c)!)).toBe(c);
+  it('encodes the order as letters, with X after "b" unless Block is last', () => {
+    expect(strategyCode(GREEDY_CONFIG)).toBe('apb');
+    expect(strategyCode(blockFirstConfig(4))).toBe('b4pa');
+    expect(strategyCode(blockFirstConfig(0))).toBe('b0pa');
+    expect(strategyCode(cfg('pba', 5))).toBe('pb5a');
+    expect(strategyCode(cfg('abp', 12))).toBe('ab12p');
+    expect(strategyCode(cfg('pab'))).toBe('pab');
+  });
+
+  it('parses the old codes: g = Attack, Powers, Block; b<X> = Block (allow X), Powers, Attack', () => {
+    expect(parseStrategyCode('g')).toEqual({ order: ['attack', 'powers', 'block'], allowThrough: 0 });
+    expect(parseStrategyCode('b4')).toEqual({ order: ['block', 'powers', 'attack'], allowThrough: 4 });
+    expect(parseStrategyCode('b0')).toEqual({ order: ['block', 'powers', 'attack'], allowThrough: 0 });
+    expect(parseStrategyCode('b9999')).toEqual(blockFirstConfig(9999));
+    // Old codes come back in the new form.
+    expect(strategyCode(parseStrategyCode('g')!)).toBe('apb');
+    expect(strategyCode(parseStrategyCode('b12')!)).toBe('b12pa');
+  });
+
+  it('round-trips every order and a range of X', () => {
+    const orders = ['abp', 'apb', 'bap', 'bpa', 'pab', 'pba'];
+    for (const o of orders) {
+      for (const x of [0, 1, 5, 42, 9999]) {
+        const c = normalizeConfig(cfg(o, x))!;
+        const code = strategyCode(c);
+        expect(parseStrategyCode(code)).toEqual(c);
+        expect(strategyCode(parseStrategyCode(code)!)).toBe(code);
+      }
+    }
+    for (const code of ['apb', 'pab', 'b0pa', 'b5ap', 'ab3p', 'pb5a', 'ab9999p']) {
+      expect(strategyCode(parseStrategyCode(code)!)).toBe(code);
     }
   });
 
   it('rejects invalid codes', () => {
-    for (const c of ['', 'G', 'b', 'b-1', 'b01', 'b1.5', 'x4', 'g1', 'b4 ']) {
+    for (const c of [
+      '',
+      'G',
+      'b',
+      'b-1',
+      'b01',
+      'b1.5',
+      'x4',
+      'g1',
+      'b4 ',
+      'ab',
+      'abpa',
+      'aab',
+      'bpa', // Block not last needs its X
+      'apb0', // ...and Block last takes none
+      'a1bp', // X only after "b"
+      'b01pa',
+      'b10000pa',
+      'ABP',
+    ]) {
       expect(parseStrategyCode(c)).toBeNull();
     }
+  });
+
+  it('normalizeConfig migrates old configs and canonicalizes X', () => {
+    expect(normalizeConfig({ kind: 'greedyDamage' })).toEqual(GREEDY_CONFIG);
+    expect(normalizeConfig({ kind: 'block', allowThrough: 3 })).toEqual(blockFirstConfig(3));
+    expect(normalizeConfig({ kind: 'block', allowThrough: -1 })).toBeNull();
+    expect(normalizeConfig({ order: ['attack', 'powers', 'block'], allowThrough: 8 })).toEqual(GREEDY_CONFIG);
+    expect(normalizeConfig({ order: ['attack', 'attack', 'block'], allowThrough: 0 })).toBeNull();
+    expect(normalizeConfig(null)).toBeNull();
+    expect(sameConfig(cfg('apb', 8), GREEDY_CONFIG)).toBe(true);
+    expect(sameConfig(cfg('pba', 1), cfg('pba', 2))).toBe(false);
+  });
+
+  it('createStrategy rejects an invalid config', () => {
+    expect(() => createStrategy(cfg('aab'))).toThrow(/Invalid strategy config/);
   });
 });

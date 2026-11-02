@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { strategyCode } from '../../engine/strategies';
+import { sameConfig, strategyCode } from '../../engine/strategies';
 import type { GameData, GameEvent, SavedStrategy, StrategyColor, StrategyConfig } from '../../engine/types';
 import { defaultName, describeConfig } from '../lib/strategyLibrary';
 import { useSavedLibrary } from '../useStrategies';
@@ -118,9 +118,8 @@ function SingleLog({ data, setup, target }: Props) {
 
 /** Saved name for a strategy config (from the given library), or its default name. */
 function strategyName(config: StrategyConfig, library: readonly SavedStrategy[]): string {
-  const code = strategyCode(config);
-  const saved = library.find((s) => strategyCode(s.config) === code);
-  return saved?.name ?? (config.kind === 'block' ? defaultName(config.allowThrough) : describeConfig(config));
+  const saved = library.find((s) => sameConfig(s.config, config));
+  return saved?.name ?? defaultName(config);
 }
 
 interface Column {

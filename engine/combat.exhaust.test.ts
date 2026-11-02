@@ -4,6 +4,7 @@ import { makeCardInstance, perHitBaseDamage, runCombat, simulateCombat } from '.
 import { cards } from './testFixtures';
 import { cfg, deckOf, dummyData, events, logged, scripted } from './combatTestHelpers';
 import type { CardDef, ChoiceRequest, CombatCounters, Effect, GameData, GameEvent, Strategy } from './types';
+import { GREEDY_CONFIG, blockFirstConfig } from './strategies';
 
 const skill = (id: string, code: string, effects: Effect[], extra: Partial<CardDef> = {}): CardDef => ({
   ...cards.defend!,
@@ -449,7 +450,7 @@ describe('#108 Thrash', () => {
 describe('#108 determinism', () => {
   it('exhaust combats with every strategy are deterministic', () => {
     const d = data();
-    for (const strategy of [{ kind: 'greedyDamage' }, { kind: 'block', allowThrough: 0 }] as const) {
+    for (const strategy of [GREEDY_CONFIG, blockFirstConfig(0)] as const) {
       const config = cfg({
         enemyId: 'nibbit',
         seed: 23,

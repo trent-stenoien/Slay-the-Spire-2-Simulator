@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { SavedStrategy, StrategyColor } from '../engine/types';
+import type { SavedStrategy, StrategyColor, StrategyConfig } from '../engine/types';
 import { deselectStrategy, pruneSelection, selectStrategy, setColor, type Selection } from './lib/colors';
 import { loadSelection, saveSelection } from './lib/selectionStorage';
 import {
-  blockStrategyProblem,
   DEFAULT_STRATEGIES,
   addUserStrategy,
   browserStorage,
@@ -13,7 +12,8 @@ import {
   loadUserStrategies,
   renameUserStrategy,
   saveUserStrategies,
-  setAllowThrough,
+  setUserConfig,
+  strategyProblem,
 } from './lib/strategyLibrary';
 
 function newId(): string {
@@ -68,16 +68,16 @@ export function useStrategies() {
         sel.some((s) => s.strategyId === id) ? deselectStrategy(sel, id) : selectStrategy(sel, id),
       ),
     color: (id: string, c: StrategyColor) => setSelection((sel) => setColor(sel, id, c)),
-    add: (name: string, allow: number) => {
-      if (blockStrategyProblem(library, allow) !== null) return;
-      const next = addUserStrategy(user, name, allow, newId);
+    add: (name: string, config: StrategyConfig) => {
+      if (strategyProblem(library, config) !== null) return;
+      const next = addUserStrategy(user, name, config, newId);
       commit(next);
       const added = next[next.length - 1];
       if (added) setSelection((sel) => selectStrategy(sel, added.id));
     },
     rename: (id: string, name: string) => commit(renameUserStrategy(user, id, name)),
-    allowThrough: (id: string, n: number) => {
-      if (blockStrategyProblem(library, n, id) === null) commit(setAllowThrough(user, id, n));
+    setConfig: (id: string, config: StrategyConfig) => {
+      if (strategyProblem(library, config, id) === null) commit(setUserConfig(user, id, config));
     },
     remove: (id: string) => commit(deleteUserStrategy(user, id)),
     clearAll: () => {

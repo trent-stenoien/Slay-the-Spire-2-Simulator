@@ -3,6 +3,7 @@ import { MAX_STRATEGIES_PER_RUN, type SavedStrategy } from '../../engine/types';
 import { COLORS } from './colors';
 import { SELECTION_STORAGE_KEY, defaultSelection, loadSelection, saveSelection } from './selectionStorage';
 import { fullLibrary, type StorageLike } from './strategyLibrary';
+import { blockFirstConfig } from '../../engine/strategies';
 
 function memStorage(initial?: string): StorageLike & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -22,7 +23,7 @@ const throwing: StorageLike = {
 const custom = (id: string, allow: number): SavedStrategy => ({
   id,
   name: id,
-  config: { kind: 'block', allowThrough: allow },
+  config: blockFirstConfig(allow),
 });
 const lib = fullLibrary([custom('u1', 3), custom('u2', 5), custom('u3', 7)]);
 

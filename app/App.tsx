@@ -148,7 +148,7 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
             onColor={strategies.color}
             onAdd={strategies.add}
             onRename={strategies.rename}
-            onAllowThrough={strategies.allowThrough}
+            onConfig={strategies.setConfig}
             onDelete={strategies.remove}
             onClearAll={strategies.clearAll}
           />
