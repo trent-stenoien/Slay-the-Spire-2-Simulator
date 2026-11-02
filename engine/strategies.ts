@@ -110,6 +110,15 @@ function withoutLethal(view: StrategyView): StrategyView {
   return { ...view, playable: view.playable.filter((c) => selfDamage(c) < hp) };
 }
 
+/** Cards a strategy never plays: Mad Science (Improvement) does nothing within one combat (#135 Q7). */
+const NEVER_PLAYED_CARD_IDS: readonly string[] = ['mad_science_improvement'];
+
+/** The view with the never-played cards removed from `playable`. */
+function withoutNeverPlayed(view: StrategyView): StrategyView {
+  if (!view.playable.some((c) => NEVER_PLAYED_CARD_IDS.includes(c.cardId))) return view;
+  return { ...view, playable: view.playable.filter((c) => !NEVER_PLAYED_CARD_IDS.includes(c.cardId)) };
+}
+
 /** 1 for a card that draws: draw cards win ties against cards that don't (#107). */
 const draws = (c: Card): number => (isDrawCard(c) ? 1 : 0);
 
@@ -124,32 +133,207 @@ function totalBlock(card: Card): number {
 // Burning Pact / Purity (early) and Second Wind / Fiend Fire (last) go in a turn.
 // ---------------------------------------------------------------------------
 
-/** #108 tier 1: a card that benefits from being exhausted (has a "when exhausted" trigger: Drum of Battle). */
+/** #108: a card that benefits from being exhausted (has a "when exhausted" trigger: Drum of Battle). */
 export function benefitsFromExhaust(card: Card): boolean {
   return (card.triggers ?? []).some((t) => t.when === 'exhausted');
 }
 
-/** #108: a curse or status that hurts while it sits in hand or is drawn (a trigger that loses HP or deals damage). */
-function isDamagingJunk(card: Card): boolean {
-  const hurts = (e: DeepReadonly<Effect>) => e.type === 'loseHp' || e.type === 'attack' || e.type === 'dealDamage';
-  return (card.triggers ?? []).some((t) => t.when !== 'exhausted' && t.effects.some(hurts));
+/** The effects a curse or status has on its own or from a trigger other than "when exhausted", nested ones included. */
+function junkEffects(card: Card): DeepReadonly<Effect>[] {
+  const out: DeepReadonly<Effect>[] = [];
+  const walk = (effects: readonly DeepReadonly<Effect>[]) => {
+    for (const e of effects) {
+      out.push(e);
+      if (e.type === 'repeat') walk(e.effects);
+      else if (e.type === 'schedule') walk(e.effects);
+      else if (e.type === 'conditional') walk([...e.then, ...(e.else ?? [])]);
+    }
+  };
+  walk(card.effects);
+  for (const t of card.triggers ?? []) if (t.when !== 'exhausted') walk(t.effects);
+  return out;
+}
+
+/** #139 class "deals direct HP damage": a curse or status whose effect makes you lose HP (`loseHp`). */
+export function dealsDirectHpDamage(card: Card): boolean {
+  return isJunk(card) && junkEffects(card).some((e) => e.type === 'loseHp');
 }
 
 /**
- * #108 exhaust tier (Trent, #108 Q1 final), lower goes first, for every strategy:
- * 1 benefits from being exhausted (Drum of Battle), 2 curses and statuses, 3 Strike, 4 Defend,
- * 5 Strike+, 6 Defend+, 7 anything else (lowest value first).
+ * #139 class "flat, blockable damage": a curse or status whose effect deals damage that Block
+ * absorbs (`attack` or `dealDamage`). No curse or status in the data has such an effect yet.
  */
-export function exhaustTier(card: Card): number {
-  if (benefitsFromExhaust(card)) return 1;
-  if (card.type === 'curse' || card.type === 'status') return 2;
-  if (card.cardId === 'strike') return card.upgraded ? 5 : 3;
-  if (card.cardId === 'defend') return card.upgraded ? 6 : 4;
-  return 7;
+export function dealsBlockableDamage(card: Card): boolean {
+  return isJunk(card) && junkEffects(card).some((e) => e.type === 'attack' || e.type === 'dealDamage');
+}
+
+function isJunk(card: Card): boolean {
+  return card.type === 'curse' || card.type === 'status';
+}
+
+const isEthereal = (card: Card): boolean => card.keywords.includes('ethereal');
+
+/** The group a card is played from: the highest-priority group of the strategy it belongs to, or null. */
+function groupOf(card: Card, config: StrategyConfig): StrategyGroup | null {
+  for (const g of config.order) {
+    if (g === 'attack' ? isAttackCard(card) : g === 'block' ? isBlockCard(card) : isPowerCard(card)) return g;
+  }
+  return null;
 }
 
 /**
- * #108: rough worth of a card, used only to pick "the lowest-value card" (tier 7). Sum of its
+ * #139: the base card of the strategy's lower-priority group, 'strike' (Attack) or 'defend'
+ * (Block): the group that comes later in the strategy's order is the lower priority one.
+ */
+export function lowerPriorityBase(config: StrategyConfig): 'strike' | 'defend' {
+  return config.order.indexOf('attack') > config.order.indexOf('block') ? 'strike' : 'defend';
+}
+
+/**
+ * #139 exhaust tier (Trent, #108 final order), lower goes first, for every strategy:
+ * 1 curse/status that makes you lose HP, 2 exhaust-benefit cards (Drum of Battle), 3 curse/status
+ * with flat blockable damage, 4 other non-Ethereal curse/status, 5 non-upgraded Strike or Defend
+ * of the lower-priority group, 6 the other non-upgraded one, 7 Ethereal curse/status, 8 anything
+ * else (the cards that won't be played; see exhaustOrder).
+ */
+export function exhaustTier(card: Card, config: StrategyConfig = GREEDY_CONFIG): number {
+  if (dealsDirectHpDamage(card)) return 1;
+  if (benefitsFromExhaust(card)) return 2;
+  if (dealsBlockableDamage(card)) return 3;
+  if (isJunk(card)) return isEthereal(card) ? 7 : 4;
+  if (!card.upgraded && (card.cardId === 'strike' || card.cardId === 'defend')) {
+    return card.cardId === lowerPriorityBase(config) ? 5 : 6;
+  }
+  return 8;
+}
+
+/** `hand` with `card` removed, as a view (for planning the turn without it). */
+function withoutCards(view: StrategyView, cards: readonly Card[]): StrategyView {
+  const hand = view.state.player.hand.filter((c) => !cards.some((x) => x.uid === c.uid));
+  const state = { ...view.state, player: { ...view.state.player, hand } };
+  return { ...view, state, playable: view.playable.filter((c) => hand.some((h) => h === c)) };
+}
+
+/** Energy left after playing `played` from `energy` (X-cost cards spend all of it). */
+function energyAfter(played: readonly Card[], energy: number): number {
+  let e = energy;
+  for (const c of played) {
+    e -= c.xCost ? e : (c.cost ?? 0);
+    for (const fx of c.effects) if (fx.type === 'gainEnergy') e += fx.amount;
+  }
+  return e;
+}
+
+/**
+ * #139 Ethereal exception: true when exhausting `base` (the next Strike or Defend) would leave
+ * energy unused this turn, i.e. the turn planned without it spends less than the turn planned with it.
+ */
+function leavesEnergyUnused(view: StrategyView, config: StrategyConfig, base: Card): boolean {
+  const energy = view.state.player.energy;
+  const withIt = energyAfter(planTurn(view, config, energy), energy);
+  const without = energyAfter(planTurn(withoutCards(view, [base]), config, energy), energy);
+  return without > withIt;
+}
+
+/** Exhaust sort key for tier 8: planned cards last, upgraded Strike/Defend first, lowest group first, uid. */
+function tier8Key(card: Card, config: StrategyConfig, planned: ReadonlySet<number>): number[] {
+  const g = groupOf(card, config);
+  const lowFirst = g === null ? -1 : -config.order.indexOf(g);
+  const basic = card.cardId === 'strike' || card.cardId === 'defend';
+  return [planned.has(card.uid) ? 1 : 0, basic ? 0 : 1, lowFirst, card.uid];
+}
+
+/**
+ * #139: `cards` in the order to exhaust them (first = exhausted first). `view` is the state at
+ * the choice: the hand is `cards` and the exhausting card is already played. Tiers 1–7 as in
+ * exhaustTier, with Ethereal junk moved above tiers 5–6 when exhausting the next Strike/Defend
+ * would leave energy unused. Tier 8 cards the turn plan (planTurn, without the exhausting card)
+ * does not play come first.
+ */
+export function exhaustOrder(
+  cards: readonly Card[],
+  view?: StrategyView,
+  config: StrategyConfig = GREEDY_CONFIG,
+): Card[] {
+  const rest = [...cards].sort((a, b) => a.uid - b.uid);
+  const out: Card[] = [];
+  let planned: ReadonlySet<number> | undefined;
+  const plannedSet = (): ReadonlySet<number> => {
+    if (!planned) {
+      // Second Wind and Fiend Fire are played last, so they count as played.
+      const plan = view ? planTurn(withoutCards(view, out), config, view.state.player.energy) : [];
+      planned = new Set([...plan, ...rest.filter(playsLast)].map((c) => c.uid));
+    }
+    return planned;
+  };
+  while (rest.length > 0) {
+    const tierOf = (c: Card) => exhaustTier(c, config);
+    const lowest = Math.min(...rest.map(tierOf));
+    let pickTier = lowest;
+    // Ethereal junk jumps ahead of a Strike/Defend that would still be played.
+    if ((lowest === 5 || lowest === 6) && view && rest.some((c) => tierOf(c) === 7)) {
+      const next = rest.find((c) => tierOf(c) === lowest)!;
+      if (leavesEnergyUnused(withoutCards(view, out), config, next)) pickTier = 7;
+    }
+    let next: Card;
+    if (pickTier === 8) {
+      const set = plannedSet();
+      next = rest
+        .filter((c) => tierOf(c) === 8)
+        .sort((a, b) => cmp(tier8Key(a, config, set), tier8Key(b, config, set)))[0]!;
+    } else {
+      next = rest.find((c) => tierOf(c) === pickTier)!;
+    }
+    out.push(next);
+    rest.splice(rest.indexOf(next), 1);
+    planned = undefined;
+  }
+  return out;
+}
+
+function cmp(a: readonly number[], b: readonly number[]): number {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i]! - b[i]!;
+  return 0;
+}
+
+/** #108: a card worth spending an exhaust effect on: any junk, Drum of Battle, or a non-upgraded Strike or Defend (tiers 1–7). */
+export function worthExhausting(card: Card): boolean {
+  return exhaustTier(card) <= 7;
+}
+
+/** #139: Purity's order: tiers 1–4 and 7 (junk and Drum), then non-upgraded Strikes/Defends (5–6). */
+const PURITY_TIERS = [1, 2, 3, 4, 7, 5, 6];
+
+/**
+ * #108 Strategy.choose for exhaust picks, shared by every strategy. A fixed count ("Exhaust 1
+ * card") takes the first cards in the exhaust order. "Up to N" (Purity, #139) always takes tiers
+ * 1–4 and 7, then fills with non-upgraded Strikes and Defends (5–6), up to N, and nothing else.
+ */
+export function chooseExhaust(
+  view: StrategyView,
+  request: ChoiceRequest,
+  config: StrategyConfig = GREEDY_CONFIG,
+): ChoiceResponse {
+  let picked: Card[];
+  if (request.max > request.min) {
+    const sorted = [...request.options].sort((a, b) => a.uid - b.uid);
+    picked = [];
+    for (const t of PURITY_TIERS) picked.push(...sorted.filter((c) => exhaustTier(c, config) === t));
+    picked = picked.slice(0, request.max);
+  } else {
+    picked = exhaustOrder(request.options, view, config).slice(0, request.max);
+  }
+  if (picked.length < request.min) {
+    for (const c of exhaustOrder(request.options, view, config)) {
+      if (picked.length >= request.min) break;
+      if (!picked.includes(c)) picked.push(c);
+    }
+  }
+  return { uids: picked.map((c) => c.uid) };
+}
+
+/**
+ * #108: rough worth of a card, used for Power cards (powerValue). Sum of its
  * attack damage (damage × hits), Block, 3 per card drawn, 4 per energy and per Strength,
  * 3 per debuff stack, Poison, and 10 for a scripted effect (Fiend Fire, Thrash's growth).
  * Effects repeated "for each" count twice. Not a rule from Trent; the orchestrator's default.
@@ -201,49 +385,6 @@ export function cardValue(card: Card): number {
     return v;
   };
   return value(card.effects);
-}
-
-/** #108: the order cards are exhausted in (ascending): tier, damaging junk first, non-upgraded first, value, uid. */
-function exhaustKey(card: Card): number[] {
-  const tier = exhaustTier(card);
-  return [
-    tier,
-    tier === 2 && isDamagingJunk(card) ? 0 : 1,
-    card.upgraded ? 1 : 0,
-    tier === 7 ? cardValue(card) : 0,
-    card.uid,
-  ];
-}
-
-/** #108: `cards` sorted in the order they should be exhausted. */
-export function exhaustOrder(cards: readonly Card[]): Card[] {
-  const keyed = cards.map((c) => ({ c, k: exhaustKey(c) }));
-  keyed.sort((a, b) => {
-    for (let i = 0; i < a.k.length; i++) if (a.k[i] !== b.k[i]) return a.k[i]! - b.k[i]!;
-    return 0;
-  });
-  return keyed.map((x) => x.c);
-}
-
-/** #108: a card worth spending an exhaust effect on: tiers 1–2, or a non-upgraded Strike or Defend. */
-export function worthExhausting(card: Card): boolean {
-  return exhaustTier(card) <= 4;
-}
-
-/**
- * #108 Strategy.choose for exhaust picks, shared by every strategy. A fixed count ("Exhaust 1
- * card") takes the first cards in the exhaust order. "Up to N" (Purity, #108 Q2) takes every
- * tier 1–2 card, then non-upgraded Strikes, then non-upgraded Defends, up to N, and nothing else.
- */
-export function chooseExhaust(_view: StrategyView, request: ChoiceRequest): ChoiceResponse {
-  const ordered = exhaustOrder(request.options);
-  const eligible = request.max > request.min ? ordered.filter(worthExhausting) : ordered;
-  const picked = eligible.slice(0, request.max);
-  for (const c of ordered) {
-    if (picked.length >= request.min) break;
-    if (!picked.includes(c)) picked.push(c);
-  }
-  return { uids: picked.map((c) => c.uid) };
 }
 
 function exhaustEffects(card: Card) {
@@ -749,7 +890,7 @@ export function blockIsLast(config: StrategyConfig): boolean {
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
-  return decideWith(withoutLethal(raw), config, false);
+  return decideWith(withoutLethal(withoutNeverPlayed(raw)), config, false);
 }
 
 function decideWith(view: StrategyView, config: StrategyConfig, planning: boolean): Decision {
@@ -826,7 +967,7 @@ const play = (c: Card): Decision => ({ kind: 'play', uid: c.uid });
 export function createStrategy(config: StrategyConfig): Strategy {
   const c = normalizeConfig(config);
   if (!c) throw new Error(`Invalid strategy config ${JSON.stringify(config)}`);
-  return { decide: (view) => decide(view, c), choose: chooseExhaust };
+  return { decide: (view) => decide(view, c), choose: (view, request) => chooseExhaust(view, request, c) };
 }
 
 // ---------------------------------------------------------------------------
