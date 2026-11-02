@@ -11,12 +11,30 @@
   "keywords": [],
   "effects": [
     {
+      "type": "loseHp",
+      "amount": 1
+    },
+    {
+      "type": "exhaustCards",
+      "count": 1,
+      "mode": "choose"
+    },
+    {
       "type": "gainStrength",
       "amount": 1
     }
   ],
   "upgraded": {
     "effects": [
+      {
+        "type": "loseHp",
+        "amount": 1
+      },
+      {
+        "type": "exhaustCards",
+        "count": 1,
+        "mode": "choose"
+      },
       {
         "type": "gainStrength",
         "amount": 2
@@ -25,7 +43,7 @@
   },
   "description": "Lose 1 HP. / Exhaust 1 card. / Gain 1 Strength.",
   "upgradedDescription": "Lose 1 HP. / Exhaust 1 card. / Gain 2 Strength.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

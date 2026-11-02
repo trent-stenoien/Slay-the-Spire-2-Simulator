@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 18,
       "hits": 1
+    },
+    {
+      "type": "exhaustCards",
+      "count": 1,
+      "mode": "random"
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 24,
         "hits": 1
+      },
+      {
+        "type": "exhaustCards",
+        "count": 1,
+        "mode": "random"
       }
     ]
   },
   "description": "Deal 18 damage. / Exhaust 1 card at random.",
   "upgradedDescription": "Deal 24 damage. / Exhaust 1 card at random.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

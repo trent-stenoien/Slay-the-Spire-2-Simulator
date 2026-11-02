@@ -9,11 +9,33 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "exhaustCards",
+      "count": 1,
+      "mode": "choose"
+    },
+    {
+      "type": "draw",
+      "amount": 2
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "exhaustCards",
+        "count": 1,
+        "mode": "choose"
+      },
+      {
+        "type": "draw",
+        "amount": 3
+      }
+    ]
+  },
   "description": "Exhaust 1 card. / Draw 2 cards.",
   "upgradedDescription": "Exhaust 1 card. / Draw 3 cards.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

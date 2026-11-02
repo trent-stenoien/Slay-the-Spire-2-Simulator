@@ -17,6 +17,17 @@
       "allEnemies": true
     }
   ],
+  "triggers": [
+    {
+      "when": "turnEndInExhaust",
+      "effects": [
+        {
+          "type": "script",
+          "id": "playSelf"
+        }
+      ]
+    }
+  ],
   "upgraded": {
     "effects": [
       {

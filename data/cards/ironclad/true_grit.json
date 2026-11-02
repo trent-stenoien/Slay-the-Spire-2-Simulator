@@ -13,6 +13,11 @@
     {
       "type": "gainBlock",
       "amount": 7
+    },
+    {
+      "type": "exhaustCards",
+      "count": 1,
+      "mode": "random"
     }
   ],
   "upgraded": {
@@ -20,12 +25,17 @@
       {
         "type": "gainBlock",
         "amount": 9
+      },
+      {
+        "type": "exhaustCards",
+        "count": 1,
+        "mode": "choose"
       }
     ]
   },
   "description": "Gain 7 Block. / Exhaust 1 card at random.",
   "upgradedDescription": "Gain 9 Block. / Exhaust 1 card.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

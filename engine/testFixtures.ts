@@ -214,8 +214,8 @@ export function makeEnemy(
 
 /**
  * #105: one valid example of every contract effect, modelled on a real card. Shared by
- * engine, validator and card-text tests. loseHp (#106), draw and drawUntil (#107) are
- * simulated now; the tests filter them out of the "not simulated yet" checks.
+ * engine, validator and card-text tests. loseHp (#106), draw and drawUntil (#107) and
+ * exhaustCards (#108) are simulated now (repeat and script only in narrow forms, see #108 tests); the tests filter them out of the "not simulated yet" checks.
  */
 export const CONTRACT_EFFECT_SAMPLES: Effect[] = [
   { type: 'loseHp', amount: 2 }, // Hemokinesis
@@ -259,5 +259,5 @@ export const CONTRACT_EFFECT_SAMPLES: Effect[] = [
   { type: 'heal', amount: 10 }, // Not Yet
   { type: 'gainMaxHp', amount: 3 }, // Feed
   { type: 'loseMaxHp', amount: 2 }, // Brightest Flame
-  { type: 'script', id: 'fiendFire', values: [7] }, // Fiend Fire
+  { type: 'script', id: 'perfectedStrike', values: [2] }, // Perfected Strike (#111)
 ];

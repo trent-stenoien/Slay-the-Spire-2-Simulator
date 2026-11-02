@@ -11,11 +11,29 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "script",
+      "id": "fiendFire",
+      "values": [
+        7
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "script",
+        "id": "fiendFire",
+        "values": [
+          10
+        ]
+      }
+    ]
+  },
   "description": "Exhaust your Hand. / Deal 7 damage for each card Exhausted. / Exhaust.",
   "upgradedDescription": "Exhaust your Hand. / Deal 10 damage for each card Exhausted. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

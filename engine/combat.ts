@@ -1,7 +1,7 @@
 import { createRng } from './rng';
 import { resolveEnemy } from './enemy';
 import { attackDamage, attackHits, blockGain, isPlayable } from './rules';
-import { createStrategy } from './strategies';
+import { chooseExhaust, createStrategy } from './strategies';
 import {
   HAND_LIMIT,
   TURN_CAP,
@@ -9,6 +9,7 @@ import {
   type CardFilter,
   type CardInstance,
   type CharacterDef,
+  type ChoiceRequest,
   type CombatConfig,
   type CombatCounters,
   type CombatResult,
@@ -22,6 +23,7 @@ import {
   type GameData,
   type GameEvent,
   type Outcome,
+  type PileName,
   type Rng,
   type RunCombat,
   type Side,
@@ -80,6 +82,9 @@ export function makeCardInstance(def: CardDef, upgraded: boolean, uid: number): 
     inst.cost = cost === null ? null : 0;
     inst.xCost = true;
   }
+  // #108: the card's own triggers (Drum of Battle); an upgrade replaces the list.
+  const triggers = up?.triggers ?? def.triggers;
+  if (triggers) inst.triggers = triggers.map((t) => ({ when: t.when, effects: t.effects.map((e) => ({ ...e })) }));
   return inst;
 }
 
@@ -105,6 +110,9 @@ function buildDeck(data: GameData, config: CombatConfig): CardInstance[] {
     const def = data.cards[cardId];
     if (!def) throw new Error(`Unknown card "${cardId}"`);
     if (!def.simulated) throw new Error(`Card "${def.name}" is not supported by the simulator yet`);
+    const triggers = [...(def.triggers ?? []), ...(def.upgraded?.triggers ?? [])];
+    const open = triggers.find((t) => !SIMULATED_TRIGGERS.includes(t.when));
+    if (open) throw new Error(`Card trigger "${open.when}" is not simulated yet`);
     deck.push(makeCardInstance(def, upgraded, deck.length));
   };
   for (const entry of config.deck) {
@@ -169,6 +177,17 @@ export function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
   if (filter.cardId !== undefined && card.cardId !== filter.cardId) return false;
   if (filter.upgraded !== undefined && card.upgraded !== filter.upgraded) return false;
   return true;
+}
+
+/** #108: card triggers the engine runs; the others (#114, #115) are not simulated yet. */
+const SIMULATED_TRIGGERS: readonly string[] = ['exhausted'];
+
+/** #108: per-hit damage an Attack adds to Thrash: its first attack effect's base damage plus its own bonus. */
+export function perHitBaseDamage(card: CardInstance): number {
+  for (const e of card.effects) {
+    if (e.type === 'attack' || e.type === 'attackFrom') return e.damage + (card.damageBonus ?? 0);
+  }
+  return 0;
 }
 
 /** Safety guard: at most this many cards drawn by one `drawUntil` effect. */
@@ -262,6 +281,7 @@ class Combat {
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'player' });
     counters.hpLostThisTurn = 0;
     counters.cardsDrawnThisTurn = 0;
+    counters.cardsExhaustedThisTurn = 0;
     player.block = 0;
     log?.push({ t: 'blockReset', side: 'player' });
     player.energy = this.character.energyPerTurn;
@@ -277,14 +297,8 @@ class Combat {
    */
   private playCards(): Outcome | null {
     const { player, enemy, log } = this;
-    const { id: moveId, move } = this.currentMove();
     for (let decisions = 0; decisions < MAX_DECISIONS_PER_TURN; decisions++) {
-      const view: StrategyView = {
-        state: this.state,
-        intent: computeIntent(moveId, move, enemy, player),
-        playable: player.hand.filter((c) => isPlayable(c, player.energy)),
-      };
-      const decision = this.strategy.decide(view);
+      const decision = this.strategy.decide(this.view());
       if (decision.kind === 'endTurn') break;
       const idx = player.hand.findIndex((c) => c.uid === decision.uid);
       const card = idx >= 0 ? player.hand[idx] : undefined;
@@ -300,11 +314,10 @@ class Combat {
         if (card.xCost) ev.x = x;
         log.push(ev);
       }
-      const died = this.resolveEffects('player', card.effects, x);
+      const died = this.resolveEffects('player', card.effects, x, card);
       if (died === 'player' || player.hp <= 0) return 'loss';
       if (card.keywords.includes('exhaust')) {
-        player.exhaustPile.push(card);
-        log?.push({ t: 'exhaust', uid: card.uid, cardId: card.cardId, reason: 'keyword' });
+        this.exhaustCard(card, 'keyword');
       } else {
         player.discardPile.push(card);
       }
@@ -313,14 +326,24 @@ class Combat {
     return null;
   }
 
+  /** What the strategy sees right now: current hand, energy and the enemy's intent. */
+  private view(): StrategyView {
+    const { player, enemy } = this;
+    const { id: moveId, move } = this.currentMove();
+    return {
+      state: this.state,
+      intent: computeIntent(moveId, move, enemy, player),
+      playable: player.hand.filter((c) => isPlayable(c, player.energy)),
+    };
+  }
+
   /** Ethereal exhausts first (even if Retain), Retain stays, the rest is discarded; then player debuffs tick. */
   private endPlayerTurn(): void {
     const { player, log } = this;
     const retained: CardInstance[] = [];
     for (const card of player.hand) {
       if (card.keywords.includes('ethereal')) {
-        player.exhaustPile.push(card);
-        log?.push({ t: 'exhaust', uid: card.uid, cardId: card.cardId, reason: 'ethereal' });
+        this.exhaustCard(card, 'ethereal');
       } else if (card.keywords.includes('retain')) {
         retained.push(card);
       } else {
@@ -375,15 +398,20 @@ class Combat {
   /**
    * Resolve effects from `source`. Attacks and debuffs hit the opponent; block
    * and Strength go to the source. Stops and returns the side that died, if one did.
+   * `card` is the player's card being played (its damage bonus, Thrash), absent for enemy moves.
    */
-  private resolveEffects(source: Side, effects: readonly Effect[], x = 0): Side | null {
+  private resolveEffects(source: Side, effects: readonly Effect[], x = 0, card?: CardInstance): Side | null {
     const { player, enemy, log } = this;
     const other: Side = source === 'player' ? 'enemy' : 'player';
     const self = this.fighter(source);
+    /** #108 `lastEffectCount`: cards exhausted by the previous effect of this list (0 for other effects). */
+    let lastCount = 0;
     for (const e of effects) {
+      let count = 0;
+      let died: Side | null = null;
       switch (e.type) {
         case 'attack':
-          if (this.attack(source, other, e.damage, attackHits(e, x))) return other;
+          if (this.attack(source, other, e.damage + (card?.damageBonus ?? 0), attackHits(e, x))) return other;
           break;
         case 'gainBlock': {
           const amt = blockGain(e.amount, self.debuffs.frail);
@@ -434,12 +462,167 @@ class Combat {
           }
           this.applyPower(e.power, e.amount);
           break;
+        case 'exhaustCards':
+          if (source !== 'player') throw new Error('Effect "exhaustCards" is not simulated yet on enemy moves');
+          ({ count, died } = this.exhaustCards(e, card));
+          break;
+        case 'repeat': {
+          // #108: only "for each card Exhausted" (Second Wind) so far; other counters are #111.
+          if (source !== 'player' || e.per !== 'lastEffectCount') {
+            throw new Error(`Effect "repeat" is not simulated yet (counter "${e.per}")`);
+          }
+          const n = lastCount * (e.times ?? 1);
+          for (let i = 0; i < n && !died; i++) died = this.resolveEffects(source, e.effects, x, card);
+          break;
+        }
+        case 'script':
+          if (source === 'player' && e.id === 'fiendFire') died = this.fiendFire(e.values?.[0] ?? 0);
+          else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
+          else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
+          break;
         default:
           // #105: declared in the contract, implemented by later mechanic cards.
           throw new Error(`Effect "${e.type}" is not simulated yet`);
       }
+      if (died) return died;
+      lastCount = count;
     }
     return null;
+  }
+
+  /** #108: the cards of a pile (the live array). */
+  private pile(name: PileName): CardInstance[] {
+    const p = this.player;
+    switch (name) {
+      case 'hand':
+        return p.hand;
+      case 'draw':
+        return p.drawPile;
+      case 'discard':
+        return p.discardPile;
+      case 'exhaust':
+        throw new Error('Exhausting from the exhaust pile is not possible');
+    }
+  }
+
+  /**
+   * #108: move one card (already out of its pile) to the exhaust pile, count it, then run its
+   * "when exhausted" triggers (Drum of Battle). Returns the side that died, if one did.
+   */
+  private exhaustCard(card: CardInstance, reason: 'ethereal' | 'keyword' | 'effect'): Side | null {
+    const { player, counters } = this;
+    player.exhaustPile.push(card);
+    this.log?.push({ t: 'exhaust', uid: card.uid, cardId: card.cardId, reason });
+    counters.cardsExhaustedThisTurn++;
+    counters.cardsExhaustedThisCombat++;
+    for (const t of card.triggers ?? []) {
+      if (t.when !== 'exhausted') continue;
+      const died = this.resolveEffects('player', t.effects);
+      if (died) return died;
+    }
+    return null;
+  }
+
+  /** #108: take these cards out of `from` and exhaust them one by one, in order. */
+  private exhaustAll(from: PileName, picked: readonly CardInstance[]): { count: number; died: Side | null } {
+    let count = 0;
+    for (const c of picked) {
+      const pile = this.pile(from);
+      const i = pile.indexOf(c);
+      if (i < 0) continue;
+      pile.splice(i, 1);
+      count++;
+      const died = this.exhaustCard(c, 'effect');
+      if (died) return { count, died };
+    }
+    return { count, died: null };
+  }
+
+  /**
+   * #108 `exhaustCards`: pick qualifying cards of the pile (the played card is already out of the
+   * hand) by mode — every one, at random (seeded Rng), the top ones, or by Strategy.choose (the
+   * shared exhaust order when the strategy has no `choose`) — and exhaust them.
+   */
+  private exhaustCards(
+    e: Extract<Effect, { type: 'exhaustCards' }>,
+    card: CardInstance | undefined,
+  ): { count: number; died: Side | null } {
+    const from = e.from ?? 'hand';
+    const candidates = this.pile(from).filter((c) => !e.filter || matchesFilter(c, e.filter));
+    const n = Math.min(e.count ?? candidates.length, candidates.length);
+    let picked: CardInstance[];
+    switch (e.mode) {
+      case 'all':
+        picked = candidates;
+        break;
+      case 'random': {
+        const pool = [...candidates];
+        picked = [];
+        for (let i = 0; i < n; i++) picked.push(pool.splice(this.rng.int(0, pool.length - 1), 1)[0]!);
+        break;
+      }
+      case 'top':
+        picked = candidates.slice(candidates.length - n).reverse();
+        break;
+      case 'choose': {
+        const min = e.upTo ? 0 : n;
+        // Nothing to pick, or every candidate must go: no choice to make.
+        if (n === 0 || (min === candidates.length && !e.upTo)) {
+          picked = candidates.slice(0, n);
+        } else {
+          const request: ChoiceRequest = { purpose: 'exhaust', from, to: 'exhaust', options: candidates, min, max: n };
+          if (card) {
+            request.sourceUid = card.uid;
+            request.sourceCardId = card.cardId;
+          }
+          picked = this.choose(request, candidates);
+        }
+        break;
+      }
+    }
+    return this.exhaustAll(from, picked);
+  }
+
+  /** #108: ask the strategy to pick cards (the shared exhaust order if it has no `choose`) and check the answer. */
+  private choose(request: ChoiceRequest, options: readonly CardInstance[]): CardInstance[] {
+    const view = this.view();
+    const { uids } = this.strategy.choose ? this.strategy.choose(view, request) : chooseExhaust(view, request);
+    const picked = uids.map((uid) => options.find((c) => c.uid === uid));
+    if (
+      uids.length < request.min ||
+      uids.length > request.max ||
+      new Set(uids).size !== uids.length ||
+      picked.some((c) => !c)
+    ) {
+      throw new Error(
+        `Strategy made an illegal ${request.purpose} choice [${uids.join(', ')}] on turn ${this.state.turn}`,
+      );
+    }
+    return picked as CardInstance[];
+  }
+
+  /**
+   * #108 Fiend Fire: exhaust every other card in hand, then deal `perCard` damage once per card
+   * exhausted (one hit each; Strength and modifiers apply per hit). Fiend Fire itself doesn't count.
+   */
+  private fiendFire(perCard: number): Side | null {
+    const { count, died } = this.exhaustAll('hand', [...this.player.hand]);
+    if (died) return died;
+    return count > 0 && this.attack('player', 'enemy', perCard, count) ? 'enemy' : null;
+  }
+
+  /**
+   * #108 Thrash: exhaust a random Attack in hand (seeded Rng) and add its per-hit base damage to
+   * this Thrash copy for the rest of combat (stacks). Nothing happens with no Attack in hand.
+   */
+  private thrash(card: CardInstance | undefined): Side | null {
+    const attacks = this.player.hand.filter((c) => c.type === 'attack');
+    if (attacks.length === 0) return null;
+    const target = attacks[this.rng.int(0, attacks.length - 1)]!;
+    const bonus = perHitBaseDamage(target);
+    const { died } = this.exhaustAll('hand', [target]);
+    if (card) card.damageBonus = (card.damageBonus ?? 0) + bonus;
+    return died;
   }
 
   /** #106: the player loses HP directly (ignores Block; not an attack). Returns true if they died. */

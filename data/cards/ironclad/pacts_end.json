@@ -9,8 +9,44 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "conditional",
+      "if": {
+        "kind": "counter",
+        "counter": "exhaustPileSize",
+        "min": 3
+      },
+      "then": [
+        {
+          "type": "attack",
+          "damage": 18,
+          "hits": 1,
+          "allEnemies": true
+        }
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "conditional",
+        "if": {
+          "kind": "counter",
+          "counter": "exhaustPileSize",
+          "min": 3
+        },
+        "then": [
+          {
+            "type": "attack",
+            "damage": 24,
+            "hits": 1,
+            "allEnemies": true
+          }
+        ]
+      }
+    ]
+  },
   "description": "If you have 3 or more cards in your Exhaust Pile, / deal 18 damage to ALL enemies.",
   "upgradedDescription": "If you have 3 or more cards in your Exhaust Pile, / deal 24 damage to ALL enemies.",
   "simulated": false,

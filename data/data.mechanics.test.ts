@@ -1,4 +1,4 @@
-/** #106 Lose HP and #107 Draw cards: effects and the simulated flag, checked against the wiki text. */
+/** #106 Lose HP, #107 Draw and #108 Exhaust cards: effects and the simulated flag, checked against the wiki text. */
 import { describe, expect, it } from 'vitest';
 import { gameData } from './index';
 
@@ -71,7 +71,7 @@ describe('#107 Draw cards', () => {
   });
 
   it('cards whose other parts belong to later mechanics stay unsimulated', () => {
-    // Impatience, Restlessness: conditional (#111). Drum of Battle: on-exhaust trigger (#108).
+    // Impatience, Restlessness: conditional (#111). Drum of Battle is simulated now (#108).
     // Brightest Flame: Max HP loss (#115).
     expect(c.impatience).toMatchObject({
       simulated: false,
@@ -84,16 +84,80 @@ describe('#107 Draw cards', () => {
         { type: 'conditional', if: { kind: 'counter', counter: 'handSize', max: 0 }, then: [draw(2), energy(2)] },
       ],
     });
-    expect(c.drum_of_battle).toMatchObject({
-      simulated: false,
-      effects: [draw(2)],
-      triggers: [{ when: 'exhausted', effects: [energy(2)] }],
-      upgraded: { triggers: [{ when: 'exhausted', effects: [energy(3)] }] },
-    });
     expect(c.brightest_flame).toMatchObject({
       simulated: false,
       effects: [energy(2), draw(2), { type: 'loseMaxHp', amount: 2 }],
       upgraded: { effects: [energy(3), draw(3), { type: 'loseMaxHp', amount: 2 }] },
+    });
+  });
+});
+
+describe('#108 Exhaust cards', () => {
+  const ex = (count: number, mode: string, extra: object = {}) => ({ type: 'exhaustCards', count, mode, ...extra });
+  const str = (amount: number) => ({ type: 'gainStrength', amount });
+  const windOf = (b: number) => [
+    { type: 'exhaustCards', mode: 'all', filter: { notTypes: ['attack'] } },
+    { type: 'repeat', per: 'lastEffectCount', effects: [block(b)] },
+  ];
+
+  it.each([
+    ['brand', [loseHp(1), ex(1, 'choose'), str(1)], [loseHp(1), ex(1, 'choose'), str(2)], []],
+    ['burning_pact', [ex(1, 'choose'), draw(2)], [ex(1, 'choose'), draw(3)], []],
+    ['true_grit', [block(7), ex(1, 'random')], [block(9), ex(1, 'choose')], []],
+    ['cinder', [atk(18), ex(1, 'random')], [atk(24), ex(1, 'random')], []],
+    ['purity', [ex(3, 'choose', { upTo: true })], [ex(5, 'choose', { upTo: true })], ['retain', 'exhaust']],
+    ['second_wind', windOf(5), windOf(7), []],
+    [
+      'fiend_fire',
+      [{ type: 'script', id: 'fiendFire', values: [7] }],
+      [{ type: 'script', id: 'fiendFire', values: [10] }],
+      ['exhaust'],
+    ],
+    [
+      'thrash',
+      [atk(4, { hits: 2 }), { type: 'script', id: 'thrash' }],
+      [atk(6, { hits: 2 }), { type: 'script', id: 'thrash' }],
+      [],
+    ],
+  ])('%s is simulated', (id, base, up, keywords) => {
+    expect(c[id]).toMatchObject({ simulated: true, keywords, effects: base, upgraded: { effects: up } });
+  });
+
+  it('Drum of Battle draws and gains energy when exhausted; simulated', () => {
+    expect(c.drum_of_battle).toMatchObject({
+      simulated: true,
+      effects: [draw(2)],
+      triggers: [{ when: 'exhausted', effects: [energy(2)] }],
+      upgraded: { triggers: [{ when: 'exhausted', effects: [energy(3)] }] },
+    });
+  });
+
+  it("Evil Eye, Ashen Strike and Pact's End are recorded but wait for conditional / attackFrom (#111)", () => {
+    const exhaustedThisTurn = { kind: 'counter', counter: 'cardsExhaustedThisTurn', min: 1 };
+    expect(c.evil_eye).toMatchObject({
+      simulated: false,
+      effects: [block(8), { type: 'conditional', if: exhaustedThisTurn, then: [block(8)] }],
+      upgraded: { effects: [block(11), { type: 'conditional', if: exhaustedThisTurn, then: [block(11)] }] },
+    });
+    const per = (amount: number) => ({ per: 'exhaustPileSize', amount });
+    expect(c.ashen_strike).toMatchObject({
+      simulated: false,
+      effects: [{ type: 'attackFrom', damage: 6, hits: 1, bonusPer: per(3) }],
+      upgraded: { effects: [{ type: 'attackFrom', damage: 6, hits: 1, bonusPer: per(4) }] },
+    });
+    const three = { kind: 'counter', counter: 'exhaustPileSize', min: 3 };
+    expect(c.pacts_end).toMatchObject({
+      simulated: false,
+      effects: [{ type: 'conditional', if: three, then: [atk(18, { allEnemies: true })] }],
+      upgraded: { effects: [{ type: 'conditional', if: three, then: [atk(24, { allEnemies: true })] }] },
+    });
+  });
+
+  it('Howl from Beyond is recorded but waits for the end-of-turn replay from the exhaust pile (#114)', () => {
+    expect(c.howl_from_beyond).toMatchObject({
+      simulated: false,
+      effects: [atk(18, { allEnemies: true })],
+      triggers: [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }],
     });
   });
 });

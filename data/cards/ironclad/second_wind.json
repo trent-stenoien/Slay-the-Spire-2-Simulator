@@ -9,11 +9,53 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "exhaustCards",
+      "mode": "all",
+      "filter": {
+        "notTypes": [
+          "attack"
+        ]
+      }
+    },
+    {
+      "type": "repeat",
+      "per": "lastEffectCount",
+      "effects": [
+        {
+          "type": "gainBlock",
+          "amount": 5
+        }
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "exhaustCards",
+        "mode": "all",
+        "filter": {
+          "notTypes": [
+            "attack"
+          ]
+        }
+      },
+      {
+        "type": "repeat",
+        "per": "lastEffectCount",
+        "effects": [
+          {
+            "type": "gainBlock",
+            "amount": 7
+          }
+        ]
+      }
+    ]
+  },
   "description": "Exhaust all non-Attack cards in your Hand. Gain 5 Block for each card Exhausted.",
   "upgradedDescription": "Exhaust all non-Attack cards in your Hand. Gain 7 Block for each card Exhausted.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -5,8 +5,12 @@ import { CONTRACT_EFFECT_SAMPLES, cards, makeEnemy, makeGameData } from './testF
 import { cfg, deckOf, passive, scripted, withEnemy } from './combatTestHelpers';
 import type { CardDef } from './types';
 
-/** Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil (tested in combat.mechanics.test.ts). */
-const SIMULATED = ['loseHp', 'draw', 'drawUntil'];
+/**
+ * Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards
+ * (tested in combat.mechanics.test.ts / combat.exhaust.test.ts). The samples of repeat (a counter
+ * other than lastEffectCount) and script (an id other than fiendFire / thrash) still throw.
+ */
+const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards'];
 
 describe('#105 contract effects are not simulated yet', () => {
   it('covers every contract effect type exactly once', () => {

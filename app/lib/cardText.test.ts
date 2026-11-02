@@ -60,6 +60,36 @@ describe('card text', () => {
     expect(cardText(card(id), up).lines).toEqual(lines);
   });
 
+  it.each([
+    ['brand', false, ['Lose 1 HP', 'Exhaust 1 card', 'Gain 1 Strength']],
+    ['burning_pact', true, ['Exhaust 1 card', 'Draw 3 cards']],
+    ['true_grit', false, ['Gain 7 Block', 'Exhaust 1 card at random']],
+    ['true_grit', true, ['Gain 9 Block', 'Exhaust 1 card']],
+    ['cinder', false, ['Deal 18 damage', 'Exhaust 1 card at random']],
+    ['purity', true, ['Retain', 'Exhaust', 'Exhaust up to 5 cards']],
+    ['second_wind', false, ['Exhaust all non-Attack cards in your Hand', 'Gain 5 Block for each card Exhausted']],
+    ['fiend_fire', true, ['Exhaust', 'Exhaust your Hand. Deal 10 damage for each card Exhausted']],
+    [
+      'thrash',
+      false,
+      ['Deal 4 damage 2 times', 'Exhaust a random Attack in your Hand and add its damage to this card'],
+    ],
+    ['drum_of_battle', false, ['Draw 2 cards', 'When Exhausted: Gain 2 Energy']],
+    ['drum_of_battle', true, ['Draw 2 cards', 'When Exhausted: Gain 3 Energy']],
+  ] as const)('describes #108 card %s (upgraded: %s)', (id, up, lines) => {
+    expect(cardText(card(id), up).lines).toEqual(lines);
+  });
+
+  it('describes exhaust from other piles and unfiltered "all"', () => {
+    expect(effectText({ type: 'exhaustCards', mode: 'all' })).toBe('Exhaust your Hand');
+    expect(effectText({ type: 'exhaustCards', from: 'draw', count: 2, mode: 'top' })).toBe(
+      'Exhaust 2 cards from your Draw Pile',
+    );
+    expect(effectText({ type: 'exhaustCards', from: 'discard', mode: 'all', filter: { types: ['skill'] } })).toBe(
+      'Exhaust all Skill cards from your Discard Pile',
+    );
+  });
+
   it('describes drawUntil stop filters', () => {
     expect(effectText({ type: 'drawUntil', stopOn: { types: ['skill'] } })).toBe(
       'Draw cards until you draw a Skill card',

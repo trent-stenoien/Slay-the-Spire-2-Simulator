@@ -59,9 +59,16 @@ skeleton script skips them, and the validator rejects any card that uses a reser
 | Draw cards until your Hand is full. | `{ "type": "drawUntil", "handFull": true }` |
 | Draw cards until you draw a non-Attack card. | `{ "type": "drawUntil", "stopOn": { "notTypes": ["attack"] } }` |
 | You cannot draw additional cards this turn. | `{ "type": "applyPower", "power": "noDraw", "amount": 1 }` |
+| Exhaust N card(s). (you choose, from your Hand; #108) | `{ "type": "exhaustCards", "count": N, "mode": "choose" }` |
+| Exhaust N card(s) at random. | `{ "type": "exhaustCards", "count": N, "mode": "random" }` |
+| Exhaust up to N cards in your Hand. | `{ "type": "exhaustCards", "count": N, "mode": "choose", "upTo": true }` |
+| Exhaust all non-Attack cards in your Hand. Gain N Block for each card Exhausted. | `{ "type": "exhaustCards", "mode": "all", "filter": { "notTypes": ["attack"] } }`, `{ "type": "repeat", "per": "lastEffectCount", "effects": [{ "type": "gainBlock", "amount": N }] }` |
+| Exhaust your Hand. Deal N damage for each card Exhausted. (Fiend Fire) | `{ "type": "script", "id": "fiendFire", "values": [N] }` |
+| Exhaust a random Attack in your Hand and add its damage to this card. (Thrash) | `{ "type": "script", "id": "thrash" }` (after the card's `attack`) |
+| When this card is Exhausted, gain N [E]. (Drum of Battle) | card field `"triggers": [{ "when": "exhausted", "effects": [{ "type": "gainEnergy", "amount": N }] }]`; an upgraded value goes in `upgraded.triggers` |
 
-`gainEnergy` is only for energy gained right now. "Next turn, gain [E]", "Gain [E] at the
-start of each turn", "When this card is Exhausted, gain [E]", conditional gains and
+`gainEnergy` is only for energy gained right now ("When this card is Exhausted, gain [E]" is a
+`triggers` entry, above). "Next turn, gain [E]", "Gain [E] at the start of each turn", conditional gains and
 "Another player gains [E]" have no effect object.
 
 X is all the energy available when the card is played (the card spends all of it).
@@ -90,6 +97,10 @@ you CAN express, in order, and skip the rest.
 
 Set `"simulated": true` only when ALL of these hold, for base AND upgraded versions:
 1. Every sentence of the text is captured by the effects/keywords above.
+1a. `repeat` only as "for each card Exhausted" (`per: "lastEffectCount"`), `script` only
+   `fiendFire` / `thrash`, `triggers` only `"when": "exhausted"`. Other uses of `conditional`,
+   `attackFrom`, `repeat` or triggers (Evil Eye, Ashen Strike, Pact's End, Howl from Beyond)
+   are recorded with `simulated: false`.
 2. Keywords are only `unplayable`, `ethereal`, `eternal`, `exhaust`, `innate`, `retain`
    (`sly` is recorded only, not simulated).
 3. No `gainStars` effect, no `starCost`, not `xStarCost`. An `xCost` card qualifies only

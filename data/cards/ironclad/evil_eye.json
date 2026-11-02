@@ -13,6 +13,20 @@
     {
       "type": "gainBlock",
       "amount": 8
+    },
+    {
+      "type": "conditional",
+      "if": {
+        "kind": "counter",
+        "counter": "cardsExhaustedThisTurn",
+        "min": 1
+      },
+      "then": [
+        {
+          "type": "gainBlock",
+          "amount": 8
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -20,6 +34,20 @@
       {
         "type": "gainBlock",
         "amount": 11
+      },
+      {
+        "type": "conditional",
+        "if": {
+          "kind": "counter",
+          "counter": "cardsExhaustedThisTurn",
+          "min": 1
+        },
+        "then": [
+          {
+            "type": "gainBlock",
+            "amount": 11
+          }
+        ]
       }
     ]
   },

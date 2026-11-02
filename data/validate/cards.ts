@@ -6,6 +6,9 @@ import {
   SIMULATED_KEYWORDS,
   SIMULATED_POWERS,
   SIMULATED_FILTER_FIELDS,
+  SIMULATED_REPEAT_COUNTERS,
+  SIMULATED_SCRIPTS,
+  SIMULATED_TRIGGERS,
   UNSIMULATED_EFFECTS,
   UNSIMULATED_CARD_FIELDS,
   CHARACTER_CODES,
@@ -38,16 +41,51 @@ function usesX(list: unknown): boolean {
   return Array.isArray(list) && list.some((e) => isObj(e) && e.xTimes === true);
 }
 
+/** The first filter field the engine does not match on, as `<path>.<field>`, or undefined. */
+function unsimulatedFilter(f: unknown, path: string): string | undefined {
+  if (!isObj(f)) return undefined;
+  const field = Object.keys(f).find((k) => !SIMULATED_FILTER_FIELDS.has(k));
+  return field === undefined ? undefined : `${path}.${field}`;
+}
+
+/** The first unsimulated effect in a nested list (repeat, triggers), or undefined. */
+function unsimulatedIn(list: unknown): string | undefined {
+  if (!Array.isArray(list)) return undefined;
+  for (const item of list) {
+    if (!isObj(item) || typeof item.type !== 'string') continue;
+    const bad = unsimulatedEffect(item, item.type);
+    if (bad !== undefined) return bad;
+  }
+  return undefined;
+}
+
 /**
  * The name to report when a simulated card's effect is not simulated, or undefined when it is.
- * `applyPower` is simulated only for SIMULATED_POWERS; `drawUntil.stopOn` only with simulated filter fields.
+ * `applyPower` is simulated only for SIMULATED_POWERS; `drawUntil.stopOn` and `exhaustCards.filter`
+ * only with simulated filter fields; `exhaustCards` not from the exhaust pile; `repeat` only per
+ * SIMULATED_REPEAT_COUNTERS (#108) with simulated inner effects; `script` only for SIMULATED_SCRIPTS.
  */
 function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'applyPower') return SIMULATED_POWERS.has(String(e.power)) ? undefined : name;
+  if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
+  if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
   if (UNSIMULATED_EFFECTS.has(name)) return name;
-  if (name === 'drawUntil' && isObj(e.stopOn)) {
-    const field = Object.keys(e.stopOn).find((k) => !SIMULATED_FILTER_FIELDS.has(k));
-    if (field !== undefined) return `drawUntil.stopOn.${field}`;
+  if (name === 'drawUntil') return unsimulatedFilter(e.stopOn, 'drawUntil.stopOn');
+  if (name === 'exhaustCards') {
+    if (e.from === 'exhaust') return 'exhaustCards.from.exhaust';
+    return unsimulatedFilter(e.filter, 'exhaustCards.filter');
+  }
+  return undefined;
+}
+
+/** #108: the first trigger the engine does not run (its `when`, or an unsimulated effect in it), or undefined. */
+function unsimulatedTrigger(list: unknown): string | undefined {
+  if (!Array.isArray(list)) return undefined;
+  for (const t of list) {
+    if (!isObj(t)) continue;
+    if (!SIMULATED_TRIGGERS.has(String(t.when))) return 'triggers';
+    const bad = unsimulatedIn(t.effects);
+    if (bad !== undefined) return bad;
   }
   return undefined;
 }
@@ -69,6 +107,10 @@ function checkSimulatable(r: Reporter, c: Obj): void {
       const bad = unsimulatedEffect(item, item.type);
       if (bad !== undefined) unsupported(bad);
     }
+  }
+  for (const list of [c.triggers, isObj(c.upgraded) ? c.upgraded.triggers : undefined]) {
+    const bad = unsimulatedTrigger(list);
+    if (bad !== undefined) unsupported(bad);
   }
   for (const field of UNSIMULATED_CARD_FIELDS) {
     if (has(c, field) || (isObj(c.upgraded) && has(c.upgraded, field))) {

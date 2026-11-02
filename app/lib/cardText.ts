@@ -1,5 +1,5 @@
 /** Plain-language card text, e.g. "Deal 8 damage. Apply 2 Vulnerable." */
-import type { CardDef, CardFilter, CardKeyword, CardType, Effect } from '../../engine/types';
+import type { CardDef, CardFilter, CardKeyword, CardTrigger, CardType, Effect, PileName } from '../../engine/types';
 
 const KEYWORD_LABEL: Record<CardKeyword, string> = {
   unplayable: 'Unplayable',
@@ -45,11 +45,17 @@ export function effectText(e: Effect): string {
     case 'drawUntil':
       if (e.handFull) return 'Draw cards until your Hand is full';
       return e.stopOn ? `Draw cards until you draw ${filterText(e.stopOn)}` : 'Draw cards until a condition is met';
+    // #108: simulated.
+    case 'exhaustCards': {
+      const where = e.from && e.from !== 'hand' ? ` from your ${PILE_LABEL[e.from]}` : '';
+      if (e.mode === 'all') {
+        if (!e.filter) return where ? `Exhaust all cards${where}` : 'Exhaust your Hand';
+        return `Exhaust all ${filterText(e.filter, true)}${where || ' in your Hand'}`;
+      }
+      const n = e.count ?? 1;
+      return `Exhaust ${e.upTo ? 'up to ' : ''}${n} ${n === 1 ? 'card' : 'cards'}${where}${e.mode === 'random' ? ' at random' : ''}`;
+    }
     // #105: plain fallback text for mechanics that are not simulated yet.
-    case 'exhaustCards':
-      return e.mode === 'all'
-        ? 'Exhaust cards'
-        : `Exhaust ${e.upTo ? 'up to ' : ''}${e.count ?? 1} ${e.count === 1 || e.count === undefined ? 'card' : 'cards'}${e.mode === 'random' ? ' at random' : ''}`;
     case 'applyPower':
       if (e.power === 'noDraw') return 'You cannot draw additional cards this turn';
       return `Gain ${e.amount} ${cap(e.power)}`;
@@ -66,6 +72,8 @@ export function effectText(e: Effect): string {
     case 'conditional':
       return 'Conditional effect';
     case 'repeat':
+      // #108 Second Wind: "Gain 5 Block for each card Exhausted".
+      if (e.per === 'lastEffectCount') return `${e.effects.map(effectText).join('. ')} for each card Exhausted`;
       return 'Repeated effect';
     case 'attackFrom':
       return `Deal ${e.damage}+ damage${e.allEnemies ? ' to ALL enemies' : ''}`;
@@ -94,6 +102,9 @@ export function effectText(e: Effect): string {
     case 'loseMaxHp':
       return `Lose ${e.amount} Max HP`;
     case 'script':
+      // #108: Fiend Fire, Thrash.
+      if (e.id === 'fiendFire') return `Exhaust your Hand. Deal ${e.values?.[0] ?? 0} damage for each card Exhausted`;
+      if (e.id === 'thrash') return 'Exhaust a random Attack in your Hand and add its damage to this card';
       return 'Special effect';
   }
 }
@@ -107,11 +118,35 @@ const TYPE_LABEL: Record<CardType, string> = {
   quest: 'Quest',
 };
 
-/** "a non-Attack card", "a Skill card", or "a matching card" for filters without a type rule. */
-function filterText(f: CardFilter): string {
-  if (f.notTypes?.length) return `a non-${f.notTypes.map((t) => TYPE_LABEL[t]).join('/')} card`;
-  if (f.types?.length) return `a ${f.types.map((t) => TYPE_LABEL[t]).join('/')} card`;
-  return 'a matching card';
+const PILE_LABEL: Record<PileName, string> = {
+  hand: 'Hand',
+  draw: 'Draw Pile',
+  discard: 'Discard Pile',
+  exhaust: 'Exhaust Pile',
+};
+
+/**
+ * "a non-Attack card", "a Skill card", or "a matching card" for filters without a type rule.
+ * `plural`: "non-Attack cards", "Skill cards", "matching cards".
+ */
+function filterText(f: CardFilter, plural = false): string {
+  const [a, noun] = plural ? ['', 'cards'] : ['a ', 'card'];
+  if (f.notTypes?.length) return `${a}non-${f.notTypes.map((t) => TYPE_LABEL[t]).join('/')} ${noun}`;
+  if (f.types?.length) return `${a}${f.types.map((t) => TYPE_LABEL[t]).join('/')} ${noun}`;
+  return `${a}matching ${noun}`;
+}
+
+/** #108: "When Exhausted: Gain 2 Energy" for a card's own triggers. */
+const TRIGGER_LABEL: Record<CardTrigger['when'], string> = {
+  exhausted: 'When Exhausted',
+  drawn: 'When drawn',
+  turnEndInHand: 'At the end of your turn, if in your Hand',
+  turnEndInExhaust: 'At the end of your turn, if in your Exhaust Pile',
+};
+
+function triggerText(t: CardTrigger): string {
+  const fx = t.effects.map(effectText).join('. ');
+  return `${TRIGGER_LABEL[t.when]}: ${fx || 'special effect'}`;
 }
 
 /** "noDraw" → "No Draw". */
@@ -124,7 +159,7 @@ export interface CardText {
   name: string;
   /** "1", "0", "X" for X-cost, or "—" for unplayable. */
   cost: string;
-  /** Keywords first, then effects, one phrase each. */
+  /** Keywords first, then effects, then the card's own triggers (#108), one phrase each. */
   lines: string[];
 }
 
@@ -133,10 +168,11 @@ export function cardText(def: CardDef, upgraded: boolean): CardText {
   const up = upgraded ? def.upgraded : null;
   const keywords = up?.keywords ?? def.keywords;
   const effects = up?.effects ?? def.effects;
+  const triggers = up?.triggers ?? def.triggers ?? [];
   const cost = keywords.includes('unplayable') ? null : up?.cost !== undefined ? up.cost : def.cost;
   return {
     name: up ? `${def.name}+` : def.name,
     cost: cost === null ? '—' : def.xCost ? 'X' : String(cost),
-    lines: [...keywords.map((k) => KEYWORD_LABEL[k]), ...effects.map(effectText)],
+    lines: [...keywords.map((k) => KEYWORD_LABEL[k]), ...effects.map(effectText), ...triggers.map(triggerText)],
   };
 }
