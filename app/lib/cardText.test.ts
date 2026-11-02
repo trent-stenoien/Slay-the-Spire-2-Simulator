@@ -118,9 +118,41 @@ describe('#105 fallback text for contract effects', () => {
     [{ type: 'draw', amount: 1 } as const, 'Draw 1 card'],
     [{ type: 'draw', amount: 3 } as const, 'Draw 3 cards'],
     [{ type: 'heal', amount: 10 } as const, 'Heal 10 HP'],
-    [{ type: 'applyPower', power: 'demonForm', amount: 3 } as const, 'Gain 3 Demon Form'],
+    [{ type: 'applyPower', power: 'rupture', amount: 1 } as const, 'Gain 1 Rupture'],
     [{ type: 'exhaustCards', count: 3, mode: 'choose', upTo: true } as const, 'Exhaust up to 3 cards'],
   ])('%o → %s', (e, text) => {
     expect(effectText(e)).toBe(text);
+  });
+});
+
+describe('#109 power card text', () => {
+  it.each([
+    ['demon_form', false, ['At the start of your turn, gain 3 Strength']],
+    ['demon_form', true, ['At the start of your turn, gain 4 Strength']],
+    ['pyre', true, ['Gain 2 Energy at the start of each turn']],
+    [
+      'rolling_boulder',
+      false,
+      ['At the start of your turn, deal 5 damage to ALL enemies and increase this damage by 5'],
+    ],
+    ['crimson_mantle', false, ['At the start of your turn, lose 1 HP and gain 7 Block']],
+    ['stone_armor', false, ['Gain 4 Plating']],
+    ['eternal_armor', true, ['Gain 12 Plating']],
+    ['barricade', false, ['Block is not removed at the start of your turn']],
+    ['cruelty', true, ['Vulnerable enemies take an additional 50% damage']],
+    ['prowess', false, ['Gain 1 Strength', 'Gain 1 Dexterity']],
+    ['mad_science_expertise', true, ['Innate', 'Gain 2 Strength', 'Gain 2 Dexterity']],
+    ['fasten', false, ['Gain an additional 4 Block from Defend cards']],
+    ['caltrops', true, ['Whenever you are attacked, deal 5 damage back']],
+    ['prep_time', false, ['At the start of your turn, gain 4 Vigor']],
+    ['mad_science_curious', false, ['Powers cost 1 Energy less']],
+    ['mad_science_improvement', false, ['At the end of combat, Upgrade a random card']],
+    ['corruption', false, ['Skills cost 0 Energy. Whenever you play a Skill, Exhaust it']],
+  ] as const)('%s (upgraded %s)', (id, upgraded, lines) => {
+    expect(cardText(gameData.cards[id]!, upgraded).lines).toEqual(lines);
+  });
+
+  it('Vigor on its own reads as a gain', () => {
+    expect(effectText({ type: 'applyPower', power: 'vigor', amount: 3 })).toBe('Gain 3 Vigor');
   });
 });

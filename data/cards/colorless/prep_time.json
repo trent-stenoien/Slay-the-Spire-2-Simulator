@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "vigorPerTurn",
+      "amount": 4
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "vigorPerTurn",
+        "amount": 6
+      }
+    ]
+  },
   "description": "At the start of your turn, gain 4 Vigor.",
   "upgradedDescription": "At the start of your turn, gain 6 Vigor.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

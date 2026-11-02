@@ -213,11 +213,11 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
     case 'draw':
       return `You draw ${name(ev.cardId)}`;
     case 'powerApplied':
-      return ev.power === 'noDraw'
-        ? 'You cannot draw additional cards this turn'
-        : `${gains(ev.side)} ${ev.amount} ${powerName(ev.power)} (total ${ev.total})`;
+      return powerAppliedText(ev);
     case 'powerRemoved':
-      return ev.power === 'noDraw' ? null : `${ev.side === 'player' ? 'Your' : "Enemy's"} ${powerName(ev.power)} ends`;
+      if (ev.power === 'noDraw') return null;
+      if (ev.power === 'vigor') return 'Your Vigor is used up';
+      return `${ev.side === 'player' ? 'Your' : "Enemy's"} ${powerName(ev.power)} ends`;
     case 'exhaust':
       // #108: 'effect' = a card's effect picked it (Burning Pact, True Grit, Fiend Fire).
       return `${name(ev.cardId)} exhausted${EXHAUST_NOTE[ev.reason]}`;
@@ -232,6 +232,32 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
   }
 }
 
+/** #109: log text for a power gain or change. */
+function powerAppliedText(ev: Extract<GameEvent, { t: 'powerApplied' }>): string {
+  const who = ev.side === 'player' ? 'You' : 'Enemy';
+  const label = powerName(ev.power);
+  switch (ev.power) {
+    case 'noDraw':
+      return 'You cannot draw additional cards this turn';
+    case 'barricade':
+      return 'Barricade: Block is no longer removed at the start of your turn';
+    case 'corruption':
+      return 'Corruption: Skills cost 0 and are Exhausted when played';
+    case 'upgradeAtCombatEnd':
+      return 'Improvement: a random card is Upgraded at the end of combat (no effect in this combat)';
+    case 'cruelty':
+      return `Cruelty: Vulnerable enemies take ${ev.total}% more damage`;
+    case 'rollingBoulder':
+      return ev.amount === ev.total
+        ? `Rolling Boulder: ${ev.total} damage at the start of your turn`
+        : `Rolling Boulder grows by ${ev.amount} (${ev.total} damage)`;
+    default:
+      return ev.amount < 0
+        ? `${who === 'You' ? 'Your' : "Enemy's"} ${label} drops by ${-ev.amount} (${ev.total} left)`
+        : `${who === 'You' ? 'You gain' : 'Enemy gains'} ${ev.amount} ${label} (total ${ev.total})`;
+  }
+}
+
 const EXHAUST_NOTE: Record<Extract<GameEvent, { t: 'exhaust' }>['reason'], string> = {
   ethereal: ' (Ethereal)',
   keyword: '',
@@ -243,9 +269,17 @@ function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** "demonForm" → "Demon Form". */
+/** #109: display names where the PowerId isn't the in-game name (it names the card instead). */
+const POWER_LABEL: Record<string, string> = {
+  energyPerTurn: 'Pyre',
+  vigorPerTurn: 'Prep Time',
+  powersCostLess: 'Curious',
+  upgradeAtCombatEnd: 'Improvement',
+};
+
+/** "demonForm" → "Demon Form"; see POWER_LABEL. */
 function powerName(id: string): string {
-  return cap(id.replace(/([A-Z])/g, ' $1'));
+  return POWER_LABEL[id] ?? cap(id.replace(/([A-Z])/g, ' $1'));
 }
 
 /**

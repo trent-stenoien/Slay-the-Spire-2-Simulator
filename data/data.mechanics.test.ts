@@ -161,3 +161,36 @@ describe('#108 Exhaust cards', () => {
     });
   });
 });
+
+describe('#109 Powers', () => {
+  const pw = (power: string, amount: number) => ({ type: 'applyPower', power, amount });
+  const str = (amount: number) => ({ type: 'gainStrength', amount });
+
+  it.each([
+    ['inflame', [str(2)], [str(3)]],
+    ['demon_form', [pw('demonForm', 3)], [pw('demonForm', 4)]],
+    ['pyre', [pw('energyPerTurn', 1)], [pw('energyPerTurn', 2)]],
+    ['rolling_boulder', [pw('rollingBoulder', 5)], [pw('rollingBoulder', 10)]],
+    ['crimson_mantle', [pw('crimsonMantle', 7)], [pw('crimsonMantle', 10)]],
+    ['stone_armor', [pw('plating', 4)], [pw('plating', 6)]],
+    ['eternal_armor', [pw('plating', 9)], [pw('plating', 12)]],
+    ['cruelty', [pw('cruelty', 25)], [pw('cruelty', 50)]],
+    ['prowess', [str(1), pw('dexterity', 1)], [str(2), pw('dexterity', 2)]],
+    ['fasten', [pw('fasten', 4)], [pw('fasten', 6)]],
+    ['caltrops', [pw('thorns', 3)], [pw('thorns', 5)]],
+    ['prep_time', [pw('vigorPerTurn', 4)], [pw('vigorPerTurn', 6)]],
+  ])('%s is a simulated Power', (id, base, up) => {
+    expect(c[id]).toMatchObject({ type: 'power', simulated: true, effects: base, upgraded: { effects: up } });
+  });
+
+  it.each([
+    ['barricade', [pw('barricade', 1)], { cost: 2 }],
+    ['corruption', [pw('corruption', 1)], { cost: 2 }],
+    ['mad_science_expertise', [str(2), pw('dexterity', 2)], { keywords: ['innate'] }],
+    ['mad_science_curious', [pw('powersCostLess', 1)], { keywords: ['innate'] }],
+    ['mad_science_improvement', [pw('upgradeAtCombatEnd', 1)], { keywords: ['innate'] }],
+  ])('%s is a simulated Power; the upgrade only changes cost or keywords', (id, base, up) => {
+    expect(c[id]).toMatchObject({ type: 'power', simulated: true, effects: base, upgraded: up });
+    expect(c[id]!.upgraded!.effects).toBeUndefined();
+  });
+});

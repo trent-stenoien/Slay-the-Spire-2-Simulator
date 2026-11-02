@@ -9,7 +9,13 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "upgradeAtCombatEnd",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "keywords": [
       "innate"
@@ -17,7 +23,7 @@
   },
   "description": "At the end of combat, Upgrade a random card.",
   "upgradedDescription": "Innate. / At the end of combat, Upgrade a random card.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

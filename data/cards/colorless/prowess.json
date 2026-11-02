@@ -13,6 +13,11 @@
     {
       "type": "gainStrength",
       "amount": 1
+    },
+    {
+      "type": "applyPower",
+      "power": "dexterity",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -20,12 +25,17 @@
       {
         "type": "gainStrength",
         "amount": 2
+      },
+      {
+        "type": "applyPower",
+        "power": "dexterity",
+        "amount": 2
       }
     ]
   },
   "description": "Gain 1 Strength. / Gain 1 Dexterity.",
   "upgradedDescription": "Gain 2 Strength. / Gain 2 Dexterity.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -24,6 +24,7 @@ import {
   type GameEvent,
   type Outcome,
   type PileName,
+  type PowerId,
   type Rng,
   type RunCombat,
   type Side,
@@ -194,6 +195,38 @@ export function perHitBaseDamage(card: CardInstance): number {
 const MAX_DRAW_UNTIL = 1000;
 
 /**
+ * #107/#109: player powers the engine simulates. `applyPower` with any other PowerId throws
+ * "not simulated yet" (temporary powers #110, trigger powers #113, #115, #116).
+ */
+export const SIMULATED_POWER_IDS: readonly PowerId[] = [
+  'noDraw',
+  'demonForm',
+  'energyPerTurn',
+  'rollingBoulder',
+  'crimsonMantle',
+  'plating',
+  'barricade',
+  'cruelty',
+  'dexterity',
+  'fasten',
+  'thorns',
+  'vigorPerTurn',
+  'vigor',
+  'powersCostLess',
+  'upgradeAtCombatEnd',
+  'corruption',
+];
+
+/** #109 Rolling Boulder: its damage grows by this much after each hit ("increase this damage by 5"). */
+export const ROLLING_BOULDER_GROWTH = 5;
+
+/** #109 Crimson Mantle: HP lost at the start of each turn, however many copies were played (contract). */
+export const CRIMSON_MANTLE_HP_LOSS = 1;
+
+/** #109 Fasten (Trent, #109 Q1): it adds Block to every card with this in its name (Defend, Ultimate Defend). */
+export const FASTEN_NAME = 'Defend';
+
+/**
  * One combat in progress. Each method is a named step of the turn order in CLAUDE.md; all
  * randomness goes through `rng`, and events are recorded only when logging is on.
  */
@@ -202,6 +235,8 @@ class Combat {
   private readonly log: GameEvent[] | null;
   private readonly rng: Rng;
   private readonly order: readonly string[];
+  /** #109: Vigor added to every hit of the Attack card being played (0 otherwise). */
+  private activeVigor = 0;
 
   constructor(
     private readonly config: CombatConfig,
@@ -261,7 +296,8 @@ class Combat {
   run(): CombatResult {
     for (;;) {
       this.state.turn++;
-      this.startPlayerTurn();
+      const started = this.startPlayerTurn();
+      if (started) return this.finish(started);
       const played = this.playCards();
       if (played) return this.finish(played);
       this.endPlayerTurn();
@@ -275,19 +311,104 @@ class Combat {
     return this.state.player.counters as CombatCounters;
   }
 
-  /** "This turn" counters reset, block resets, energy refills, then the normal draw. */
-  private startPlayerTurn(): void {
+  /**
+   * "This turn" counters reset, block resets (not under Barricade, #109), energy refills, the
+   * normal draw, then the start-of-turn powers (#109). Returns the outcome if a power ended combat
+   * (Crimson Mantle's HP loss, Rolling Boulder's damage).
+   */
+  private startPlayerTurn(): Outcome | null {
     const { player, log, counters } = this;
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'player' });
     counters.hpLostThisTurn = 0;
     counters.cardsDrawnThisTurn = 0;
     counters.cardsExhaustedThisTurn = 0;
-    player.block = 0;
-    log?.push({ t: 'blockReset', side: 'player' });
+    if (!this.power('barricade')) {
+      player.block = 0;
+      log?.push({ t: 'blockReset', side: 'player' });
+    }
     player.energy = this.character.energyPerTurn;
     for (let i = 0; i < this.character.drawPerTurn; i++) {
       if (!this.drawOne()) break;
     }
+    return this.turnStartPowers();
+  }
+
+  /** #109: the current amount of a player power (0 when off). */
+  private power(id: PowerId): number {
+    return this.player.powers?.[id] ?? 0;
+  }
+
+  /**
+   * #109 start-of-turn powers, after the draw, in the order the powers were first gained (the
+   * order of PlayerState.powers). Plating drops by 1; Demon Form gains Strength; Pyre gains
+   * energy; Prep Time gains Vigor; Crimson Mantle loses 1 HP, then gains Block; Rolling Boulder
+   * deals its damage, then grows by 5. Returns the outcome if one of them ended combat.
+   */
+  private turnStartPowers(): Outcome | null {
+    const { player, log } = this;
+    if (!player.powers) return null;
+    for (const id of Object.keys(player.powers) as PowerId[]) {
+      const amount = this.power(id);
+      if (amount <= 0) continue;
+      switch (id) {
+        case 'plating':
+          this.applyPower('plating', -1);
+          break;
+        case 'demonForm':
+          player.strength += amount;
+          log?.push({ t: 'strength', side: 'player', amount, total: player.strength });
+          break;
+        case 'energyPerTurn':
+          player.energy += amount;
+          log?.push({ t: 'energy', amount, total: player.energy });
+          break;
+        case 'vigorPerTurn':
+          this.applyPower('vigor', amount);
+          break;
+        case 'crimsonMantle':
+          if (this.loseHp(CRIMSON_MANTLE_HP_LOSS)) return 'loss';
+          this.gainPowerBlock(amount);
+          break;
+        case 'rollingBoulder':
+          if (this.powerDamage(amount)) return 'win';
+          this.applyPower('rollingBoulder', ROLLING_BOULDER_GROWTH);
+          break;
+        default:
+          break;
+      }
+    }
+    return null;
+  }
+
+  /** #109: Block from a power (Plating, Crimson Mantle): not a card, so Dexterity and Frail don't apply. */
+  private gainPowerBlock(amount: number): void {
+    const { player } = this;
+    player.block += amount;
+    this.log?.push({ t: 'block', side: 'player', amount, total: player.block });
+  }
+
+  /**
+   * #109: damage to the enemy from a power (Rolling Boulder, Thorns): not an Attack, so Strength,
+   * Weak, Vigor, Vulnerable and Cruelty don't change it; the enemy's Block absorbs it.
+   * Returns true if the enemy died.
+   */
+  private powerDamage(amount: number): boolean {
+    const { enemy } = this;
+    const blocked = Math.min(enemy.block, amount);
+    enemy.block -= blocked;
+    const hpLoss = amount - blocked;
+    enemy.hp -= hpLoss;
+    this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
+    return enemy.hp <= 0;
+  }
+
+  /**
+   * #109: Block gained from a card's `gainBlock`: + Dexterity, + Fasten on cards named "Defend",
+   * then Frail (×0.75, floored), minimum 0.
+   */
+  private cardBlock(amount: number, card: CardInstance): number {
+    const fasten = card.name.includes(FASTEN_NAME) ? this.power('fasten') : 0;
+    return blockGain(amount + this.power('dexterity') + fasten, this.player.debuffs.frail);
   }
 
   /**
@@ -314,10 +435,20 @@ class Combat {
         if (card.xCost) ev.x = x;
         log.push(ev);
       }
+      // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
+      const vigor = card.type === 'attack' ? this.power('vigor') : 0;
+      this.activeVigor = vigor;
       const died = this.resolveEffects('player', card.effects, x, card);
+      this.activeVigor = 0;
+      if (vigor > 0) this.applyPower('vigor', -vigor);
       if (died === 'player' || player.hp <= 0) return 'loss';
-      if (card.keywords.includes('exhaust')) {
+      if (card.type === 'power') {
+        // #109: a played Power leaves the deck for the rest of combat (no discard, no exhaust pile).
+      } else if (card.keywords.includes('exhaust')) {
         this.exhaustCard(card, 'keyword');
+      } else if (card.type === 'skill' && this.power('corruption')) {
+        // #109 Corruption: a played Skill is exhausted (Drum of Battle still gains its energy).
+        this.exhaustCard(card, 'power');
       } else {
         player.discardPile.push(card);
       }
@@ -337,9 +468,12 @@ class Combat {
     };
   }
 
-  /** Ethereal exhausts first (even if Retain), Retain stays, the rest is discarded; then player debuffs tick. */
+  /** Plating Block (#109); Ethereal exhausts first (even if Retain), Retain stays, the rest is discarded; then player debuffs tick. */
   private endPlayerTurn(): void {
     const { player, log } = this;
+    // #109 Plating: gain Block equal to it at the end of your turn.
+    const plating = this.power('plating');
+    if (plating > 0) this.gainPowerBlock(plating);
     const retained: CardInstance[] = [];
     for (const card of player.hand) {
       if (card.keywords.includes('ethereal')) {
@@ -380,6 +514,8 @@ class Combat {
     const died = this.resolveEffects('enemy', move.effects);
     enemy.patternIndex = (enemy.patternIndex + 1) % this.order.length;
     if (died === 'player' || player.hp <= 0) return 'loss';
+    // #109 Thorns can kill the enemy during its own move.
+    if (died === 'enemy' || enemy.hp <= 0) return 'win';
     // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
     this.tickDebuffs('enemy');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'enemy' });
@@ -411,10 +547,12 @@ class Combat {
       let died: Side | null = null;
       switch (e.type) {
         case 'attack':
-          if (this.attack(source, other, e.damage + (card?.damageBonus ?? 0), attackHits(e, x))) return other;
+          died = this.attack(source, other, e.damage + (card?.damageBonus ?? 0), attackHits(e, x));
           break;
         case 'gainBlock': {
-          const amt = blockGain(e.amount, self.debuffs.frail);
+          // #109: Block from a card gets Dexterity and Fasten; other Block (enemy moves, triggers) does not.
+          const amt =
+            source === 'player' && card ? this.cardBlock(e.amount, card) : blockGain(e.amount, self.debuffs.frail);
           self.block += amt;
           log?.push({ t: 'block', side: source, amount: amt, total: self.block });
           break;
@@ -457,7 +595,7 @@ class Combat {
           this.drawUntil(e.stopOn);
           break;
         case 'applyPower':
-          if (source !== 'player' || e.power !== 'noDraw') {
+          if (source !== 'player' || !SIMULATED_POWER_IDS.includes(e.power)) {
             throw new Error(`Effect "applyPower" is not simulated yet (power "${e.power}")`);
           }
           this.applyPower(e.power, e.amount);
@@ -509,7 +647,7 @@ class Combat {
    * #108: move one card (already out of its pile) to the exhaust pile, count it, then run its
    * "when exhausted" triggers (Drum of Battle). Returns the side that died, if one did.
    */
-  private exhaustCard(card: CardInstance, reason: 'ethereal' | 'keyword' | 'effect'): Side | null {
+  private exhaustCard(card: CardInstance, reason: 'ethereal' | 'keyword' | 'effect' | 'power'): Side | null {
     const { player, counters } = this;
     player.exhaustPile.push(card);
     this.log?.push({ t: 'exhaust', uid: card.uid, cardId: card.cardId, reason });
@@ -608,7 +746,7 @@ class Combat {
   private fiendFire(perCard: number): Side | null {
     const { count, died } = this.exhaustAll('hand', [...this.player.hand]);
     if (died) return died;
-    return count > 0 && this.attack('player', 'enemy', perCard, count) ? 'enemy' : null;
+    return count > 0 ? this.attack('player', 'enemy', perCard, count) : null;
   }
 
   /**
@@ -643,11 +781,37 @@ class Combat {
     c.hpLossesThisCombat++;
   }
 
-  /** #107: gain a player power (stacks add). Only `noDraw` is simulated so far. */
-  private applyPower(power: 'noDraw', amount: number): void {
+  /**
+   * #107/#109: change a player power by `amount` (stacks add; negative reduces). A power that
+   * reaches 0 is removed (powerRemoved). Corruption and Curious change card costs at once.
+   */
+  private applyPower(power: PowerId, amount: number): void {
     const powers = (this.player.powers ??= {});
-    powers[power] = (powers[power] ?? 0) + amount;
-    this.log?.push({ t: 'powerApplied', side: 'player', power, amount, total: powers[power] });
+    const total = (powers[power] ?? 0) + amount;
+    if (total <= 0) {
+      delete powers[power];
+      this.log?.push({ t: 'powerRemoved', side: 'player', power });
+      return;
+    }
+    powers[power] = total;
+    this.log?.push({ t: 'powerApplied', side: 'player', power, amount, total });
+    if (power === 'corruption' || power === 'powersCostLess') this.applyCostPower(power, amount);
+  }
+
+  /**
+   * #109: Corruption sets every Skill's cost to 0; Curious lowers every Power's cost by `amount`
+   * (minimum 0). Applied to the card instances in every pile, for the rest of combat, so
+   * strategies and isPlayable see the new cost. X-cost and unplayable cards are unchanged.
+   */
+  private applyCostPower(power: 'corruption' | 'powersCostLess', amount: number): void {
+    const p = this.player;
+    for (const pile of [p.hand, p.drawPile, p.discardPile, p.exhaustPile]) {
+      for (const c of pile) {
+        if (c.cost === null || c.xCost) continue;
+        if (power === 'corruption' && c.type === 'skill') c.cost = 0;
+        if (power === 'powersCostLess' && c.type === 'power') c.cost = Math.max(0, c.cost - amount);
+      }
+    }
   }
 
   /** #107: true while Battle Trance's no-draw is active; it blocks every draw from any source. */
@@ -676,11 +840,17 @@ class Combat {
     }
   }
 
-  /** Deal one attack effect, hit by hit (Block absorbs hits in order). Returns true if the target died. */
-  private attack(source: Side, target: Side, damage: number, hits: number): boolean {
+  /**
+   * Deal one attack effect, hit by hit (Block absorbs hits in order). The player's attacks add
+   * Vigor to the base (#109) and Cruelty to Vulnerable. After each enemy hit on the player
+   * (blocked or not) Thorns deals its damage back (#109). Returns the side that died, if one did.
+   */
+  private attack(source: Side, target: Side, damage: number, hits: number): Side | null {
     const a = this.fighter(source);
     const t = this.fighter(target);
-    const perHit = attackDamage(damage, a.strength, a.debuffs.weak, t.debuffs.vulnerable);
+    const base = damage + (source === 'player' ? this.activeVigor : 0);
+    const cruelty = target === 'enemy' ? this.power('cruelty') : 0;
+    const perHit = attackDamage(base, a.strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty);
     for (let h = 0; h < hits; h++) {
       const blocked = Math.min(t.block, perHit);
       t.block -= blocked;
@@ -688,9 +858,11 @@ class Combat {
       t.hp -= hpLoss;
       this.log?.push({ t: 'damage', source, target, amount: perHit, blocked, hpLoss });
       if (target === 'player') this.recordHpLoss(hpLoss);
-      if (t.hp <= 0) return true;
+      if (t.hp <= 0) return target;
+      const thorns = target === 'player' ? this.power('thorns') : 0;
+      if (thorns > 0 && this.powerDamage(thorns)) return source;
     }
-    return false;
+    return null;
   }
 
   private applyDebuff(side: Side, kind: DebuffKind, amount: number): void {

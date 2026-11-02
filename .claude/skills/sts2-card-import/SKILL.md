@@ -66,9 +66,24 @@ skeleton script skips them, and the validator rejects any card that uses a reser
 | Exhaust your Hand. Deal N damage for each card Exhausted. (Fiend Fire) | `{ "type": "script", "id": "fiendFire", "values": [N] }` |
 | Exhaust a random Attack in your Hand and add its damage to this card. (Thrash) | `{ "type": "script", "id": "thrash" }` (after the card's `attack`) |
 | When this card is Exhausted, gain N [E]. (Drum of Battle) | card field `"triggers": [{ "when": "exhausted", "effects": [{ "type": "gainEnergy", "amount": N }] }]`; an upgraded value goes in `upgraded.triggers` |
+| (Power) At the start of your turn, gain N Strength. (Demon Form; #109) | `{ "type": "applyPower", "power": "demonForm", "amount": N }` |
+| (Power) Gain [E] / N [E] at the start of each turn. (Pyre) | `{ "type": "applyPower", "power": "energyPerTurn", "amount": N }` |
+| (Power) At the start of your turn, deal N damage to ALL enemies and increase this damage by 5. (Rolling Boulder) | `{ "type": "applyPower", "power": "rollingBoulder", "amount": N }` |
+| (Power) At the start of your turn, lose 1 HP and gain N Block. (Crimson Mantle) | `{ "type": "applyPower", "power": "crimsonMantle", "amount": N }` |
+| Gain N Plating. | `{ "type": "applyPower", "power": "plating", "amount": N }` |
+| (Power) Block is not removed at the start of your turn. (Barricade) | `{ "type": "applyPower", "power": "barricade", "amount": 1 }` |
+| (Power) Vulnerable enemies take an additional N% damage. (Cruelty) | `{ "type": "applyPower", "power": "cruelty", "amount": N }` |
+| Gain N Dexterity. | `{ "type": "applyPower", "power": "dexterity", "amount": N }` |
+| (Power) Gain an additional N Block from Defend cards. (Fasten) | `{ "type": "applyPower", "power": "fasten", "amount": N }` |
+| (Power) Whenever you are attacked, deal N damage back. (Caltrops) | `{ "type": "applyPower", "power": "thorns", "amount": N }` |
+| (Power) At the start of your turn, gain N Vigor. (Prep Time) | `{ "type": "applyPower", "power": "vigorPerTurn", "amount": N }` |
+| Gain N Vigor. | `{ "type": "applyPower", "power": "vigor", "amount": N }` |
+| (Power) Powers cost N [E] less. (Mad Science: Curious) | `{ "type": "applyPower", "power": "powersCostLess", "amount": N }` |
+| (Power) At the end of combat, Upgrade a random card. (Mad Science: Improvement) | `{ "type": "applyPower", "power": "upgradeAtCombatEnd", "amount": 1 }` |
+| (Power) Skills cost 0 [E]. Whenever you play a Skill, Exhaust it. (Corruption) | `{ "type": "applyPower", "power": "corruption", "amount": 1 }` |
 
 `gainEnergy` is only for energy gained right now ("When this card is Exhausted, gain [E]" is a
-`triggers` entry, above). "Next turn, gain [E]", "Gain [E] at the start of each turn", conditional gains and
+`triggers` entry, above; "Gain [E] at the start of each turn" is the Pyre power row). "Next turn, gain [E]", conditional gains and
 "Another player gains [E]" have no effect object.
 
 X is all the energy available when the card is played (the card spends all of it).
@@ -87,9 +102,13 @@ Effects go in card-text order. Damage/Block numbers are the printed base values
 FULL upgraded list in `upgraded.effects` (it replaces the base list). If only the cost or
 keywords change, leave `upgraded.effects` out.
 
+A Power card's "Gain N Strength." (Inflame) is the plain `gainStrength` row. The `applyPower` rows
+are the #109 simple powers; other powers ("this turn" powers, "Whenever you …" trigger powers such as
+Rupture, Feel No Pain, Juggernaut) have no effect object yet.
+
 Anything not in the table (discard, delayed or conditional energy gain, conditional draw, Doom, Orbs,
 Summon, Forge, "this turn" Strength, conditions, X-cost scaling other than "X times" attacks, "for each",
-creating cards, powers, multiplayer, Poison that is conditional, scaling,
+creating cards, other powers, multiplayer, Poison that is conditional, scaling,
 or random-target Poison/debuffs, …) has no effect object. Record the parts
 you CAN express, in order, and skip the rest.
 
@@ -97,7 +116,7 @@ you CAN express, in order, and skip the rest.
 
 Set `"simulated": true` only when ALL of these hold, for base AND upgraded versions:
 1. Every sentence of the text is captured by the effects/keywords above.
-1a. `repeat` only as "for each card Exhausted" (`per: "lastEffectCount"`), `script` only
+1a. `applyPower` only with the powers in the table (`noDraw` and the #109 simple powers). `repeat` only as "for each card Exhausted" (`per: "lastEffectCount"`), `script` only
    `fiendFire` / `thrash`, `triggers` only `"when": "exhausted"`. Other uses of `conditional`,
    `attackFrom`, `repeat` or triggers (Evil Eye, Ashen Strike, Pact's End, Howl from Beyond)
    are recorded with `simulated: false`.
@@ -105,7 +124,8 @@ Set `"simulated": true` only when ALL of these hold, for base AND upgraded versi
    (`sly` is recorded only, not simulated).
 3. No `gainStars` effect, no `starCost`, not `xStarCost`. An `xCost` card qualifies only
    when every X in its text (base and upgraded) is an "X times" attack (`xTimes`).
-4. Type is attack or skill (powers, statuses with end-of-turn effects, quests → false).
+4. Type is attack, skill or power (#109: a Power whose every line is in the table, e.g.
+   Inflame, Demon Form, Stone Armor; statuses with end-of-turn effects and quests → false).
    Exception: a status/curse whose whole text is keywords (e.g. `Unplayable. Ethereal.`)
    can be `true`.
 Otherwise `false`. When unsure, `false` — and add a question (below).
