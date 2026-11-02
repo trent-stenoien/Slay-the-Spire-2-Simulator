@@ -7,7 +7,7 @@ import { FeedbackDialog } from './components/FeedbackDialog';
 import { ResultsPanel, type RunStatus } from './components/ResultsPanel';
 import { SetupPanel } from './components/SetupPanel';
 import { StrategyPanel } from './components/StrategyPanel';
-import { deckSize, startingDeckFor } from './lib/deck';
+import { deckPowerNames, deckSize, startingDeckFor } from './lib/deck';
 import { setupHref } from './lib/links';
 import { buildQuery, parseQuery, type SetupState } from './lib/url';
 import { runSimulation } from './sim/runSimulation';
@@ -144,6 +144,7 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
             library={strategies.library}
             selection={strategies.selection}
             storageOk={strategies.storageOk}
+            powerNames={deckPowerNames(data, setup.deck)}
             onToggle={strategies.toggle}
             onColor={strategies.color}
             onAdd={strategies.add}

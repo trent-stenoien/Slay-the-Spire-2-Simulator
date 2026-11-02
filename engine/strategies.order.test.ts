@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeCardInstance, simulateCombat } from './combat';
 import { cfg, deckOf, dummyData, events } from './combatTestHelpers';
-import { blockFirstConfig, createStrategy, drawGoesFirst, GREEDY_CONFIG, isBaseCard, pickPower } from './strategies';
+import { blockFirstConfig, cannotFillTopGroup, createStrategy, GREEDY_CONFIG, pickPower } from './strategies';
 import { cards } from './testFixtures';
 import type { CardDef, CardInstance, CombatState, StrategyConfig, StrategyGroup, StrategyView } from './types';
 
@@ -96,6 +96,28 @@ const extra: Record<string, CardDef> = {
     name: 'Fuel',
     cost: 0,
     effects: [{ type: 'gainEnergy', amount: 1 }],
+    upgraded: null,
+  },
+  /** A 1-cost pure draw card (Master of Strategy's cost is 0 here, so this stands in for a 1-cost one). */
+  scry: {
+    ...cards.defend!,
+    id: 'scry',
+    code: 'Sc',
+    name: 'Scry',
+    cost: 1,
+    effects: [{ type: 'draw', amount: 2 }],
+    upgraded: null,
+  },
+  trance: {
+    ...cards.defend!,
+    id: 'trance',
+    code: 'Bt',
+    name: 'Trance',
+    cost: 0,
+    effects: [
+      { type: 'draw', amount: 3 },
+      { type: 'applyPower', power: 'noDraw', amount: 1 },
+    ],
     upgraded: null,
   },
   tremble: {
@@ -293,82 +315,141 @@ describe('#130 Powers group', () => {
   });
 });
 
-describe('#130 draw rule: draw goes to the top only when non-base cards can’t use all the energy', () => {
+describe('#132 draw rule', () => {
   const scared = blockFirstConfig(0);
+  const bashFirst = GREEDY_CONFIG;
 
-  it('base cards are Strike and Defend only', () => {
-    expect(isBaseCard(card(S))).toBe(true);
-    expect(isBaseCard(card(D))).toBe(true);
-    expect(isBaseCard(card('pommel'))).toBe(false);
-    expect(isBaseCard(card('bash'))).toBe(false);
+  it('0-cost draw cards are always played first, before blocking or attacking', () => {
+    const hand = [card(D), card(D), card(S), card('soul')];
+    expect(playTurn(scared, hand, 20)[0]).toBe('soul');
+    expect(playTurn(bashFirst, [card(S), card('soul')], 0)[0]).toBe('soul');
+    expect(playTurn(config(order('powers', 'attack', 'block')), [card(P), card('soul')], 0)[0]).toBe('soul');
   });
 
-  it('with only Strikes and Defends besides the draw card, draw goes first, even before blocking', () => {
-    const hand = [card(D), card(D), card(S), card('pommel'), card(S)];
-    expect(playTurn(scared, hand, 20)[0]).toBe('pommel');
-    expect(playTurn(scared, [card(D), card('shrug'), card(S), card(S)], 0)[0]).toBe('shrug');
+  it('a 0-cost card that also blocks or attacks counts, but only when it draws', () => {
+    const free = (id: string, effects: CardDef['effects']) => {
+      extra[id] = { ...cards.defend!, id, code: id, name: id, cost: 0, effects, upgraded: null };
+      return card(id);
+    };
+    const drawBlock = () =>
+      free('freeShrug', [
+        { type: 'gainBlock', amount: 3 },
+        { type: 'draw', amount: 1 },
+      ]);
+    const plainBlock = () => free('freeBlock', [{ type: 'gainBlock', amount: 3 }]);
+    expect(playTurn(bashFirst, [card(S), drawBlock()], 0)[0]).toBe('freeShrug');
+    expect(playTurn(bashFirst, [card(S), plainBlock()], 0)[0]).toBe(S);
   });
 
-  it('when the non-base cards can use all the energy, draw cards are ranked within their group', () => {
-    // Heavy (3) uses all 3 energy: Scared Block blocks first; Pommel waits its turn in Attack.
-    const hand = [card(D), card(D), card('heavy'), card('pommel'), card(S)];
-    expect(playTurn(scared, hand, 20)[0]).toBe(D);
-    // Shrug is still the best block card in the Block group (8 > 5).
-    const blocks = [card(D), card('shrug'), card('heavy'), card(S)];
-    expect(playTurn(scared, blocks, 20)[0]).toBe('shrug');
+  it('Battle Trance goes after every other draw card, even a 0-cost one', () => {
+    expect(playTurn(bashFirst, [card(S), card('trance'), card('soul')], 0).slice(0, 2)).toEqual(['soul', 'trance']);
   });
 
-  it('a pure draw card waits until the groups are done when the non-base cards can use the energy', () => {
-    expect(playTurn(GREEDY_CONFIG, [card('soul'), card('heavy'), card(S)], 0)).toEqual(['heavy', 'soul']);
-    // Without Heavy, the non-base cards can't use the energy: Soul first.
-    expect(playTurn(GREEDY_CONFIG, [card('soul'), card(S), card(S)], 0)).toEqual(['soul', S, S]);
+  it('never draws when nothing can be drawn', () => {
+    expect(playTurn(scared, [card(D), card('soul')], 20, { drawPile: 0 })[0]).toBe(D);
   });
 
-  it('an X-cost non-base card can use any energy; a net-energy card does not count', () => {
-    const withX = [card(D), card('xattack'), card('pommel'), card(S)];
-    expect(playTurn(scared, withX, 20)[0]).toBe(D);
-    // Fuel nets energy, so only Strikes/Defends are left to use it: Fuel (energy rule), then Pommel.
-    const withFuel = [card(D), card('fuel'), card('pommel'), card(S), card(D)];
-    expect(playTurn(scared, withFuel, 20).slice(0, 2)).toEqual(['fuel', 'pommel']);
+  describe('1-cost pure draw cards play first only when the top group cannot be filled', () => {
+    it('Block first: the block cards in hand cannot reach the allow-X target', () => {
+      // 20 incoming, allow 0: Defend (5) x2 with 3 energy reaches only 10 → draw first.
+      expect(playTurn(scared, [card(D), card(D), card('scry'), card(S)], 20)[0]).toBe('scry');
+      // Allow 12 → 10 block leaves 10 through, within the allowance: no draw first.
+      const roomy = blockFirstConfig(12);
+      expect(playTurn(roomy, [card(D), card(D), card('scry'), card(S)], 20)[0]).toBe(D);
+    });
+
+    it('Block first: enough block cards to reach the target means the draw card waits', () => {
+      // Three Defends (15) cover 15 incoming with 3 energy.
+      const hand = [card(D), card(D), card(D), card('scry')];
+      expect(playTurn(scared, hand, 15)[0]).toBe(D);
+      // Nothing incoming: the group is already filled.
+      expect(playTurn(scared, [card('scry'), card(S)], 0)[0]).toBe(S);
+    });
+
+    it('Block first: the target counts only what the energy can pay for', () => {
+      // Heavy block card costs 3 energy, but with 2 energy it can't be played: draw.
+      extra.wall = {
+        ...cards.defend!,
+        id: 'wall',
+        code: 'Wl',
+        name: 'Wall',
+        cost: 3,
+        effects: [{ type: 'gainBlock', amount: 30 }],
+        upgraded: null,
+      };
+      expect(playTurn(scared, [card('wall'), card('scry'), card(S)], 20, { energy: 2 })[0]).toBe('scry');
+      expect(playTurn(scared, [card('wall'), card('scry'), card(S)], 20, { energy: 3 })[0]).toBe('wall');
+    });
+
+    it('Attack first: no attack card to play', () => {
+      expect(playTurn(bashFirst, [card('scry'), card(D), card(D)], 0)[0]).toBe('scry');
+      expect(playTurn(bashFirst, [card('scry'), card(S), card(D)], 0)[0]).toBe(S);
+      // An attack that costs more than the energy left doesn't count.
+      expect(playTurn(bashFirst, [card('scry'), card('heavy')], 0, { energy: 2 })[0]).toBe('scry');
+    });
+
+    it('Powers first: no affordable Power', () => {
+      const powersFirst = config(order('powers', 'attack', 'block'));
+      expect(playTurn(powersFirst, [card('scry'), card(S)], 0)[0]).toBe('scry');
+      expect(playTurn(powersFirst, [card('scry'), card(S), card(P)], 0)[0]).toBe(P);
+    });
+
+    it('after the draw card the turn is re-planned with the new hand', () => {
+      expect(playTurn(bashFirst, [card('scry'), card(D)], 0, { energy: 3 })).toEqual(['scry', D, D].slice(0, 2));
+    });
+
+    it('when it is not needed first, a pure draw card plays after the groups and before leftover block', () => {
+      // Attack first with a Strike: Strike, then Scry (groups done), then leftover block.
+      expect(playTurn(bashFirst, [card('scry'), card(S), card(D)], 0, { energy: 3 })).toEqual([S, 'scry', D]);
+    });
+
+    it('does not play when nothing can be drawn', () => {
+      expect(playTurn(bashFirst, [card('scry'), card(D)], 0, { drawPile: 0 })).toEqual([D]);
+    });
   });
 
-  it('never goes first when nothing can be drawn', () => {
-    const hand = [card(D), card(D), card(S), card('pommel'), card(S)];
-    expect(playTurn(scared, hand, 20, { drawPile: 0 })[0]).toBe(D);
+  it('draw cards that also attack or block stay ranked within their group', () => {
+    // Block first: Shrug (8) is the best block card; Pommel (9) waits for the Attack group.
+    expect(playTurn(scared, [card(D), card('shrug'), card('pommel')], 20)[0]).toBe('shrug');
+    // Attack first: Pommel beats Strike.
+    expect(playTurn(bashFirst, [card(S), card('pommel')], 0)[0]).toBe('pommel');
   });
 
-  it('drawGoesFirst compares the non-base, non-draw costs with the energy', () => {
-    const state = (hand: CardInstance[], energy: number) =>
-      ({
-        turn: 1,
-        player: {
-          hp: 80,
-          maxHp: 80,
-          block: 0,
-          energy,
-          strength: 0,
-          debuffs: { vulnerable: 0, weak: 0, frail: 0 },
-          drawPile: [card(S)],
-          hand,
-          discardPile: [],
-          exhaustPile: [],
-        },
-        enemy: {
-          enemyId: 'x',
-          name: 'x',
-          hp: 1,
-          maxHp: 1,
-          block: 0,
-          strength: 0,
-          debuffs: { vulnerable: 0, weak: 0, frail: 0 },
-          poison: 0,
-          patternIndex: 0,
-        },
-      }) satisfies CombatState;
-    const bash = () => card('bash'); // 2 energy
-    expect(drawGoesFirst(viewOf(state([card('pommel'), bash(), card(S)], 3), 0))).toBe(true);
-    expect(drawGoesFirst(viewOf(state([card('pommel'), bash(), card(P)], 3), 0))).toBe(false);
-    expect(drawGoesFirst(viewOf(state([card('pommel'), bash()], 2), 0))).toBe(false);
-    expect(drawGoesFirst(viewOf(state([card('pommel')], 0), 0))).toBe(false);
+  it('cannotFillTopGroup reads the top group and the energy', () => {
+    const view = (hand: CardInstance[], energy: number, incoming = 0) =>
+      viewOf(
+        {
+          turn: 1,
+          player: {
+            hp: 80,
+            maxHp: 80,
+            block: 0,
+            energy,
+            strength: 0,
+            debuffs: { vulnerable: 0, weak: 0, frail: 0 },
+            drawPile: [card(S)],
+            hand,
+            discardPile: [],
+            exhaustPile: [],
+          },
+          enemy: {
+            enemyId: 'x',
+            name: 'x',
+            hp: 1,
+            maxHp: 1,
+            block: 0,
+            strength: 0,
+            debuffs: { vulnerable: 0, weak: 0, frail: 0 },
+            poison: 0,
+            patternIndex: 0,
+          },
+        } satisfies CombatState,
+        incoming,
+      );
+    expect(cannotFillTopGroup(view([card(D)], 3), GREEDY_CONFIG)).toBe(true);
+    expect(cannotFillTopGroup(view([card(S)], 3), GREEDY_CONFIG)).toBe(false);
+    expect(cannotFillTopGroup(view([card(D)], 3, 5), scared)).toBe(false);
+    expect(cannotFillTopGroup(view([card(D)], 3, 20), scared)).toBe(true);
+    expect(cannotFillTopGroup(view([card('xattack')], 0), GREEDY_CONFIG)).toBe(true);
   });
 });

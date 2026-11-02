@@ -8,6 +8,7 @@ import {
   copiesOf,
   costColorKey,
   deckPool,
+  deckPowerNames,
   deckSize,
   filteredPool,
   foldersForFilter,
@@ -279,5 +280,35 @@ describe('foldersForFilter', () => {
       .filter((g) => g.cards.length > (without.find((w) => w.key === g.key)?.cards.length ?? 0))
       .map((g) => g.key);
     expect([...folders].sort()).toEqual(gained.sort());
+  });
+});
+
+describe('deckPowerNames (#132)', () => {
+  const power = Object.values(gameData.cards).filter((c) => c.type === 'power');
+  const [a, b] = power;
+
+  it('is empty for a deck without Powers', () => {
+    expect(deckPowerNames(gameData, deck)).toEqual([]);
+  });
+
+  it('lists each Power once, whether upgraded, standard or both, in first-seen order', () => {
+    expect(a && b).toBeTruthy();
+    const d: Deck = [
+      ...deck,
+      { cardId: b!.id, upgraded: true, count: 1 },
+      { cardId: a!.id, upgraded: false, count: 2 },
+      { cardId: b!.id, upgraded: false, count: 1 },
+      { cardId: a!.id, upgraded: true, count: 1 },
+    ];
+    expect(deckPowerNames(gameData, d)).toEqual([b!.name, a!.name]);
+  });
+
+  it('ignores unknown cards and zero-count entries', () => {
+    expect(
+      deckPowerNames(gameData, [
+        { cardId: 'nope', upgraded: false, count: 1 },
+        { cardId: a!.id, upgraded: false, count: 0 },
+      ]),
+    ).toEqual([]);
   });
 });

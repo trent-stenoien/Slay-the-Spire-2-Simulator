@@ -212,3 +212,16 @@ export function costColorKey(card: CardDef, characterId: string, data: GameData)
   const code = card.character === 'shared' ? data.characters[characterId]?.code : card.character;
   return (code && CODE_COLOR_KEY[code]) || 'colorless';
 }
+
+/**
+ * #132: names of the Power cards in the deck, each once (upgraded and standard copies share a
+ * name), in the order they first appear.
+ */
+export function deckPowerNames(data: GameData, deck: Deck): string[] {
+  const names: string[] = [];
+  for (const e of deck) {
+    const card = data.cards[e.cardId];
+    if (e.count > 0 && card?.type === 'power' && !names.includes(card.name)) names.push(card.name);
+  }
+  return names;
+}

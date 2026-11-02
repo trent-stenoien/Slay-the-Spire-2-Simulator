@@ -1355,6 +1355,11 @@ textarea {
   font-size: 0.78rem;
   color: var(--muted);
 }
+.order-hint-powers {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .order-allow {
   flex: 1 1 8em;
   display: flex;

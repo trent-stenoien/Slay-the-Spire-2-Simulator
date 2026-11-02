@@ -15,6 +15,8 @@ interface Props {
   library: SavedStrategy[];
   selection: Selection[];
   storageOk: boolean;
+  /** #132: names of the Power cards in the current deck (see deckPowerNames), each once. */
+  powerNames: readonly string[];
   onToggle: (id: string) => void;
   onColor: (id: string, color: StrategyColor) => void;
   onAdd: (name: string, config: StrategyConfig) => void;
@@ -51,7 +53,7 @@ export function StrategyPanel(props: Props) {
           <StrategyRow key={s.id} {...props} s={s} sel={selection.find((x) => x.strategyId === s.id)} full={full} />
         ))}
       </ul>
-      <NewStrategyForm library={library} onAdd={props.onAdd} />
+      <NewStrategyForm library={library} powerNames={props.powerNames} onAdd={props.onAdd} />
     </Panel>
   );
 }
@@ -74,6 +76,7 @@ function PriorityChips({ config }: { config: StrategyConfig }) {
 
 function StrategyRow({
   library,
+  powerNames,
   s,
   sel,
   selection,
@@ -145,7 +148,13 @@ function StrategyRow({
         </div>
       )}
       {editing && !builtIn && (
-        <StrategyEditor library={library} s={s} onRename={onRename} onConfig={(c) => onConfig(s.id, c)} />
+        <StrategyEditor
+          library={library}
+          powerNames={powerNames}
+          s={s}
+          onRename={onRename}
+          onConfig={(c) => onConfig(s.id, c)}
+        />
       )}
     </li>
   );
@@ -154,11 +163,13 @@ function StrategyRow({
 /** Edit form for a saved strategy: title (saved on blur) and its priority order (saved when valid). */
 function StrategyEditor({
   library,
+  powerNames,
   s,
   onRename,
   onConfig,
 }: {
   library: SavedStrategy[];
+  powerNames: readonly string[];
   s: SavedStrategy;
   onRename: (id: string, name: string) => void;
   onConfig: (config: StrategyConfig) => void;
@@ -180,7 +191,7 @@ function StrategyEditor({
         <span>Title</span>
         <input defaultValue={s.name} onBlur={(e) => onRename(s.id, e.target.value)} maxLength={40} />
       </label>
-      <OrderEditor draft={draft} onChange={change} label={`Priority for ${s.name}`} />
+      <OrderEditor draft={draft} powerNames={powerNames} onChange={change} label={`Priority for ${s.name}`} />
       {config === null && <small className="warn">Allowance must be a whole number, 0 or more.</small>}
       {problem && <small className="warn">{problem} Change the order or allowance; this edit isn&apos;t saved.</small>}
     </div>
@@ -209,16 +220,38 @@ function moved<T>(list: readonly T[], from: number, to: number): T[] {
 
 const GROUP_HINT: Record<StrategyGroup, string> = {
   attack: 'Tremble, Bash, then highest damage',
-  powers: 'Inflame, Demon Form, …',
+  powers: '',
   block: 'Spends leftover energy',
 };
+
+/** #132: the hint for a row; Powers lists the Powers in the deck (one line, cut with an ellipsis). */
+function GroupHint({ group, powerNames }: { group: StrategyGroup; powerNames: readonly string[] }) {
+  if (group !== 'powers') return <span className="order-hint">{GROUP_HINT[group]}</span>;
+  if (powerNames.length === 0) return <span className="order-hint muted">No Powers in deck</span>;
+  const list = powerNames.join(', ');
+  return (
+    <span className="order-hint order-hint-powers" title={list}>
+      {list}
+    </span>
+  );
+}
 
 /**
  * #130: reorderable priority list (top = played first). Rows move by drag and drop on the
  * handle, the up/down buttons, or ArrowUp/ArrowDown on the focused handle. The Block row
  * holds the allowance unless it is last.
  */
-function OrderEditor({ draft, onChange, label }: { draft: Draft; onChange: (d: Draft) => void; label: string }) {
+function OrderEditor({
+  draft,
+  powerNames,
+  onChange,
+  label,
+}: {
+  draft: Draft;
+  powerNames: readonly string[];
+  onChange: (d: Draft) => void;
+  label: string;
+}) {
   const { order } = draft;
   const [dragging, setDragging] = useState<number | null>(null);
   const [announce, setAnnounce] = useState('');
@@ -318,7 +351,7 @@ function OrderEditor({ draft, onChange, label }: { draft: Draft; onChange: (d: D
                 <span>dmg</span>
               </label>
             ) : (
-              <span className="order-hint">{GROUP_HINT[g]}</span>
+              <GroupHint group={g} powerNames={powerNames} />
             )}
             <span className="order-arrows">
               <button
@@ -404,9 +437,11 @@ const NEW_DRAFT: Draft = { order: ['block', 'powers', 'attack'], allow: '5' };
 
 function NewStrategyForm({
   library,
+  powerNames,
   onAdd,
 }: {
   library: SavedStrategy[];
+  powerNames: readonly string[];
   onAdd: (name: string, config: StrategyConfig) => void;
 }) {
   const [name, setName] = useState('');
@@ -433,7 +468,7 @@ function NewStrategyForm({
           onChange={(e) => setName(e.target.value)}
         />
       </label>
-      <OrderEditor draft={draft} onChange={setDraft} label="Priority for the new strategy" />
+      <OrderEditor draft={draft} powerNames={powerNames} onChange={setDraft} label="Priority for the new strategy" />
       {config === null && <small className="warn">Allowance must be a whole number, 0 or more.</small>}
       {problem && <small className="warn">{problem}</small>}
       <div className="new-strat-actions">

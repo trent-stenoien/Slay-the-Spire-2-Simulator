@@ -13,13 +13,14 @@ const custom = (n: number) => ({
 });
 const library = (customCount: number) => fullLibrary(Array.from({ length: customCount }, (_, i) => custom(i + 6)));
 
-function render(lib: ReturnType<typeof library>, selectedCount: number): string {
+function render(lib: ReturnType<typeof library>, selectedCount: number, powerNames: string[] = []): string {
   const selection: Selection[] = lib.slice(0, selectedCount).map((s, i) => ({ strategyId: s.id, color: COLORS[i]! }));
   return renderToStaticMarkup(
     <StrategyPanel
       library={lib}
       selection={selection}
       storageOk
+      powerNames={powerNames}
       onToggle={() => {}}
       onColor={() => {}}
       onAdd={() => {}}
@@ -61,5 +62,29 @@ describe('StrategyPanel with a 10-strategy library', () => {
     const full = render(library(8), 1);
     expect(addDisabled(full)).toBe(true);
     expect(full).toContain('at most 10 strategies');
+  });
+});
+
+describe('#132 Powers row hint', () => {
+  const powersHints = (html: string) => [
+    ...html.matchAll(/<span class="order-hint( order-hint-powers| muted)"( title="[^"]*")?>([^<]*)<\/span>/g),
+  ];
+
+  it('lists the Powers in the deck, comma separated, with the full list as the tooltip', () => {
+    const html = render(library(0), 0, ['Inflame', 'Demon Form']);
+    const found = powersHints(html);
+    expect(found).toHaveLength(1);
+    expect(found[0]![3]).toBe('Inflame, Demon Form');
+    expect(found[0]![2]).toBe(' title="Inflame, Demon Form"');
+    expect(found[0]![1]).toBe(' order-hint-powers');
+    expect(html).not.toContain('No Powers in deck');
+    expect(html).not.toContain('Inflame, Demon Form, …');
+  });
+
+  it('shows a muted note when the deck has no Powers', () => {
+    const found = powersHints(render(library(0), 0, []));
+    expect(found).toHaveLength(1);
+    expect(found[0]![1]).toBe(' muted');
+    expect(found[0]![3]).toBe('No Powers in deck');
   });
 });

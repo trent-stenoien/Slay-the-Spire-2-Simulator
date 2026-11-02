@@ -79,10 +79,14 @@ const extra: Record<string, CardDef> = {
     triggers: [{ when: 'turnEndInHand', effects: [{ type: 'loseHp', amount: 2 }] }],
   }),
   dazed: skill('dazed', [], { type: 'status', cost: null, keywords: ['unplayable', 'ethereal'] }),
-  shrug: skill('shrug', [
-    { type: 'gainBlock', amount: 8 },
-    { type: 'draw', amount: 1 },
-  ]),
+  shrug: skill(
+    'shrug',
+    [
+      { type: 'gainBlock', amount: 8 },
+      { type: 'draw', amount: 1 },
+    ],
+    { cost: 1 },
+  ),
   twin: { ...cards.strike!, id: 'twin', effects: [{ type: 'attack', damage: 5, hits: 2 }], upgraded: null },
   /** A block-only card better than a Defend (12 Block). */
   wall: skill('wall', [{ type: 'gainBlock', amount: 12 }], { cost: 1 }),
@@ -324,7 +328,7 @@ describe('#129 Fiend Fire', () => {
   });
 
   it('greedy plays draw cards first (they grow the hand it exhausts); other orders do not wait', () => {
-    // Fiend Fire 2 + Twin 1 use all 3 energy, so the #130 draw rule doesn't move Shrug to the top.
+    // Shrug costs 1 here (a 0-cost draw card would always go first, #132).
     const hand = () => [card('fiend'), card('shrug'), card('twin'), card('strike'), card('dazed')];
     const h1 = hand();
     expect(greedy.decide(viewOf(h1, 3))).toEqual(playsCard(h1[1]!));

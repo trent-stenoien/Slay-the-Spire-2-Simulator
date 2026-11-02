@@ -63,6 +63,7 @@ describe('Panel', () => {
         library={[...DEFAULT_STRATEGIES, custom]}
         selection={[]}
         storageOk
+        powerNames={[]}
         onToggle={() => {}}
         onColor={() => {}}
         onAdd={() => {}}
