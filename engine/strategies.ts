@@ -501,11 +501,6 @@ export function pickPower(playable: readonly Card[], energy = 0): Card | undefin
   return best(powers, (c) => [notXCost(c), powerValue(c), -(c.cost ?? 0)]);
 }
 
-/** #130: a base card (named Strike or Defend, upgraded or not). */
-export function isBaseCard(card: Card): boolean {
-  return card.cardId === 'strike' || card.cardId === 'defend';
-}
-
 /**
  * #132 (Trent): true when the hand can't fill the strategy's top priority group, so a pure draw
  * card is worth playing first. Attack: no attack (or Tremble) is affordable. Powers: no Power is
@@ -758,6 +753,44 @@ function decide(raw: StrategyView, config: StrategyConfig): Decision {
 }
 
 function decideWith(view: StrategyView, config: StrategyConfig, planning: boolean): Decision {
+  const d = decideCore(view, config, planning);
+  return planning ? d : fiendFireLast(view, config, d);
+}
+
+/** #132 (answers 7, 8): true for Bash, the Vulnerable-applier played before Fiend Fire. */
+function isBash(card: Card): boolean {
+  return card.cardId === 'bash';
+}
+
+/**
+ * #132 (answers 7, 8): once the decision is to play Fiend Fire (and it would not kill), play it
+ * last: Bash first, even when that leaves too little energy for it; then spend the spare energy
+ * (energy beyond its cost) on other plays, draw cards first (they grow the hand it exhausts).
+ * Re-decided after every play, so a draw that changes the hand re-checks the Fiend Fire call.
+ */
+function fiendFireLast(view: StrategyView, config: StrategyConfig, d: Decision): Decision {
+  if (d.kind !== 'play') return d;
+  const fire = view.playable.find((c) => c.uid === d.uid);
+  if (!fire || !isFiendFire(fire) || fiendFireKills(view, fire)) return d;
+  const bash = best(view.playable.filter(isBash), (c) => [-(c.cost ?? 0)]);
+  if (bash) return play(bash);
+  const spare = view.state.player.energy - (fire.cost ?? 0);
+  const fits = (c: Card) => !playsLast(c) && c.cost !== null && (c.xCost ? spare > 0 : c.cost <= spare);
+  const playable = view.playable.filter(fits);
+  if (playable.length === 0) return d;
+  if (canDraw(view)) {
+    const draw = best(
+      playable.filter((c) => isDrawCard(c) && !stopsDrawing(c)),
+      (c) => [isPureDrawCard(c) ? 1 : 0],
+    );
+    if (draw) return play(draw);
+  }
+  const state = { ...view.state, player: { ...view.state.player, energy: spare } };
+  const other = decideCore({ ...view, state, playable }, config, false);
+  return other.kind === 'play' ? other : d;
+}
+
+function decideCore(view: StrategyView, config: StrategyConfig, planning: boolean): Decision {
   if (!planning) {
     const fire = playableFiendFire(view);
     if (fire && fiendFireKills(view, fire)) return play(fire);

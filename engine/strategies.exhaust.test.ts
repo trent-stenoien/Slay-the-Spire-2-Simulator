@@ -87,6 +87,16 @@ const extra: Record<string, CardDef> = {
     ],
     { cost: 1 },
   ),
+  /** Pommel Strike: a 1-cost attack that draws a card. */
+  pommel: {
+    ...cards.strike!,
+    id: 'pommel',
+    effects: [
+      { type: 'attack', damage: 9, hits: 1 },
+      { type: 'draw', amount: 1 },
+    ],
+    upgraded: null,
+  },
   twin: { ...cards.strike!, id: 'twin', effects: [{ type: 'attack', damage: 5, hits: 2 }], upgraded: null },
   /** A block-only card better than a Defend (12 Block). */
   wall: skill('wall', [{ type: 'gainBlock', amount: 12 }], { cost: 1 }),
@@ -300,11 +310,13 @@ describe('#129 Fiend Fire', () => {
 
   it('played when its damage beats the other attacks the energy could buy (4 × 7 = 28 > 2 Strikes)', () => {
     const hand = [card('fiend'), card('strike'), card('strike'), card('defend'), card('defend')];
-    expect(greedy.decide(viewOf(hand, 3))).toEqual(playsCard(hand[0]!));
-    expect(blockDone.decide(viewOf(hand, 3))).toEqual(playsCard(hand[0]!));
+    // Chosen, but played last (#132): with 3 energy the spare 1 goes to a Strike first; with 2 it is Fiend Fire.
+    expect(greedy.decide(viewOf(hand, 3))).toEqual(playsCard(hand[1]!));
+    expect(greedy.decide(viewOf(hand, 2))).toEqual(playsCard(hand[0]!));
+    expect(blockDone.decide(viewOf(hand, 2))).toEqual(playsCard(hand[0]!));
     // Only a Strike else in hand: 2 × 7 = 14 > 6.
     const small = [card('fiend'), card('strike'), card('dazed')];
-    expect(greedy.decide(viewOf(small, 3))).toEqual(playsCard(small[0]!));
+    expect(greedy.decide(viewOf(small, 2))).toEqual(playsCard(small[0]!));
   });
 
   it('not played while the other attacks deal more (3 × 7 = 21 < Twin + Twin + Strike = 26)', () => {
@@ -316,24 +328,71 @@ describe('#129 Fiend Fire', () => {
     expect(greedy.decide(viewOf(poor, 1))).toEqual(playsCard(poor[1]!));
   });
 
-  it('greedy plays Vulnerable-appliers first while Fiend Fire stays affordable; other orders play Fiend Fire first', () => {
+  it('Bash goes before Fiend Fire (greedy, and other orders)', () => {
     const hand = () => [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
     const h1 = hand();
     expect(greedy.decide(viewOf(h1, 4))).toEqual(playsCard(h1[1]!)); // Bash (2) + Fiend Fire (2) = 4
     const h2 = hand();
-    expect(blockDone.decide(viewOf(h2, 4))).toEqual(playsCard(h2[0]!));
-    // 3 energy: Bash would leave too little, so Fiend Fire (28 > Bash 8 + Strike 6).
+    expect(blockDone.decide(viewOf(h2, 4))).toEqual(playsCard(h2[1]!)); // Bash always first (#132)
+    // 3 energy: Bash leaves too little for Fiend Fire, but Bash still goes first (#132, answer 8).
     const h3 = hand();
-    expect(greedy.decide(viewOf(h3, 3))).toEqual(playsCard(h3[0]!));
+    expect(greedy.decide(viewOf(h3, 3))).toEqual(playsCard(h3[1]!));
   });
 
-  it('greedy plays draw cards first (they grow the hand it exhausts); other orders do not wait', () => {
+  it('#132: other orders also play Bash before Fiend Fire, even when Fiend Fire is then unaffordable', () => {
+    const h = [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
+    expect(blockDone.decide(viewOf(h, 3))).toEqual(playsCard(h[1]!));
+  });
+
+  it('#132: Bash does not go first when Fiend Fire would kill (Strength and Vulnerable counted)', () => {
+    const h = [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
+    // 4 × 7 = 28 ≥ 28 HP: lethal, so Fiend Fire right away.
+    expect(greedy.decide(viewOf(h, 3, 0, { hp: 28 }))).toEqual(playsCard(h[0]!));
+    // 29 HP: not lethal, Bash first.
+    const h2 = [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
+    expect(greedy.decide(viewOf(h2, 3, 0, { hp: 29 }))).toEqual(playsCard(h2[1]!));
+    // Vulnerable on the enemy: 4 × 10 = 40 ≥ 40 HP.
+    const h3 = [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
+    expect(greedy.decide(viewOf(h3, 3, 0, { hp: 40, vulnerable: 1 }))).toEqual(playsCard(h3[0]!));
+  });
+
+  it('#132: Cruelty counts in the kill check, so Bash waits', () => {
+    const h = [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
+    const v = viewOf(h, 3, 0, { hp: 36 });
+    // Vulnerable 7 × 1.5 = 10 per hit without Cruelty (still 28 < 36); with Cruelty 2 it is more.
+    expect(greedy.decide(v)).toEqual(playsCard(h[1]!));
+    const h2 = [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
+    const v2 = viewOf(h2, 3, 0, { hp: 36, vulnerable: 1 });
+    (v2.state.player as { powers?: Record<string, number> }).powers = { cruelty: 25 };
+    expect(greedy.decide(v2)).toEqual(playsCard(h2[0]!));
+  });
+
+  it('#132: Fiend Fire is played last: spare energy goes to a draw card first, then Fiend Fire', () => {
+    // 3 energy, Fiend Fire (2) + 3 Strikes + a 1-cost attack that draws: draw card, then Fiend Fire.
+    const hand = () => [card('fiend'), card('strike'), card('strike'), card('strike'), card('pommel')];
+    const h1 = hand();
+    expect(greedy.decide(viewOf(h1, 3))).toEqual(playsCard(h1[4]!));
+    // After the draw (hand grew by a card, energy 2): spare is 0, Fiend Fire.
+    const h2 = [h1[0]!, h1[1]!, h1[2]!, h1[3]!, card('strike')];
+    expect(greedy.decide(viewOf(h2, 2))).toEqual(playsCard(h2[0]!));
+    expect(blockDone.decide(viewOf(h2, 2))).toEqual(playsCard(h2[0]!));
+  });
+
+  it('#132: with spare energy and no draw card, other plays go before Fiend Fire', () => {
+    const h = [card('fiend'), card('strike'), card('strike'), card('defend'), card('defend')];
+    // 3 energy, Fiend Fire 2: 1 spare, spent on a Strike first.
+    expect(greedy.decide(viewOf(h, 3))).toEqual(playsCard(h[1]!));
+    // No spare energy: Fiend Fire.
+    expect(greedy.decide(viewOf(h, 2))).toEqual(playsCard(h[0]!));
+  });
+
+  it('draw cards go before Fiend Fire (they grow the hand it exhausts)', () => {
     // Shrug costs 1 here (a 0-cost draw card would always go first, #132).
     const hand = () => [card('fiend'), card('shrug'), card('twin'), card('strike'), card('dazed')];
     const h1 = hand();
     expect(greedy.decide(viewOf(h1, 3))).toEqual(playsCard(h1[1]!));
     const h2 = hand();
-    expect(blockDone.decide(viewOf(h2, 3))).toEqual(playsCard(h2[0]!));
+    expect(blockDone.decide(viewOf(h2, 3))).toEqual(playsCard(h2[1]!)); // spare energy: the draw card goes first anyway (#132)
   });
 
   it('not played when the hand has nothing else to exhaust', () => {
@@ -350,6 +409,7 @@ describe('#129 Fiend Fire', () => {
     const v2 = viewOf(many, 3);
     (v2.state.player as { strength: number }).strength = 3;
     // (7 + 3) × 4 = 40 > Strike 9.
+    (v2.state.player as { energy: number }).energy = 2;
     expect(greedy.decide(v2)).toEqual(playsCard(many[0]!));
   });
 });
