@@ -1,7 +1,18 @@
-/** #108 strategy rules: exhaust order, Purity's limits, Brand / Burning Pact early, Second Wind / Fiend Fire last. */
+/** #108 / #129 strategy rules: exhaust order, Purity's limits, Brand / Burning Pact early, Second Wind / Fiend Fire placement. */
 import { describe, expect, it } from 'vitest';
 import { makeCardInstance, simulateCombat } from './combat';
-import { cardValue, chooseExhaust, createStrategy, exhaustOrder, exhaustTier, worthExhausting } from './strategies';
+import {
+  cardValue,
+  chooseExhaust,
+  createStrategy,
+  exhaustOrder,
+  exhaustTier,
+  isPlainBlock,
+  planTurn,
+  worthExhausting,
+  GREEDY_CONFIG,
+  blockFirstConfig,
+} from './strategies';
 import { cards } from './testFixtures';
 import { cfg, deckOf, dummyData, events } from './combatTestHelpers';
 import type {
@@ -73,6 +84,10 @@ const extra: Record<string, CardDef> = {
     { type: 'draw', amount: 1 },
   ]),
   twin: { ...cards.strike!, id: 'twin', effects: [{ type: 'attack', damage: 5, hits: 2 }], upgraded: null },
+  /** A block-only card better than a Defend (12 Block). */
+  wall: skill('wall', [{ type: 'gainBlock', amount: 12 }], { cost: 1 }),
+  /** A fixture Power (none are simulated yet, #109). */
+  flex: skill('flex', [{ type: 'gainStrength', amount: 2 }], { type: 'power', cost: 1 }),
 };
 
 function data(): GameData {
@@ -92,7 +107,12 @@ function card(id: string): CardInstance {
 }
 
 /** A view with `hand` in hand and `energy` energy; the enemy intends `incoming` damage. */
-function viewOf(hand: CardInstance[], energy = 3, incoming = 0): StrategyView {
+function viewOf(
+  hand: CardInstance[],
+  energy = 3,
+  incoming = 0,
+  enemy: { hp?: number; block?: number; vulnerable?: number } = {},
+): StrategyView {
   const state = {
     turn: 1,
     player: {
@@ -110,11 +130,11 @@ function viewOf(hand: CardInstance[], energy = 3, incoming = 0): StrategyView {
     enemy: {
       enemyId: 'dummy',
       name: 'dummy',
-      hp: 50,
+      hp: enemy.hp ?? 50,
       maxHp: 50,
-      block: 0,
+      block: enemy.block ?? 0,
       strength: 0,
-      debuffs: { vulnerable: 0, weak: 0, frail: 0 },
+      debuffs: { vulnerable: enemy.vulnerable ?? 0, weak: 0, frail: 0 },
       poison: 0,
       patternIndex: 0,
     },
@@ -225,8 +245,8 @@ describe('#108 Purity ("up to 3/5")', () => {
 });
 
 describe('#108 Brand, Burning Pact and Purity are played early, only with something worth exhausting', () => {
-  const greedy = createStrategy({ kind: 'greedyDamage' });
-  const block = createStrategy({ kind: 'block', allowThrough: 0 });
+  const greedy = createStrategy(GREEDY_CONFIG);
+  const block = createStrategy(blockFirstConfig(0));
 
   it('played first (before attacks) when a tier 1–4 card is in hand', () => {
     for (const s of [greedy, block]) {
@@ -256,54 +276,132 @@ describe('#108 Brand, Burning Pact and Purity are played early, only with someth
   });
 });
 
-describe('#108 Second Wind and Fiend Fire are played last', () => {
-  const greedy = createStrategy({ kind: 'greedyDamage' });
+const playsCard = (c: CardInstance) => ({ kind: 'play', uid: c.uid });
 
-  it('greedy: attacks and block cards first, then Second Wind', () => {
-    const hand = [card('wind'), card('strike'), card('defend'), card('dazed')];
-    const v = viewOf(hand, 3);
-    expect(greedy.decide(v)).toEqual({ kind: 'play', uid: hand[1]!.uid });
-    // Only Second Wind left playable (with a status still in hand to exhaust).
-    const late = [card('wind'), card('dazed')];
-    expect(greedy.decide(viewOf(late, 1))).toEqual({ kind: 'play', uid: late[0]!.uid });
+describe('#129 Fiend Fire', () => {
+  const greedy = createStrategy(GREEDY_CONFIG);
+  /** Block (allow 100), Powers, Attack: the Block group is done, so the turn reaches Attack. */
+  const blockDone = createStrategy(blockFirstConfig(100));
+
+  it('always played when it would kill (Vulnerable and enemy Block counted), even by a blocking strategy', () => {
+    const hand = () => [card('fiend'), card('strike'), card('strike'), card('defend'), card('defend'), card('dazed')];
+    const scared = createStrategy(blockFirstConfig(0));
+    // 5 other cards × 7 = 35 < 30 HP + 10 Block: not lethal, so Scared Block blocks first.
+    const h1 = hand();
+    expect(scared.decide(viewOf(h1, 3, 20, { hp: 30, block: 10 }))).toEqual(playsCard(h1[3]!));
+    // Vulnerable: 5 × floor(7 × 1.5) = 50 ≥ 40: lethal, Fiend Fire first.
+    const h2 = hand();
+    expect(scared.decide(viewOf(h2, 3, 20, { hp: 30, block: 10, vulnerable: 1 }))).toEqual(playsCard(h2[0]!));
   });
 
-  it('Fiend Fire last, and not at all when the hand has nothing else', () => {
-    const hand = [card('fiend'), card('strike'), card('dazed')];
-    expect(greedy.decide(viewOf(hand, 3))).toEqual({ kind: 'play', uid: hand[1]!.uid });
-    const late = [card('fiend'), card('dazed')];
-    expect(greedy.decide(viewOf(late, 2))).toEqual({ kind: 'play', uid: late[0]!.uid });
+  it('played when its damage beats the other attacks the energy could buy (4 × 7 = 28 > 2 Strikes)', () => {
+    const hand = [card('fiend'), card('strike'), card('strike'), card('defend'), card('defend')];
+    expect(greedy.decide(viewOf(hand, 3))).toEqual(playsCard(hand[0]!));
+    expect(blockDone.decide(viewOf(hand, 3))).toEqual(playsCard(hand[0]!));
+    // Only a Strike else in hand: 2 × 7 = 14 > 6.
+    const small = [card('fiend'), card('strike'), card('dazed')];
+    expect(greedy.decide(viewOf(small, 3))).toEqual(playsCard(small[0]!));
+  });
+
+  it('not played while the other attacks deal more (3 × 7 = 21 < Twin + Twin + Strike = 26)', () => {
+    const hand = [card('fiend'), card('twin'), card('twin'), card('strike')];
+    expect(greedy.decide(viewOf(hand, 3))).toEqual(playsCard(hand[1]!));
+    expect(blockDone.decide(viewOf(hand, 3))).toEqual(playsCard(hand[1]!));
+    // Not enough energy for Fiend Fire: never chosen.
+    const poor = [card('fiend'), card('strike'), card('strike'), card('strike')];
+    expect(greedy.decide(viewOf(poor, 1))).toEqual(playsCard(poor[1]!));
+  });
+
+  it('greedy plays Vulnerable-appliers first while Fiend Fire stays affordable; other orders play Fiend Fire first', () => {
+    const hand = () => [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
+    const h1 = hand();
+    expect(greedy.decide(viewOf(h1, 4))).toEqual(playsCard(h1[1]!)); // Bash (2) + Fiend Fire (2) = 4
+    const h2 = hand();
+    expect(blockDone.decide(viewOf(h2, 4))).toEqual(playsCard(h2[0]!));
+    // 3 energy: Bash would leave too little, so Fiend Fire (28 > Bash 8 + Strike 6).
+    const h3 = hand();
+    expect(greedy.decide(viewOf(h3, 3))).toEqual(playsCard(h3[0]!));
+  });
+
+  it('greedy plays draw cards first (they grow the hand it exhausts); other orders do not wait', () => {
+    // Fiend Fire 2 + Twin 1 use all 3 energy, so the #130 draw rule doesn't move Shrug to the top.
+    const hand = () => [card('fiend'), card('shrug'), card('twin'), card('strike'), card('dazed')];
+    const h1 = hand();
+    expect(greedy.decide(viewOf(h1, 3))).toEqual(playsCard(h1[1]!));
+    const h2 = hand();
+    expect(blockDone.decide(viewOf(h2, 3))).toEqual(playsCard(h2[0]!));
+  });
+
+  it('not played when the hand has nothing else to exhaust', () => {
     expect(greedy.decide(viewOf([card('fiend')], 2))).toEqual({ kind: 'endTurn' });
   });
 
-  it('with energy for both, Second Wind goes before Fiend Fire; with energy for one, greedy takes Fiend Fire, block Second Wind', () => {
-    const hand = [card('fiend'), card('wind'), card('dazed')];
-    expect(greedy.decide(viewOf(hand, 3))).toEqual({ kind: 'play', uid: hand[1]!.uid });
-    expect(greedy.decide(viewOf(hand, 2))).toEqual({ kind: 'play', uid: hand[0]!.uid });
-    const block = createStrategy({ kind: 'block', allowThrough: 100 });
-    expect(block.decide(viewOf(hand, 2))).toEqual({ kind: 'play', uid: hand[1]!.uid });
+  it('counts Strength per card exhausted', () => {
+    const hand = [card('fiend'), card('twin'), card('twin'), card('strike')];
+    const v = viewOf(hand, 3);
+    (v.state.player as { strength: number }).strength = 3;
+    // (7 + 3) × 3 = 30 < Twin 16 + Twin 16 + Strike 9 = 41, so Twin Strike.
+    expect(greedy.decide(v)).toEqual(playsCard(hand[1]!));
+    const many = [card('fiend'), card('strike'), card('defend'), card('defend'), card('dazed')];
+    const v2 = viewOf(many, 3);
+    (v2.state.player as { strength: number }).strength = 3;
+    // (7 + 3) × 4 = 40 > Strike 9.
+    expect(greedy.decide(v2)).toEqual(playsCard(many[0]!));
   });
 });
 
-describe('#108 block strategies value Second Wind as 5 Block × the cards it would exhaust', () => {
-  const block = createStrategy({ kind: 'block', allowThrough: 0 });
+describe('#129 Second Wind', () => {
+  const scared = createStrategy(blockFirstConfig(0));
 
-  it('beats a smaller block card when it would exhaust enough (2 × 5 = 10 > Shrug 8)', () => {
-    const hand = [card('shrug'), card('wind'), card('dazed'), card('dazed'), card('strike')];
-    expect(block.decide(viewOf(hand, 3, 20))).toEqual({ kind: 'play', uid: hand[1]!.uid });
+  it('plain block cards: a Defend (5) is plain against Second Wind (5); Defend+ (8) and Shrug (Block + draw) are not', () => {
+    expect(isPlainBlock(card('defend'), 5)).toBe(true);
+    expect(isPlainBlock(card('defend+'), 5)).toBe(false);
+    expect(isPlainBlock(card('defend+'), 8)).toBe(true);
+    expect(isPlainBlock(card('shrug'), 10)).toBe(false);
+    expect(isPlainBlock(card('wall'), 5)).toBe(false);
   });
 
-  it('loses to a bigger block card (1 × 5 = 5 < Shrug 8), and ties go to the normal block card', () => {
-    const hand = [card('shrug'), card('wind'), card('strike')];
-    expect(block.decide(viewOf(hand, 3, 20))).toEqual({ kind: 'play', uid: hand[0]!.uid });
-    const tie = [card('defend'), card('wind'), card('strike')];
-    expect(block.decide(viewOf(tie, 3, 20))).toEqual({ kind: 'play', uid: tie[0]!.uid });
+  it('goes before plain Defends, which it exhausts for Block (2 × 5 = 10)', () => {
+    const hand = [card('wind'), card('defend'), card('defend'), card('strike')];
+    expect(scared.decide(viewOf(hand, 3, 20))).toEqual(playsCard(hand[0]!));
   });
 
-  it('greedy does not treat Second Wind as a block card', () => {
-    const greedy = createStrategy({ kind: 'greedyDamage' });
-    const hand = [card('wind'), card('dazed'), card('dazed'), card('defend')];
-    expect(greedy.decide(viewOf(hand, 3, 20))).toEqual({ kind: 'play', uid: hand[3]!.uid });
+  it('a better block card the turn plan plays goes first, then Second Wind', () => {
+    const hand = [card('shrug'), card('wind'), card('dazed'), card('dazed'), card('bash')];
+    expect(scared.decide(viewOf(hand, 3, 20))).toEqual(playsCard(hand[0]!));
+    const after = [card('wind'), card('defend'), card('dazed'), card('bash')];
+    expect(scared.decide(viewOf(after, 2, 12))).toEqual(playsCard(after[0]!));
+  });
+
+  it('with energy for only one, the better block card wins unless Second Wind gives more', () => {
+    const one = [card('wind'), card('wall'), card('dazed')]; // 2 × 5 = 10 < 12
+    expect(scared.decide(viewOf(one, 1, 20))).toEqual(playsCard(one[1]!));
+    const three = [card('wind'), card('wall'), card('dazed'), card('dazed')]; // 3 × 5 = 15 > 12
+    expect(scared.decide(viewOf(three, 1, 20))).toEqual(playsCard(three[0]!));
+  });
+
+  it('a Power the turn plan plays is played before Second Wind; one it would not play is exhausted', () => {
+    // Block, Powers, Attack with 3 energy: the plan (2 left after Second Wind) plays Defend, then Flex.
+    const hand = [card('wind'), card('flex'), card('defend'), card('dazed')];
+    expect(planTurn(viewOf(hand, 3, 20), blockFirstConfig(0), 2).map((c) => c.cardId)).toEqual(['defend', 'flex']);
+    expect(scared.decide(viewOf(hand, 3, 20))).toEqual(playsCard(hand[1]!));
+    // 1 energy: nothing else would be played, so Second Wind exhausts Flex, Defend and Dazed (15).
+    const poor = [card('wind'), card('flex'), card('defend'), card('dazed')];
+    expect(scared.decide(viewOf(poor, 1, 20))).toEqual(playsCard(poor[0]!));
+  });
+
+  it('Greedy (Block last) uses leftover energy on Second Wind before plain Defends', () => {
+    const greedy = createStrategy(GREEDY_CONFIG);
+    const hand = [card('wind'), card('defend'), card('defend'), card('strike')];
+    expect(greedy.decide(viewOf(hand, 3))).toEqual(playsCard(hand[3]!)); // Attack first
+    const left = [card('wind'), card('defend'), card('defend')];
+    expect(greedy.decide(viewOf(left, 2))).toEqual(playsCard(left[0]!));
+  });
+
+  it('when the Block group is done, Second Wind still goes last with leftover energy', () => {
+    const block = createStrategy(blockFirstConfig(100));
+    const late = [card('wind'), card('dazed')];
+    expect(block.decide(viewOf(late, 1))).toEqual(playsCard(late[0]!));
   });
 });
 
@@ -312,7 +410,7 @@ describe('#108 strategies in combat', () => {
     const d = data();
     d.cards.pact = { ...d.cards.pact!, keywords: ['innate'] };
     d.cards.bash = { ...d.cards.bash!, keywords: ['innate'] };
-    for (const config of [{ kind: 'greedyDamage' }, { kind: 'block', allowThrough: 0 }] as StrategyConfig[]) {
+    for (const config of [GREEDY_CONFIG, blockFirstConfig(0)] as StrategyConfig[]) {
       const r = simulateCombat(
         d,
         cfg({ enemyId: 'dummy', strategy: config, deck: deckOf(['pact', 1], ['bash', 1], ['strike', 8]) }),

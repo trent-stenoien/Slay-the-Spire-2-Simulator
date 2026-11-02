@@ -5,6 +5,7 @@ import { attackHits, isPlayable } from './rules';
 import { cards, makeEnemy, makeGameData } from './testFixtures';
 import { deckOf, events, scripted } from './combatTestHelpers';
 import type { CardDef, CombatConfig, GameData, Strategy } from './types';
+import { GREEDY_CONFIG, blockFirstConfig } from './strategies';
 
 function cfg(overrides: Partial<CombatConfig> = {}): CombatConfig {
   return {
@@ -12,7 +13,7 @@ function cfg(overrides: Partial<CombatConfig> = {}): CombatConfig {
     deck: [],
     enemyId: 'dummy',
     ascension: 0,
-    strategy: { kind: 'greedyDamage' },
+    strategy: GREEDY_CONFIG,
     seed: 1,
     ...overrides,
   };
@@ -194,7 +195,7 @@ describe('X-cost (#23)', () => {
   it('energy and X-cost combats are deterministic, with or without a log', () => {
     const d = data();
     d.enemies.nibbit!.hp = { min: 60, max: 60 };
-    for (const strategy of [{ kind: 'greedyDamage' as const }, { kind: 'block' as const, allowThrough: 0 }]) {
+    for (const strategy of [GREEDY_CONFIG, blockFirstConfig(0)]) {
       for (let s = 0; s < 10; s++) {
         const config = cfg({
           enemyId: 'nibbit',

@@ -1,13 +1,22 @@
 /**
  * Saved-strategy library. Built-in defaults are always present and read-only;
- * user strategies (block strategies with a custom allowance) live in
+ * user strategies (a priority order of Attack, Block and Powers, #130) live in
  * localStorage. All storage access is wrapped so the app works without it.
  */
-import { type SavedStrategy, type StrategyConfig } from '../../engine/types';
+import {
+  blockFirstConfig,
+  blockIsLast,
+  GREEDY_CONFIG,
+  MAX_ALLOW_THROUGH,
+  normalizeConfig,
+  sameConfig,
+} from '../../engine/strategies';
+import type { SavedStrategy, StrategyConfig, StrategyGroup } from '../../engine/types';
 
+export { MAX_ALLOW_THROUGH };
+
+/** Pre-#130 entries ({ kind: 'greedyDamage' | 'block' }) are migrated on load and saved in the new shape. */
 export const STORAGE_KEY = 'sts2sim.strategies.v1';
-/** parseStrategyCode accepts at most 4 digits, so URLs stay valid. */
-export const MAX_ALLOW_THROUGH = 9999;
 
 export interface StorageLike {
   getItem(key: string): string | null;
@@ -16,8 +25,8 @@ export interface StorageLike {
 }
 
 export const DEFAULT_STRATEGIES: readonly SavedStrategy[] = [
-  { id: 'default-greedy', name: 'Greedy Damage', config: { kind: 'greedyDamage' } },
-  { id: 'default-scared', name: 'Scared Block', config: { kind: 'block', allowThrough: 0 } },
+  { id: 'default-greedy', name: 'Greedy Damage', config: GREEDY_CONFIG },
+  { id: 'default-scared', name: 'Scared Block', config: blockFirstConfig(0) },
 ];
 
 export function isBuiltIn(id: string): boolean {
@@ -34,20 +43,19 @@ export function browserStorage(): StorageLike | null {
   }
 }
 
-function isValidConfig(c: unknown): c is StrategyConfig {
-  if (typeof c !== 'object' || c === null) return false;
-  const o = c as Record<string, unknown>;
-  if (o.kind === 'greedyDamage') return true;
-  return o.kind === 'block' && parseAllowThrough(String(o.allowThrough)) === o.allowThrough;
-}
-
-function isValidSaved(x: unknown): x is SavedStrategy {
-  if (typeof x !== 'object' || x === null) return false;
+/** A stored entry as a SavedStrategy (old configs migrated, #130), or null when invalid. */
+function toSaved(x: unknown): SavedStrategy | null {
+  if (typeof x !== 'object' || x === null) return null;
   const o = x as Record<string, unknown>;
-  return typeof o.id === 'string' && o.id !== '' && typeof o.name === 'string' && isValidConfig(o.config);
+  if (typeof o.id !== 'string' || o.id === '' || typeof o.name !== 'string') return null;
+  const config = normalizeConfig(o.config);
+  return config ? { id: o.id, name: o.name, config } : null;
 }
 
-/** User strategies from storage. Invalid, built-in-id or duplicate entries are dropped. */
+/**
+ * User strategies from storage, with pre-#130 configs migrated. Invalid, built-in-id or
+ * duplicate-id entries are dropped.
+ */
 export function loadUserStrategies(storage: StorageLike | null): SavedStrategy[] {
   if (!storage) return [];
   let raw: string | null;
@@ -66,10 +74,11 @@ export function loadUserStrategies(storage: StorageLike | null): SavedStrategy[]
   if (!Array.isArray(parsed)) return [];
   const seen = new Set<string>();
   const out: SavedStrategy[] = [];
-  for (const x of parsed) {
-    if (!isValidSaved(x) || isBuiltIn(x.id) || seen.has(x.id)) continue;
+  for (const raw of parsed) {
+    const x = toSaved(raw);
+    if (!x || isBuiltIn(x.id) || seen.has(x.id)) continue;
     seen.add(x.id);
-    out.push({ id: x.id, name: x.name, config: { ...x.config } });
+    out.push(x);
   }
   return out;
 }
@@ -109,21 +118,30 @@ export function parseAllowThrough(text: string): number | null {
   return n <= MAX_ALLOW_THROUGH ? n : null;
 }
 
-export function defaultName(allowThrough: number): string {
-  return `Block, allow ${allowThrough}`;
+export const GROUP_LABEL: Record<StrategyGroup, string> = { attack: 'Attack', block: 'Block', powers: 'Powers' };
+
+/** A group's label in `config`: "Block (allow X)" for Block unless it is last. */
+export function groupLabel(config: StrategyConfig, group: StrategyGroup): string {
+  return group === 'block' && !blockIsLast(config) ? `Block (allow ${config.allowThrough})` : GROUP_LABEL[group];
+}
+
+/** #130 default title: the 1st and 2nd priorities, e.g. "Powers, Block (allow 5)" or "Attack, Powers". */
+export function defaultName(config: StrategyConfig): string {
+  return config.order
+    .slice(0, 2)
+    .map((g) => groupLabel(config, g))
+    .join(', ');
 }
 
 export function addUserStrategy(
   user: readonly SavedStrategy[],
   name: string,
-  allowThrough: number,
+  config: StrategyConfig,
   newId: () => string,
 ): SavedStrategy[] {
-  const trimmed = name.trim();
-  return [
-    ...user,
-    { id: newId(), name: trimmed || defaultName(allowThrough), config: { kind: 'block', allowThrough } },
-  ];
+  const c = normalizeConfig(config);
+  if (!c) return [...user];
+  return [...user, { id: newId(), name: name.trim() || defaultName(c), config: c }];
 }
 
 export function renameUserStrategy(user: readonly SavedStrategy[], id: string, name: string): SavedStrategy[] {
@@ -132,22 +150,19 @@ export function renameUserStrategy(user: readonly SavedStrategy[], id: string, n
   return user.map((s) => (s.id === id ? { ...s, name: trimmed } : s));
 }
 
-export function setAllowThrough(user: readonly SavedStrategy[], id: string, allowThrough: number): SavedStrategy[] {
-  return user.map((s) =>
-    s.id === id && s.config.kind === 'block' ? { ...s, config: { kind: 'block', allowThrough } } : s,
-  );
+/** #130: replaces a user strategy's order and allowance (invalid configs are ignored). */
+export function setUserConfig(user: readonly SavedStrategy[], id: string, config: StrategyConfig): SavedStrategy[] {
+  const c = normalizeConfig(config);
+  return user.map((s) => (s.id === id && c ? { ...s, config: c } : s));
 }
 
 export function deleteUserStrategy(user: readonly SavedStrategy[], id: string): SavedStrategy[] {
   return user.filter((s) => s.id !== id);
 }
 
+/** #130: the whole priority order, e.g. "Block (allow 0), Powers, Attack". */
 export function describeConfig(config: StrategyConfig): string {
-  return config.kind === 'greedyDamage'
-    ? 'Attack first, block with leftover energy'
-    : config.allowThrough === 0
-      ? 'Try to block all incoming damage, then attack'
-      : `Block until at most ${config.allowThrough} damage gets through each turn, then attack`;
+  return config.order.map((g) => groupLabel(config, g)).join(', ');
 }
 
 /** The library holds at most this many strategies, defaults included. */
@@ -155,18 +170,17 @@ export function describeConfig(config: StrategyConfig): string {
 export const MAX_LIBRARY_SIZE = 10;
 
 /**
- * Why a block strategy allowing `allowThrough` can't be added (or another one
- * changed to it), or null if it can. `exceptId` is the strategy being edited.
+ * Why a strategy with `config` can't be added (or another one changed to it), or null if it
+ * can: no two strategies may share an order and X (#130), and the library is capped.
+ * `exceptId` is the strategy being edited.
  */
-export function blockStrategyProblem(
+export function strategyProblem(
   library: readonly SavedStrategy[],
-  allowThrough: number,
+  config: StrategyConfig,
   exceptId?: string,
 ): string | null {
-  const twin = library.find(
-    (s) => s.id !== exceptId && s.config.kind === 'block' && s.config.allowThrough === allowThrough,
-  );
-  if (twin) return `"${twin.name}" already allows ${allowThrough} damage per turn.`;
+  const twin = library.find((s) => s.id !== exceptId && sameConfig(s.config, config));
+  if (twin) return `"${twin.name}" already plays ${describeConfig(config)}.`;
   if (exceptId === undefined && library.length >= MAX_LIBRARY_SIZE) {
     return `You can have at most ${MAX_LIBRARY_SIZE} strategies. Delete one to add another.`;
   }

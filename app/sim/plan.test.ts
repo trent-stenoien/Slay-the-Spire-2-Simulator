@@ -4,6 +4,7 @@ import { runCombatRange, runSimulationSync } from '../../engine/montecarlo';
 import type { RunConfig } from '../../engine/types';
 import { CHUNK_SIZE, mergeChunkResults, planChunks, workerCount } from './plan';
 import type { ChunkResult } from './plan';
+import { GREEDY_CONFIG, blockFirstConfig } from '../../engine/strategies';
 
 const config: RunConfig = {
   characterId: 'ironclad',
@@ -12,8 +13,8 @@ const config: RunConfig = {
   ascension: 0,
   runSeed: 99,
   strategies: [
-    { strategy: { id: 'g', name: 'Greedy', config: { kind: 'greedyDamage' } }, color: 'blue' },
-    { strategy: { id: 'b4', name: 'Block 4', config: { kind: 'block', allowThrough: 4 } }, color: 'red' },
+    { strategy: { id: 'g', name: 'Greedy', config: GREEDY_CONFIG }, color: 'blue' },
+    { strategy: { id: 'b4', name: 'Block 4', config: blockFirstConfig(4) }, color: 'red' },
   ],
 };
 

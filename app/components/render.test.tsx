@@ -20,6 +20,7 @@ import { ResultsView, ViewCombat } from './ResultsView';
 import { SetupPanel } from './SetupPanel';
 import { StrategyPanel } from './StrategyPanel';
 import { DEFAULT_STRATEGIES } from '../lib/strategyLibrary';
+import { GREEDY_CONFIG, blockFirstConfig } from '../../engine/strategies';
 
 const result: RunResult = {
   gameVersion: 'v0.107.1',
@@ -30,8 +31,8 @@ const result: RunResult = {
     ascension: 5,
     runSeed: 99,
     strategies: [
-      { strategy: { id: 'g', name: 'Greedy Damage', config: { kind: 'greedyDamage' } }, color: 'blue' },
-      { strategy: { id: 's', name: 'Scared Block', config: { kind: 'block', allowThrough: 0 } }, color: 'purple' },
+      { strategy: { id: 'g', name: 'Greedy Damage', config: GREEDY_CONFIG }, color: 'blue' },
+      { strategy: { id: 's', name: 'Scared Block', config: blockFirstConfig(0) }, color: 'purple' },
     ],
   },
   summaries: [
@@ -157,7 +158,7 @@ describe('views render', () => {
   });
 
   it('strategy panel: Title label, New Strategy heading, no description on custom strategies', () => {
-    const custom = { id: 'u1', name: 'Mine', config: { kind: 'block' as const, allowThrough: 3 } };
+    const custom = { id: 'u1', name: 'Mine', config: blockFirstConfig(3) };
     const html = renderToStaticMarkup(
       <StrategyPanel
         library={[...DEFAULT_STRATEGIES, custom]}
@@ -167,7 +168,7 @@ describe('views render', () => {
         onColor={noop}
         onAdd={noop}
         onRename={noop}
-        onAllowThrough={noop}
+        onConfig={noop}
         onDelete={noop}
         onClearAll={noop}
       />,
@@ -176,7 +177,13 @@ describe('views render', () => {
     expect(html).not.toContain('New block strategy');
     expect(html).toContain('<span>Title</span>');
     expect(html).not.toContain('<span>Name</span>');
-    expect(html.match(/strat-desc/g)?.length).toBe(DEFAULT_STRATEGIES.length);
+    // #130: every strategy shows its numbered priority chips; no description line any more.
+    expect(html).not.toContain('strat-desc');
+    expect(html.match(/class="prio-chips"/g)?.length).toBe(DEFAULT_STRATEGIES.length + 1);
+    expect(html).toContain(
+      '<li class="prio-chip"><b>1</b>Attack</li><li class="prio-chip"><b>2</b>Powers</li><li class="prio-chip"><b>3</b>Block</li>',
+    );
+    expect(html).toContain('<li class="prio-chip"><b>1</b>Block · allow 3</li>');
   });
 
   it('Results body shows the starting-relic note for the setup character', () => {
@@ -201,7 +208,7 @@ describe('views render', () => {
     );
     expect(html).toContain('<svg');
     // The combat picker defaults to the first listed (lowest HP lost) strategy: Scared Block.
-    expect(html).toContain('?v=1&amp;c=I&amp;e=Nb&amp;a=5&amp;d=St5De4Ba1&amp;s=2751716061&amp;st=b0');
+    expect(html).toContain('?v=1&amp;c=I&amp;e=Nb&amp;a=5&amp;d=St5De4Ba1&amp;s=2751716061&amp;st=b0pa');
   });
 
   it('shows Avg combat turn length over every combat, with no dash for a strategy with no wins', () => {
@@ -355,7 +362,7 @@ describe('views render', () => {
       <CombatLog
         data={gameData}
         setup={defaultSetup(gameData)}
-        target={{ seed: 123456, strategies: [{ kind: 'block', allowThrough: 4 }] }}
+        target={{ seed: 123456, strategies: [blockFirstConfig(4)] }}
       />,
     );
     expect(html).toContain('Turn');
@@ -377,7 +384,7 @@ describe('views render', () => {
       <CombatLog
         data={gameData}
         setup={defaultSetup(gameData)}
-        target={{ seed: 123456, strategies: [{ kind: 'block', allowThrough: 4 }], combatIndex: 0 }}
+        target={{ seed: 123456, strategies: [blockFirstConfig(4)], combatIndex: 0 }}
       />,
     );
     expect(html).toContain('Combat #1');
@@ -396,7 +403,7 @@ describe('views render', () => {
     expect(html.match(/type="checkbox"/g)).toHaveLength(2);
     expect(html).not.toContain('<select');
     expect(html).toContain('>Open combat log</a>');
-    expect(html).toMatch(/href="[^"]*&amp;st=b0&amp;n=0"/); // sorted first: Scared Block, no k for one strategy
+    expect(html).toMatch(/href="[^"]*&amp;st=b0pa&amp;n=0"/); // sorted first: Scared Block, no k for one strategy
     const hidden = renderViewCombat(new Set(['g']));
     expect(hidden.match(/type="checkbox"/g)).toHaveLength(1);
     expect(hidden).not.toContain('Greedy Damage');
@@ -405,7 +412,7 @@ describe('views render', () => {
   it('reads Compare with 2+ checked and links every checked strategy with its color', () => {
     const html = renderViewCombat(new Set(), ['g', 's']);
     expect(html).toContain('>Compare</a>');
-    expect(html).toMatch(/href="[^"]*&amp;st=b0,g&amp;k=p,b&amp;n=0"/);
+    expect(html).toMatch(/href="[^"]*&amp;st=b0pa,apb&amp;k=p,b&amp;n=0"/);
   });
 
   it('disables the button with nothing checked (or every checked strategy hidden)', () => {
@@ -422,11 +429,7 @@ describe('views render', () => {
         setup={defaultSetup(gameData)}
         target={{
           seed: 123456,
-          strategies: [
-            { kind: 'greedyDamage' },
-            { kind: 'block', allowThrough: 0 },
-            { kind: 'block', allowThrough: 5 },
-          ],
+          strategies: [GREEDY_CONFIG, blockFirstConfig(0), blockFirstConfig(5)],
           colors: ['blue', 'red', 'green'],
           combatIndex: 4,
         }}
@@ -462,8 +465,8 @@ describe('views render', () => {
       config: {
         ...result.config,
         strategies: [
-          { strategy: { id: 'tall', name: 'Tall', config: { kind: 'greedyDamage' } }, color: 'blue' },
-          { strategy: { id: 'flat', name: 'Flat', config: { kind: 'block', allowThrough: 0 } }, color: 'red' },
+          { strategy: { id: 'tall', name: 'Tall', config: GREEDY_CONFIG }, color: 'blue' },
+          { strategy: { id: 'flat', name: 'Flat', config: blockFirstConfig(0) }, color: 'red' },
         ],
       },
       summaries: [summary('tall', [...Array(20).fill(0), 100]), summary('flat', Array(41).fill(1))],
@@ -497,8 +500,8 @@ describe('views render', () => {
     const html = renderResults();
     expect(html.match(/class="pmark-link"/g)).toHaveLength(10);
     // Greedy P75 = 4 -> first combat index 1; Greedy P50 = 3 and Scared P50 = 1 -> index 0. Both strategies, in chart order.
-    expect(html).toMatch(/class="pmark-link" href="[^"]*&amp;st=b0,g&amp;k=p,b&amp;n=1"/);
-    expect(html).toMatch(/class="pmark-link" href="[^"]*&amp;st=b0,g&amp;k=p,b&amp;n=0"/);
+    expect(html).toMatch(/class="pmark-link" href="[^"]*&amp;st=b0pa,apb&amp;k=p,b&amp;n=1"/);
+    expect(html).toMatch(/class="pmark-link" href="[^"]*&amp;st=b0pa,apb&amp;k=p,b&amp;n=0"/);
   });
 
   it('marks characters with unsimulated starters as work in progress', () => {

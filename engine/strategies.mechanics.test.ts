@@ -1,7 +1,7 @@
 /** #106 / #107 strategy rules: self-damage cards, draw cards, Battle Trance, re-planning after a draw. */
 import { describe, expect, it } from 'vitest';
 import { makeCardInstance, simulateCombat } from './combat';
-import { createStrategy, pickAttack, pickBlock } from './strategies';
+import { createStrategy, pickAttack, pickBlock, GREEDY_CONFIG, blockFirstConfig } from './strategies';
 import { cards } from './testFixtures';
 import { cfg, deckOf, dummyData, events } from './combatTestHelpers';
 import type { CardDef, GameData, StrategyConfig } from './types';
@@ -70,8 +70,8 @@ function data(...innate: string[]): GameData {
   return d;
 }
 
-const GREEDY: StrategyConfig = { kind: 'greedyDamage' };
-const BLOCK0: StrategyConfig = { kind: 'block', allowThrough: 0 };
+const GREEDY: StrategyConfig = GREEDY_CONFIG;
+const BLOCK0: StrategyConfig = blockFirstConfig(0);
 
 /** Card ids the strategy played on `turn`. */
 function playsOnTurn(d: GameData, strategy: StrategyConfig, deck: ReturnType<typeof deckOf>, turn = 1, seed = 1) {

@@ -5,6 +5,7 @@ import { attackDamage, blockGain } from './rules';
 import { cards, makeEnemy, makeGameData } from './testFixtures';
 import { cfg, deckOf, passive, withEnemy, dummyData, noDebuffs, logged, events } from './combatTestHelpers';
 import type { CardDef } from './types';
+import { blockFirstConfig } from './strategies';
 
 describe('rule helpers', () => {
   it('attackDamage: Strength, Weak, Vulnerable, floor once, min 0', () => {
@@ -210,7 +211,7 @@ describe('end conditions', () => {
   it('runCombat with and without a log gives the same result', () => {
     const data = makeGameData();
     for (let s = 0; s < 20; s++) {
-      const config = cfg({ seed: s, ascension: 10, strategy: { kind: 'block', allowThrough: 2 } });
+      const config = cfg({ seed: s, ascension: 10, strategy: blockFirstConfig(2) });
       const { log: _log, ...withLog } = runCombat(data, config, { log: true });
       expect(runCombat(data, config)).toEqual(withLog);
     }

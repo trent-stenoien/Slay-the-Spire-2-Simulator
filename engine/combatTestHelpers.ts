@@ -2,6 +2,7 @@
 import { simulateCombat } from './combat';
 import { makeEnemy, makeGameData } from './testFixtures';
 import type { CombatConfig, Deck, GameData, GameEvent, Strategy, StrategyView } from './types';
+import { GREEDY_CONFIG } from './strategies';
 
 /** Ironclad starter deck vs Nibbit at A0, seed 1, greedy; `overrides` replace any field. */
 export function cfg(overrides: Partial<CombatConfig> = {}): CombatConfig {
@@ -14,7 +15,7 @@ export function cfg(overrides: Partial<CombatConfig> = {}): CombatConfig {
     ],
     enemyId: 'nibbit',
     ascension: 0,
-    strategy: { kind: 'greedyDamage' },
+    strategy: GREEDY_CONFIG,
     seed: 1,
     ...overrides,
   };

@@ -7,15 +7,16 @@ import type {
   Effect,
   Strategy,
   StrategyConfig,
+  StrategyGroup,
   StrategyView,
 } from './types';
-import { attackHits } from './rules';
+import { attackDamage, attackHits } from './rules';
 
 type Card = DeepReadonly<CardInstance>;
 
 /**
- * Cards every strategy plays before anything else when they are affordable
- * (#1: Tremble, v1). Kept as a list so the rule can grow later.
+ * Cards played first within the Attack group when they are affordable (#1: Tremble, v1;
+ * #130). Kept as a list so the rule can grow later.
  */
 export const PLAY_FIRST_CARD_IDS: readonly string[] = ['tremble'];
 
@@ -269,23 +270,98 @@ export function playsLast(card: Card): boolean {
   return isFiendFire(card) || isSecondWind(card);
 }
 
-/** #108: how many other cards in hand `card` would exhaust (Second Wind: its filter; Fiend Fire: all). */
-function wouldExhaust(view: StrategyView, card: Card): number {
-  const others = view.state.player.hand.filter((c) => c.uid !== card.uid);
-  if (isFiendFire(card)) return others.length;
+/** #108: true when playing `card` (Second Wind: its filter; Fiend Fire: all) would exhaust `other` from hand. */
+function exhaustedBy(card: Card, other: Card): boolean {
+  if (other.uid === card.uid) return false;
+  if (isFiendFire(card)) return true;
   const f = exhaustEffects(card).find((e) => e.mode === 'all')?.filter;
-  return others.filter((c) => !f || ((!f.types || f.types.includes(c.type)) && !f.notTypes?.includes(c.type))).length;
+  return !f || ((!f.types || f.types.includes(other.type)) && !f.notTypes?.includes(other.type));
 }
 
-/** #108: Block Second Wind would give now: its per-card Block × the cards it would exhaust (block strategies). */
-export function secondWindBlock(view: StrategyView, card: Card): number {
+/** #108: how many other cards in hand `card` would exhaust. */
+function wouldExhaust(view: StrategyView, card: Card): number {
+  return view.state.player.hand.filter((c) => exhaustedBy(card, c)).length;
+}
+
+/** #108: Second Wind's Block per card exhausted (5, or 7 upgraded). */
+function secondWindPer(card: Card): number {
   let per = 0;
   for (const e of card.effects) {
     if (e.type === 'repeat' && e.per === 'lastEffectCount') {
       for (const inner of e.effects) if (inner.type === 'gainBlock') per += inner.amount * (e.times ?? 1);
     }
   }
-  return per * wouldExhaust(view, card);
+  return per;
+}
+
+/** #108: Block Second Wind would give now: its per-card Block × the cards it would exhaust. */
+export function secondWindBlock(view: StrategyView, card: Card): number {
+  return secondWindPer(card) * wouldExhaust(view, card);
+}
+
+/**
+ * #129: a "plain" block card for Second Wind: it only gains Block, and no more than Second Wind
+ * gives for exhausting it (Defend vs Second Wind's 5). Second Wind goes before these.
+ */
+export function isPlainBlock(card: Card, perCard: number): boolean {
+  return card.effects.length > 0 && card.effects.every((e) => e.type === 'gainBlock') && totalBlock(card) <= perCard;
+}
+
+/** #129: Fiend Fire's damage per card exhausted (7, or 10 upgraded). */
+function fiendFirePerCard(card: Card): number {
+  for (const e of card.effects) if (e.type === 'script' && e.id === 'fiendFire') return e.values?.[0] ?? 0;
+  return 0;
+}
+
+/** #129: Fiend Fire's damage now, before Weak / Vulnerable: (per card + Strength) × the other cards in hand. */
+export function fiendFireDamage(view: StrategyView, card: Card): number {
+  return (fiendFirePerCard(card) + view.state.player.strength) * wouldExhaust(view, card);
+}
+
+/** #129: true when Fiend Fire would kill the enemy now (Strength, Weak, Vulnerable and enemy Block counted). */
+export function fiendFireKills(view: StrategyView, card: Card): boolean {
+  const { player, enemy } = view.state;
+  const hits = wouldExhaust(view, card);
+  if (hits === 0) return false;
+  const perHit = attackDamage(fiendFirePerCard(card), player.strength, player.debuffs.weak, enemy.debuffs.vulnerable);
+  return perHit * hits >= enemy.hp + enemy.block;
+}
+
+/**
+ * #129: the damage the other playable attacks would deal with all the current energy instead
+ * (picked like pickAttack while affordable; (damage + Strength) × hits, before Weak / Vulnerable).
+ * Fiend Fire exhausts the hand, so after it the rest of the energy has no attack to spend on.
+ */
+export function otherAttackDamage(view: StrategyView, fire: Card): number {
+  const str = view.state.player.strength;
+  let energy = view.state.player.energy;
+  let pool = view.playable.filter((c) => c.uid !== fire.uid && !isFiendFire(c));
+  let sum = 0;
+  for (;;) {
+    const affordable = pool.filter((c) => c.cost !== null && (c.xCost ? energy > 0 : c.cost <= energy));
+    const a = pickAttack(affordable, energy);
+    if (!a) return sum;
+    const x = a.xCost ? energy : 0;
+    for (const e of a.effects) {
+      if (e.type === 'attack') sum += (e.damage + (a.damageBonus ?? 0) + str) * attackHits(e, x);
+    }
+    energy -= a.xCost ? energy : (a.cost as number);
+    pool = pool.filter((c) => c.uid !== a.uid);
+  }
+}
+
+/** #129: the playable Fiend Fire that would exhaust something, if any. */
+function playableFiendFire(view: StrategyView): Card | undefined {
+  return best(
+    view.playable.filter((c) => isFiendFire(c) && wouldExhaust(view, c) > 0),
+    () => [],
+  );
+}
+
+/** #129: a playable Fiend Fire whose damage beats what the other attacks would deal with the energy. */
+export function fiendFireThatBeats(view: StrategyView): Card | undefined {
+  const fire = playableFiendFire(view);
+  return fire && fiendFireDamage(view, fire) > otherAttackDamage(view, fire) ? fire : undefined;
 }
 
 /** #108: the best Brand / Burning Pact / Purity to play now: only while another card in hand is worth exhausting. */
@@ -298,19 +374,9 @@ export function pickExhaustEnabler(view: StrategyView): Card | undefined {
 }
 
 /**
- * #108: block strategies count Second Wind as a block card worth its Block × the cards it would
- * exhaust. Returns it when that beats `blockCard` (ties go to the normal block card).
- */
-export function secondWindOver(view: StrategyView, blockCard: Card | undefined): Card | undefined {
-  const wind = best(view.playable.filter(isSecondWind), (c) => [secondWindBlock(view, c)]);
-  const windBlock = wind ? secondWindBlock(view, wind) : 0;
-  return wind && windBlock > 0 && windBlock > (blockCard ? totalBlock(blockCard) : 0) ? wind : undefined;
-}
-
-/**
  * #108: once nothing else is played, Second Wind and Fiend Fire, if they would exhaust at least
  * one card. With energy for both, Second Wind goes first (Fiend Fire would exhaust it); with
- * energy for one, greedy takes Fiend Fire and block strategies take Second Wind.
+ * energy for one, Fiend Fire, or Second Wind when `preferBlock` (Block ranks above Attack, #130).
  */
 export function pickLast(view: StrategyView, preferBlock = false): Card | undefined {
   const ready = view.playable.filter((c) => playsLast(c) && wouldExhaust(view, c) > 0);
@@ -373,39 +439,99 @@ export function pickBlock(playable: readonly Card[], energy = 0): Card | undefin
   return best(blocks, (c) => [notXCost(c), totalBlock(c), draws(c)]);
 }
 
-const END: Decision = { kind: 'endTurn' };
-const play = (c: Card): Decision => ({ kind: 'play', uid: c.uid });
+/** #130 / #109: a Power card (the Powers group). */
+export function isPowerCard(card: Card): boolean {
+  return card.type === 'power';
+}
 
 /**
- * Plays every strategy makes before its own logic: Tremble (#1); then, while there is
- * something to draw, a pure draw card (#107); then a card that nets energy (#22), as long as
- * some other card in hand could use it; then Battle Trance (#107), once no other draw card in
- * hand is playable, so every other draw that turn comes first.
+ * #130: best Power to play: X-cost Powers only once no other Power is playable (never at 0
+ * energy), then the highest cardValue, ties → lowest uid. No Power is simulated yet (#109).
  */
-function pickFirst(view: StrategyView): Card | undefined {
-  const first = best(
+export function pickPower(playable: readonly Card[], energy = 0): Card | undefined {
+  const powers = playable.filter((c) => isPowerCard(c) && xCostPlayable(c, energy));
+  return best(powers, (c) => [notXCost(c), cardValue(c)]);
+}
+
+/** #130: a base card (named Strike or Defend, upgraded or not). */
+export function isBaseCard(card: Card): boolean {
+  return card.cardId === 'strike' || card.cardId === 'defend';
+}
+
+/**
+ * #130 (Trent): draw cards go to the top of the turn only when the hand's non-base cards can't
+ * use all the energy. "Non-base" = every playable card other than Strike and Defend, leaving out
+ * the draw cards themselves and cards that net energy; an X-cost card can use any energy. False
+ * when nothing can be drawn.
+ */
+export function drawGoesFirst(view: StrategyView): boolean {
+  if (!canDraw(view)) return false;
+  const energy = view.state.player.energy;
+  let cost = 0;
+  for (const c of view.playable) {
+    if (isBaseCard(c) || isDrawCard(c) || isNetEnergyCard(c)) continue;
+    if (c.xCost) return false;
+    cost += c.cost ?? 0;
+  }
+  return cost < energy;
+}
+
+/** #107: Battle Trance, once no other draw card in hand is playable (so every other draw comes first). */
+function pickTrance(view: StrategyView): Card | undefined {
+  const trance = best(view.playable.filter(stopsDrawing), () => []);
+  if (trance && !view.playable.some((c) => c.uid !== trance.uid && isDrawCard(c) && !stopsDrawing(c))) return trance;
+  return undefined;
+}
+
+/** #107: a pure draw card other than Battle Trance and the exhaust enablers. */
+function pickPureDraw(view: StrategyView): Card | undefined {
+  return best(
+    view.playable.filter((c) => isPureDrawCard(c) && !stopsDrawing(c) && !isExhaustEnabler(c)),
+    () => [],
+  );
+}
+
+/** #130: the best attack or block draw card, taken from the groups in priority order. */
+function pickGroupDraw(view: StrategyView, order: readonly StrategyGroup[]): Card | undefined {
+  const energy = view.state.player.energy;
+  const drawing = view.playable.filter(isDrawCard);
+  for (const g of order) {
+    const c = g === 'attack' ? pickAttack(drawing, energy) : g === 'block' ? pickBlock(drawing, energy) : undefined;
+    if (c) return c;
+  }
+  return undefined;
+}
+
+/** Tremble (#1), when affordable. */
+function pickPlayFirst(view: StrategyView): Card | undefined {
+  return best(
     view.playable.filter((c) => PLAY_FIRST_CARD_IDS.includes(c.cardId)),
     () => [],
   );
-  if (first) return first;
+}
+
+/**
+ * Plays made before the groups, in this order: Tremble when Attack ranks first (it is first
+ * within the Attack group, and Attack is the top priority); a Brand / Burning Pact / Purity worth playing
+ * (#108); when draw goes first (#130), a pure draw card; a card that nets energy (#22), as long
+ * as some other card in hand could use it; when draw goes first, attack and block draw cards
+ * (in group order), then Battle Trance after every other draw card.
+ */
+function pickTop(view: StrategyView, order: readonly StrategyGroup[]): Card | undefined {
+  if (order[0] === 'attack') {
+    const tremble = pickPlayFirst(view);
+    if (tremble) return tremble;
+  }
   const enabler = pickExhaustEnabler(view);
   if (enabler) return enabler;
-  const drawing = canDraw(view);
-  if (drawing) {
-    const pureDraw = best(
-      view.playable.filter((c) => isPureDrawCard(c) && !stopsDrawing(c) && !isExhaustEnabler(c)),
-      () => [],
-    );
-    if (pureDraw) return pureDraw;
+  const drawFirst = drawGoesFirst(view);
+  if (drawFirst) {
+    const pure = pickPureDraw(view);
+    if (pure) return pure;
   }
   const energy = best(view.playable.filter(isNetEnergyCard), (c) => [netEnergy(c)]);
   if (energy && view.state.player.hand.some((c) => c.uid !== energy.uid && wantsEnergy(c))) return energy;
-  if (drawing) {
-    const trance = best(view.playable.filter(stopsDrawing), () => []);
-    if (trance && !view.playable.some((c) => c.uid !== trance.uid && isDrawCard(c) && !stopsDrawing(c))) {
-      return trance;
-    }
-  }
+  if (drawFirst) return pickGroupDraw(view, order) ?? pickTrance(view);
   return undefined;
 }
 
@@ -419,43 +545,167 @@ function wantsEnergy(c: Card): boolean {
   const costsEnergy = c.cost !== null && (c.xCost || c.cost > 0);
   return (
     costsEnergy &&
-    (isAttackCard(c) || isBlockCard(c) || isDrawCard(c) || isNetEnergyCard(c) || PLAY_FIRST_CARD_IDS.includes(c.cardId))
+    (isAttackCard(c) ||
+      isBlockCard(c) ||
+      isPowerCard(c) ||
+      isDrawCard(c) ||
+      isNetEnergyCard(c) ||
+      PLAY_FIRST_CARD_IDS.includes(c.cardId))
   );
 }
 
-function greedyDecide(raw: StrategyView): Decision {
-  const view = withoutLethal(raw);
-  const first = pickFirst(view);
-  if (first) return play(first);
-  return greedyMain(view);
+/**
+ * #130: the card a group plays now, or undefined to move on to the next group.
+ * - attack: Tremble first (#1); then Fiend Fire when it beats the other attacks (#129, below);
+ *   then the best attack.
+ * - powers: the best Power.
+ * - block, not last: while (incoming − Block) > allowThrough, the best block card or Second Wind
+ *   (#129, below).
+ * - block, last: the same, spending leftover energy (allowThrough is unused).
+ * `planning` (a turn plan for Second Wind) leaves out the #129 rules.
+ */
+function pickFromGroup(
+  view: StrategyView,
+  group: StrategyGroup,
+  config: StrategyConfig,
+  planning: boolean,
+): Card | undefined {
+  const energy = view.state.player.energy;
+  switch (group) {
+    case 'attack': {
+      const first = pickPlayFirst(view);
+      if (first) return first;
+      const atk = pickAttack(view.playable, energy);
+      return planning ? atk : (pickFiendFire(view, config, atk) ?? atk);
+    }
+    case 'powers':
+      return pickPower(view.playable, energy);
+    case 'block': {
+      if (!blockIsLast(config) && view.intent.totalIncoming - view.state.player.block <= config.allowThrough) {
+        return undefined;
+      }
+      const blk = pickBlock(view.playable, energy);
+      return planning ? blk : (pickSecondWind(view, config, blk) ?? blk);
+    }
+  }
 }
 
-function greedyMain(view: StrategyView, preferBlock = false): Decision {
+/**
+ * #129 Fiend Fire in the Attack group, when its damage beats what the other attacks would deal
+ * with the energy (otherAttackDamage).
+ * - Attack ranked first (Greedy Damage): Vulnerable-appliers and draw cards go first, as long as
+ *   Fiend Fire stays affordable after them (a draw grows the hand it exhausts); then Fiend Fire.
+ * - Other orders: Fiend Fire as soon as the Attack group is reached and it beats.
+ */
+function pickFiendFire(view: StrategyView, config: StrategyConfig, atk: Card | undefined): Card | undefined {
+  const fire = fiendFireThatBeats(view);
+  if (!fire || config.order[0] !== 'attack') return fire;
   const energy = view.state.player.energy;
-  const atk = pickAttack(view.playable, energy);
-  if (atk) return play(atk);
-  const blk = pickBlock(view.playable, energy);
+  const leaves = (c: Card) => !c.xCost && (c.cost ?? 0) + (fire.cost ?? 0) <= energy;
+  if (atk && appliesVulnerable(atk) && leaves(atk)) return atk;
+  if (canDraw(view)) {
+    const draw = best(
+      view.playable.filter((c) => isDrawCard(c) && !stopsDrawing(c) && leaves(c)),
+      (c) => [isPureDrawCard(c) ? 1 : 0],
+    );
+    if (draw) return draw;
+    const trance = pickTrance(view);
+    if (trance && leaves(trance)) return trance;
+  }
+  return fire;
+}
+
+/**
+ * #129 Second Wind in the Block group. The rest of the turn is planned first (planTurn, without
+ * Second Wind and Fiend Fire); a Power or block card that plan plays and Second Wind would exhaust
+ * is played first, unless it is a plain block card (isPlainBlock: Defend). Then Second Wind goes
+ * before plain block cards, and after a better block card only when that card gives more Block
+ * than Second Wind would now.
+ */
+function pickSecondWind(view: StrategyView, config: StrategyConfig, blk: Card | undefined): Card | undefined {
+  const wind = best(view.playable.filter(isSecondWind), (c) => [secondWindBlock(view, c)]);
+  if (!wind) return undefined;
+  const per = secondWindPer(wind);
+  const planned = planTurn(view, config, view.state.player.energy - (wind.cost ?? 0));
+  const keep = planned.find((c) => exhaustedBy(wind, c) && !isPlainBlock(c, per));
+  if (keep) return keep;
+  const windBlock = secondWindBlock(view, wind);
+  if (windBlock <= 0) return undefined;
+  if (!blk || isPlainBlock(blk, per)) return wind;
+  return windBlock > totalBlock(blk) ? wind : undefined;
+}
+
+/**
+ * #129: the cards the strategy would play for the rest of the turn with `energy`, leaving out
+ * Second Wind and Fiend Fire. Tracks energy and Block only: draws and exhausts are not simulated.
+ */
+export function planTurn(view: StrategyView, config: StrategyConfig, energy: number): Card[] {
+  const p = view.state.player;
+  let hand = p.hand.filter((c) => !playsLast(c));
+  let e = energy;
+  let block = p.block;
+  const played: Card[] = [];
+  for (let i = 0; i < 20; i++) {
+    const playable = view.playable.filter(
+      (c) => hand.includes(c) && c.cost !== null && (c.xCost ? e >= 0 : c.cost <= e),
+    );
+    const state = { ...view.state, player: { ...p, hand, energy: e, block } };
+    const d = decideWith({ ...view, state, playable }, config, true);
+    if (d.kind === 'endTurn') break;
+    const c = hand.find((x) => x.uid === d.uid)!;
+    played.push(c);
+    hand = hand.filter((x) => x !== c);
+    e -= c.xCost ? e : (c.cost ?? 0);
+    for (const fx of c.effects) {
+      if (fx.type === 'gainBlock') block += fx.amount;
+      if (fx.type === 'gainEnergy') e += fx.amount;
+    }
+  }
+  return played;
+}
+
+/** #130: true when Block is the last group. */
+export function blockIsLast(config: StrategyConfig): boolean {
+  return config.order[config.order.length - 1] === 'block';
+}
+
+/**
+ * #130 decision: Fiend Fire first when it would kill (#129); the top plays (pickTop); the groups
+ * in order; once every group is done, a pure draw card (when draw didn't go first), leftover
+ * block, Battle Trance, and last Second Wind / Fiend Fire (#108; with energy for one, Fiend Fire
+ * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
+ */
+function decide(raw: StrategyView, config: StrategyConfig): Decision {
+  return decideWith(withoutLethal(raw), config, false);
+}
+
+function decideWith(view: StrategyView, config: StrategyConfig, planning: boolean): Decision {
+  if (!planning) {
+    const fire = playableFiendFire(view);
+    if (fire && fiendFireKills(view, fire)) return play(fire);
+  }
+  const top = pickTop(view, config.order);
+  if (top) return play(top);
+  for (const g of config.order) {
+    const c = pickFromGroup(view, g, config, planning);
+    if (c) return play(c);
+  }
+  const drawing = canDraw(view);
+  const pure = drawing ? pickPureDraw(view) : undefined;
+  if (pure) return play(pure);
+  const blk = pickBlock(view.playable, view.state.player.energy);
   if (blk) return play(blk);
+  const trance = drawing ? pickTrance(view) : undefined;
+  if (trance) return play(trance);
+  if (planning) return END;
+  const preferBlock = config.order.indexOf('block') < config.order.indexOf('attack');
   const last = pickLast(view, preferBlock);
   if (last) return play(last);
   return END;
 }
 
-function blockDecide(raw: StrategyView, allowThrough: number): Decision {
-  const view = withoutLethal(raw);
-  const first = pickFirst(view);
-  if (first) return play(first);
-  // Phase 1: block until at most `allowThrough` damage would get through.
-  const unblocked = view.intent.totalIncoming - view.state.player.block;
-  if (unblocked > allowThrough) {
-    const blk = pickBlock(view.playable, view.state.player.energy);
-    const wind = secondWindOver(view, blk);
-    if (wind) return play(wind);
-    if (blk) return play(blk);
-  }
-  // Phase 2: attacks. Phase 3: leftover block. Then Second Wind / Fiend Fire (#108).
-  return greedyMain(view, true);
-}
+const END: Decision = { kind: 'endTurn' };
+const play = (c: Card): Decision => ({ kind: 'play', uid: c.uid });
 
 /**
  * Strategies are stateless: each decision is recomputed from the view (the current hand and
@@ -463,29 +713,77 @@ function blockDecide(raw: StrategyView, allowThrough: number): Decision {
  * reused across combats.
  */
 export function createStrategy(config: StrategyConfig): Strategy {
-  switch (config.kind) {
-    case 'greedyDamage':
-      return { decide: greedyDecide, choose: chooseExhaust };
-    case 'block': {
-      const x = config.allowThrough;
-      return { decide: (view) => blockDecide(view, x), choose: chooseExhaust };
-    }
-  }
+  const c = normalizeConfig(config);
+  if (!c) throw new Error(`Invalid strategy config ${JSON.stringify(config)}`);
+  return { decide: (view) => decide(view, c), choose: chooseExhaust };
 }
 
-/** URL code: "g" or "b<X>". */
+// ---------------------------------------------------------------------------
+// #130 configs: defaults, validation, migration and URL codes
+// ---------------------------------------------------------------------------
+
+export const STRATEGY_GROUPS: readonly StrategyGroup[] = ['attack', 'block', 'powers'];
+
+/** Largest allowThrough; URL codes hold at most 4 digits. */
+export const MAX_ALLOW_THROUGH = 9999;
+
+/** Greedy Damage: Attack, Powers, Block (the old 'greedyDamage'). */
+export const GREEDY_CONFIG: StrategyConfig = { order: ['attack', 'powers', 'block'], allowThrough: 0 };
+
+/** The old "block, allow X": Block (allow X), Powers, Attack. */
+export function blockFirstConfig(allowThrough: number): StrategyConfig {
+  return { order: ['block', 'powers', 'attack'], allowThrough };
+}
+
+function validAllow(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= MAX_ALLOW_THROUGH;
+}
+
+/**
+ * A valid config in canonical form (allowThrough 0 when Block is last), or null. Also accepts the
+ * pre-#130 shapes: { kind: 'greedyDamage' } → Attack, Powers, Block; { kind: 'block',
+ * allowThrough: X } → Block (allow X), Powers, Attack.
+ */
+export function normalizeConfig(raw: unknown): StrategyConfig | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const o = raw as Record<string, unknown>;
+  if (o.kind === 'greedyDamage') return { ...GREEDY_CONFIG, order: [...GREEDY_CONFIG.order] };
+  if (o.kind === 'block') return validAllow(o.allowThrough) ? blockFirstConfig(o.allowThrough) : null;
+  const order = o.order;
+  if (!Array.isArray(order) || order.length !== STRATEGY_GROUPS.length) return null;
+  if (!STRATEGY_GROUPS.every((g) => order.includes(g))) return null;
+  if (!validAllow(o.allowThrough)) return null;
+  const groups = order as StrategyGroup[];
+  return { order: [...groups], allowThrough: groups[groups.length - 1] === 'block' ? 0 : o.allowThrough };
+}
+
+/** True when two configs play the same (same order and, unless Block is last, same X). */
+export function sameConfig(a: StrategyConfig, b: StrategyConfig): boolean {
+  return strategyCode(a) === strategyCode(b);
+}
+
+const GROUP_LETTER: Record<StrategyGroup, string> = { attack: 'a', block: 'b', powers: 'p' };
+const LETTER_GROUP: Record<string, StrategyGroup> = { a: 'attack', b: 'block', p: 'powers' };
+
+/** URL code: the order's letters, X after "b" unless Block is last ("apb", "b5pa", "pb5a"). */
 export function strategyCode(config: StrategyConfig): string {
-  switch (config.kind) {
-    case 'greedyDamage':
-      return 'g';
-    case 'block':
-      return `b${config.allowThrough}`;
-  }
+  const last = blockIsLast(config);
+  return config.order.map((g) => (g === 'block' && !last ? `b${config.allowThrough}` : GROUP_LETTER[g])).join('');
 }
 
+/** Parses a code from strategyCode, or an old one ("g", "b<X>"). Null for anything else. */
 export function parseStrategyCode(code: string): StrategyConfig | null {
-  if (code === 'g') return { kind: 'greedyDamage' };
-  const m = /^b(0|[1-9]\d{0,3})$/.exec(code);
-  if (m) return { kind: 'block', allowThrough: Number(m[1]) };
-  return null;
+  if (code === 'g') return normalizeConfig({ kind: 'greedyDamage' });
+  const old = /^b(0|[1-9]\d{0,3})$/.exec(code);
+  if (old) return blockFirstConfig(Number(old[1]));
+  const m = /^([abp])(0|[1-9]\d{0,3})?([abp])(0|[1-9]\d{0,3})?([abp])$/.exec(code);
+  if (!m) return null;
+  const letters = [m[1]!, m[3]!, m[5]!];
+  const digits = [m[2], m[4]];
+  if (new Set(letters).size !== 3) return null;
+  // Digits only right after a "b" that isn't last, and that "b" must have them.
+  for (let i = 0; i < 2; i++) if ((letters[i] === 'b') !== (digits[i] !== undefined)) return null;
+  const order = letters.map((l) => LETTER_GROUP[l]!);
+  const x = digits[0] ?? digits[1];
+  return { order, allowThrough: x === undefined ? 0 : Number(x) };
 }

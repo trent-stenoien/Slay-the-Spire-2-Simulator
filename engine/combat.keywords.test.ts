@@ -4,6 +4,7 @@ import { runCombat, simulateCombat } from './combat';
 import { cards } from './testFixtures';
 import { cfg, deckOf, passive, scripted, dummyData, logged, events, type Ev } from './combatTestHelpers';
 import type { GameEvent, Strategy } from './types';
+import { GREEDY_CONFIG, blockFirstConfig } from './strategies';
 
 describe('Innate', () => {
   const withInnate = () => {
@@ -78,7 +79,7 @@ describe('Innate', () => {
       enemyId: 'dummy',
       seed: 31,
       deck: deckOf(['strike', 8], ['opener', 3]),
-      strategy: { kind: 'greedyDamage' },
+      strategy: GREEDY_CONFIG,
     });
     expect(runCombat(data, config, { log: true })).toEqual(runCombat(data, config, { log: true }));
   });
@@ -156,7 +157,7 @@ describe('Retain', () => {
       enemyId: 'dummy',
       seed: 5,
       deck: deckOf(['keep', 3], ['strike', 7]),
-      strategy: { kind: 'block', allowThrough: 0 },
+      strategy: blockFirstConfig(0),
     });
     expect(runCombat(data, config, { log: true })).toEqual(runCombat(data, config, { log: true }));
   });

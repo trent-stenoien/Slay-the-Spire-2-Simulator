@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gameData } from '../../data';
 import { clampTurn, columnTurn, outcomeLabel, replayCombat, sharedTurnCount } from './compare';
 import { defaultSetup } from './url';
+import { GREEDY_CONFIG, blockFirstConfig } from '../../engine/strategies';
 
 describe('compare turn alignment', () => {
   it('the shared selector spans the longest combat', () => {
@@ -49,19 +50,19 @@ describe('compare turn alignment', () => {
 describe('replayCombat', () => {
   const setup = defaultSetup(gameData);
   it('has one round and one intent per turn, matching the combat result', () => {
-    const r = replayCombat(gameData, setup, { kind: 'greedyDamage' }, 123456);
+    const r = replayCombat(gameData, setup, GREEDY_CONFIG, 123456);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.replay.rounds).toHaveLength(r.result.turns);
     expect(r.intents).toHaveLength(r.result.turns);
   });
   it('is deterministic for a seed', () => {
-    const a = replayCombat(gameData, setup, { kind: 'block', allowThrough: 4 }, 77);
-    const b = replayCombat(gameData, setup, { kind: 'block', allowThrough: 4 }, 77);
+    const a = replayCombat(gameData, setup, blockFirstConfig(4), 77);
+    const b = replayCombat(gameData, setup, blockFirstConfig(4), 77);
     expect(a).toEqual(b);
   });
   it('reports errors instead of throwing', () => {
-    const r = replayCombat(gameData, { ...setup, enemyId: 'nope' }, { kind: 'greedyDamage' }, 1);
+    const r = replayCombat(gameData, { ...setup, enemyId: 'nope' }, GREEDY_CONFIG, 1);
     expect(r.ok).toBe(false);
   });
 });

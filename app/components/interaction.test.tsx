@@ -20,6 +20,7 @@ import { DeckBuilder } from './DeckBuilder';
 import { DistributionChart } from './DistributionChart';
 import { ResultsView } from './ResultsView';
 import { resultRows } from '../lib/results';
+import { GREEDY_CONFIG, blockFirstConfig } from '../../engine/strategies';
 
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
@@ -33,8 +34,8 @@ const result: RunResult = {
     ascension: 0,
     runSeed: 99,
     strategies: [
-      { strategy: { id: 'g', name: 'Greedy Damage', config: { kind: 'greedyDamage' } }, color: 'blue' },
-      { strategy: { id: 's', name: 'Scared Block', config: { kind: 'block', allowThrough: 0 } }, color: 'purple' },
+      { strategy: { id: 'g', name: 'Greedy Damage', config: GREEDY_CONFIG }, color: 'blue' },
+      { strategy: { id: 's', name: 'Scared Block', config: blockFirstConfig(0) }, color: 'purple' },
     ],
   },
   summaries: [
@@ -74,7 +75,7 @@ const curveFills = (container: HTMLElement) => container.querySelectorAll('path.
 describe('compare view: stepping turns', () => {
   it('a column whose combat is over reads "Combat ended on turn N" while the longer one still shows its turn', async () => {
     const setup = defaultSetup(gameData);
-    const strategies: StrategyConfig[] = [{ kind: 'greedyDamage' }, { kind: 'block', allowThrough: 0 }];
+    const strategies: StrategyConfig[] = [GREEDY_CONFIG, blockFirstConfig(0)];
     // Find a seed where the two strategies' combats last a different number of turns.
     let seed = -1;
     let lengths: number[] = [];
@@ -271,7 +272,7 @@ describe('percentile label links', () => {
     // Two visible: 10 labels, each opening both strategies (chart order b0, g) with their colors.
     let links = percentileLinks(container);
     expect(links).toHaveLength(10);
-    expect(links.every((h) => /&st=b0,g&k=p,b&n=\d+$/.test(h))).toBe(true);
+    expect(links.every((h) => /&st=b0pa,apb&k=p,b&n=\d+$/.test(h))).toBe(true);
     // Scared Block P50 = 1 HP -> its first combat with 1 HP lost is index 0.
     expect(links.some((h) => h.endsWith('&n=0'))).toBe(true);
 
@@ -279,7 +280,7 @@ describe('percentile label links', () => {
     links = percentileLinks(container);
     expect(links).toHaveLength(5);
     // Greedy alone: no colors, just its own combat; P75 = 4 HP -> first combat index 1, P50 = 3 -> index 0.
-    expect(links.every((h) => /&st=g&n=\d+$/.test(h))).toBe(true);
+    expect(links.every((h) => /&st=apb&n=\d+$/.test(h))).toBe(true);
     expect(links.some((h) => h.endsWith('&n=1'))).toBe(true);
     expect(links.some((h) => h.endsWith('&n=0'))).toBe(true);
   });
@@ -291,7 +292,7 @@ describe('percentile label links', () => {
         ...result.config,
         strategies: [
           ...result.config.strategies,
-          { strategy: { id: 'b4', name: 'Block 4', config: { kind: 'block', allowThrough: 4 } }, color: 'green' },
+          { strategy: { id: 'b4', name: 'Block 4', config: blockFirstConfig(4) }, color: 'green' },
         ],
       },
       summaries: [...result.summaries, { ...result.summaries[0]!, strategyId: 'b4' }],
@@ -306,10 +307,10 @@ describe('view-a-combat picker', () => {
     render(<ResultsView data={gameData} result={result} />);
     const button = () => screen.getByText(/^(Open combat log|Compare)$/);
     expect(button().textContent).toBe('Open combat log');
-    expect(button().getAttribute('href')).toMatch(/&st=b0&n=0$/);
+    expect(button().getAttribute('href')).toMatch(/&st=b0pa&n=0$/);
     await userEvent.click(screen.getByRole('checkbox', { name: /Greedy Damage/ }));
     expect(button().textContent).toBe('Compare');
-    expect(button().getAttribute('href')).toMatch(/&st=b0,g&k=p,b&n=0$/);
+    expect(button().getAttribute('href')).toMatch(/&st=b0pa,apb&k=p,b&n=0$/);
     // Combat 5 in the field is index 4 in the link.
     const field = screen.getByRole('spinbutton');
     await userEvent.clear(field);
@@ -329,7 +330,7 @@ describe('strategy selection limits (App)', () => {
     Array.from({ length: n }, (_, i) => ({
       id: `u${i}`,
       name: `Block ${i + 1}`,
-      config: { kind: 'block', allowThrough: i + 1 },
+      config: blockFirstConfig(i + 1),
     }));
   const strategyBoxes = () => [...document.querySelectorAll<HTMLInputElement>('.strat-list input[type="checkbox"]')];
 
@@ -384,12 +385,152 @@ describe('strategy selection limits (App)', () => {
     expect(screen.getByText(/at most 10 strategies/)).toBeTruthy();
   });
 
-  it('a duplicate allowance cannot be added', async () => {
+  it('a duplicate (same order and allowance) cannot be added', async () => {
     render(<App />);
+    // The form starts at Block (allow 5), Powers, Attack; X = 0 makes it Scared Block.
     const allowance = screen.getByRole('spinbutton', { name: /Allow at most X damage per turn/ });
     await userEvent.clear(allowance);
     await userEvent.type(allowance, '0');
     expect((screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/already allows 0/)).toBeTruthy();
+    expect(screen.getByText(/"Scared Block" already plays Block \(allow 0\), Powers, Attack/)).toBeTruthy();
+  });
+});
+
+describe('#130 strategy priority order (App)', () => {
+  const newList = () => screen.getByRole('list', { name: 'Priority for the new strategy' });
+  const groupsIn = (list: HTMLElement) =>
+    [...list.querySelectorAll('.order-row .order-name')].map((e) => e.textContent);
+  const ranksIn = (list: HTMLElement) => [...list.querySelectorAll('.order-row .order-rank')].map((e) => e.textContent);
+  const rowOf = (name: RegExp) => screen.getByRole('checkbox', { name }).closest('li')!;
+  const chipsOf = (name: RegExp) => [...rowOf(name).querySelectorAll('.prio-chip')].map((e) => e.textContent);
+
+  it('shows numbered priority chips on every strategy, with allow X on the Block chip unless Block is last', () => {
+    render(<App />);
+    expect(chipsOf(/Greedy Damage/)).toEqual(['1Attack', '2Powers', '3Block']);
+    expect(chipsOf(/Scared Block/)).toEqual(['1Block · allow 0', '2Powers', '3Attack']);
+  });
+
+  it('loads strategies saved before #130 as their new orders', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([
+        { id: 'u1', name: 'Block, allow 4', config: { kind: 'block', allowThrough: 4 } },
+        { id: 'u2', name: 'Old greedy', config: { kind: 'greedyDamage' } },
+      ]),
+    );
+    render(<App />);
+    expect(chipsOf(/Block, allow 4/)).toEqual(['1Block · allow 4', '2Powers', '3Attack']);
+    expect(chipsOf(/Old greedy/)).toEqual(['1Attack', '2Powers', '3Block']);
+  });
+
+  it('reorders with the up/down buttons, then adds with a default title naming the 1st and 2nd priorities', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const list = newList();
+    expect(groupsIn(list)).toEqual(['Block', 'Powers', 'Attack']);
+    expect(ranksIn(list)).toEqual(['1', '2', '3']);
+    // Top row can't go up, bottom row can't go down.
+    expect((within(list).getByRole('button', { name: 'Move Block up' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((within(list).getByRole('button', { name: 'Move Attack down' }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(within(list).getByRole('button', { name: 'Move Powers up' }));
+    expect(groupsIn(list)).toEqual(['Powers', 'Block', 'Attack']);
+    // Focus follows the moved row; at the top its up button is disabled, so the handle gets it.
+    expect(document.activeElement).toBe(within(list).getByRole('button', { name: /^Powers, priority 1 of 3/ }));
+    expect(screen.getByRole('textbox', { name: 'Title' }).getAttribute('placeholder')).toBe('Powers, Block (allow 5)');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(chipsOf(/^Powers, Block \(allow 5\)$/)).toEqual(['1Powers', '2Block · allow 5', '3Attack']);
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(saved[0]).toMatchObject({
+      name: 'Powers, Block (allow 5)',
+      config: { order: ['powers', 'block', 'attack'], allowThrough: 5 },
+    });
+    // The same order and X again is now a duplicate.
+    expect((screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('reorders with ArrowUp/ArrowDown on the focused handle, keeping focus and announcing the move', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const list = newList();
+    within(list)
+      .getByRole('button', { name: /^Attack, priority 3 of 3/ })
+      .focus();
+    await user.keyboard('{ArrowUp}');
+    expect(groupsIn(list)).toEqual(['Block', 'Attack', 'Powers']);
+    expect(document.activeElement).toBe(within(list).getByRole('button', { name: /^Attack, priority 2 of 3/ }));
+    expect(screen.getByText('Attack moved to position 2 of 3.')).toBeTruthy();
+    await user.keyboard('{ArrowUp}');
+    await user.keyboard('{ArrowUp}'); // already at the top: no change
+    expect(groupsIn(list)).toEqual(['Attack', 'Block', 'Powers']);
+    await user.keyboard('{ArrowDown}');
+    expect(groupsIn(list)).toEqual(['Block', 'Attack', 'Powers']);
+  });
+
+  it('moves the allowance with the Block row, and drops it when Block is last', async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const list = newList();
+    await user.click(within(list).getByRole('button', { name: 'Move Block down' }));
+    await user.click(within(list).getByRole('button', { name: 'Move Block down' }));
+    expect(groupsIn(list)).toEqual(['Powers', 'Attack', 'Block']);
+    expect(within(list).queryByRole('spinbutton')).toBeNull();
+    expect(within(list).getByText('Spends leftover energy')).toBeTruthy();
+    // Attack, Powers, Block (any X) is Greedy Damage.
+    await user.click(within(list).getByRole('button', { name: 'Move Attack up' }));
+    expect((screen.getByRole('button', { name: 'Add' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/"Greedy Damage" already plays Attack, Powers, Block/)).toBeTruthy();
+    // Block back to the middle: the allowance returns with its old value.
+    await user.click(within(list).getByRole('button', { name: 'Move Block up' }));
+    expect((within(list).getByRole('spinbutton') as HTMLInputElement).value).toBe('5');
+    expect(screen.getByRole('textbox', { name: 'Title' }).getAttribute('placeholder')).toBe('Attack, Block (allow 5)');
+  });
+
+  it('reorders by drag and drop on the handle', () => {
+    render(<App />);
+    const list = newList();
+    const handle = within(list).getByRole('button', { name: /^Attack, priority 3/ });
+    const rows = list.querySelectorAll('.order-row');
+    fireEvent.dragStart(handle);
+    expect(rows[2]!.classList.contains('dragging')).toBe(true);
+    fireEvent.dragOver(rows[0]!);
+    fireEvent.drop(rows[0]!);
+    fireEvent.dragEnd(handle);
+    expect(groupsIn(list)).toEqual(['Attack', 'Block', 'Powers']);
+    expect(list.querySelector('.dragging')).toBeNull();
+  });
+
+  it('the pencil opens the same list for a saved strategy; valid edits save, duplicates are refused', async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify([{ id: 'u1', name: 'Mine', config: { order: ['powers', 'block', 'attack'], allowThrough: 5 } }]),
+    );
+    render(<App />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Edit Mine' }));
+    const list = screen.getByRole('list', { name: 'Priority for Mine' });
+    expect(groupsIn(list)).toEqual(['Powers', 'Block', 'Attack']);
+    expect((within(list).getByRole('spinbutton') as HTMLInputElement).value).toBe('5');
+    await user.click(within(list).getByRole('button', { name: 'Move Attack up' }));
+    expect(chipsOf(/^Mine$/)).toEqual(['1Powers', '2Attack', '3Block']);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)[0].config).toEqual({
+      order: ['powers', 'attack', 'block'],
+      allowThrough: 0,
+    });
+    // Block first with X 0 is Scared Block: shown as a problem and not saved.
+    within(list)
+      .getByRole('button', { name: /^Block, priority 3/ })
+      .focus();
+    await user.keyboard('{ArrowUp}{ArrowUp}');
+    await user.click(within(list).getByRole('button', { name: 'Move Attack down' }));
+    expect(groupsIn(list)).toEqual(['Block', 'Powers', 'Attack']);
+    const allow = within(list).getByRole('spinbutton');
+    await user.clear(allow);
+    await user.type(allow, '0');
+    expect(screen.getByText(/"Scared Block" already plays/)).toBeTruthy();
+    expect(chipsOf(/^Mine$/)).toEqual(['1Block · allow 5', '2Powers', '3Attack']);
+    await user.type(allow, '7');
+    expect(chipsOf(/^Mine$/)).toEqual(['1Block · allow 7', '2Powers', '3Attack']);
+    await user.click(screen.getByRole('button', { name: 'Done editing Mine' }));
+    expect(screen.queryByRole('list', { name: 'Priority for Mine' })).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gameData } from '../../data';
 import { runCombat, deriveSeed } from '../../engine';
 import { ascensionLabel, buildReplay, describeEvent, enemyIntentLabel, intendedMoveId, type Round } from './logReplay';
+import { GREEDY_CONFIG } from '../../engine/strategies';
 
 describe('log replay', () => {
   const result = runCombat(
@@ -11,7 +12,7 @@ describe('log replay', () => {
       deck: gameData.characters.ironclad!.startingDeck,
       enemyId: 'nibbit',
       ascension: 0,
-      strategy: { kind: 'greedyDamage' },
+      strategy: GREEDY_CONFIG,
       seed: deriveSeed(42, 0),
     },
     { log: true },

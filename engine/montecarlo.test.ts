@@ -5,6 +5,7 @@ import { runCombatRange, runSimulationSync, summarize } from './montecarlo';
 import { deriveSeed } from './rng';
 import { COMBATS_PER_RUN } from './types';
 import type { CombatResult, RunConfig, StrategyConfig } from './types';
+import { GREEDY_CONFIG, blockFirstConfig } from './strategies';
 
 const ironclad = gameData.characters['ironclad']!;
 
@@ -24,11 +25,11 @@ function runConfig(strategies: StrategyConfig[], runSeed = 12345): RunConfig {
 }
 
 const FIVE: StrategyConfig[] = [
-  { kind: 'greedyDamage' },
-  { kind: 'block', allowThrough: 0 },
-  { kind: 'block', allowThrough: 3 },
-  { kind: 'block', allowThrough: 6 },
-  { kind: 'block', allowThrough: 10 },
+  GREEDY_CONFIG,
+  blockFirstConfig(0),
+  blockFirstConfig(3),
+  blockFirstConfig(6),
+  blockFirstConfig(10),
 ];
 
 function result(outcome: CombatResult['outcome'], turns: number, hpLost: number): CombatResult {
@@ -190,7 +191,7 @@ describe('runSimulationSync', () => {
   });
 
   it('defaults to COMBATS_PER_RUN combats', () => {
-    const run = runSimulationSync(gameData, runConfig([{ kind: 'greedyDamage' }]));
+    const run = runSimulationSync(gameData, runConfig([GREEDY_CONFIG]));
     expect(run.summaries[0]!.combats).toBe(COMBATS_PER_RUN);
   });
 });

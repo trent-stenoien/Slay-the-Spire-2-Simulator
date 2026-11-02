@@ -830,11 +830,26 @@ export interface Strategy {
   choose?(view: StrategyView, request: ChoiceRequest): ChoiceResponse;
 }
 
-/** Serializable strategy settings; URL code: "g" or "b<X>" (e.g. "b4"). */
-export type StrategyConfig =
-  | { kind: 'greedyDamage' }
-  /** Play block while (incoming − block) > allowThrough, then attack. */
-  | { kind: 'block'; allowThrough: number };
+/** #130: the card groups a strategy puts in priority order. */
+export type StrategyGroup = 'attack' | 'block' | 'powers';
+
+/**
+ * #130: serializable strategy settings. A strategy is a user-ordered priority of the three
+ * groups; each decision walks `order` (first = highest priority) and plays from the first group
+ * that has something to play (engine/strategies.ts has the per-group rules).
+ *
+ * URL code: the order as letters a/b/p, with X right after "b" unless Block is last
+ * ("apb", "b5pa", "pb5a"). Old codes still parse: "g" = "apb", "b<X>" = "b<X>pa".
+ */
+export interface StrategyConfig {
+  /** 'attack', 'block' and 'powers', each exactly once. */
+  order: StrategyGroup[];
+  /**
+   * Block group: play block while (incoming − Block) > allowThrough, then move on. A whole number
+   * 0–9999. When Block is last it is unused (Block then spends leftover energy) and always 0.
+   */
+  allowThrough: number;
+}
 
 export type StrategyColor = 'blue' | 'green' | 'yellow' | 'red' | 'purple';
 
