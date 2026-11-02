@@ -459,21 +459,44 @@ export function isBaseCard(card: Card): boolean {
 }
 
 /**
- * #130 (Trent): draw cards go to the top of the turn only when the hand's non-base cards can't
- * use all the energy. "Non-base" = every playable card other than Strike and Defend, leaving out
- * the draw cards themselves and cards that net energy; an X-cost card can use any energy. False
- * when nothing can be drawn.
+ * #132 (Trent): true when the hand can't fill the strategy's top priority group, so a pure draw
+ * card is worth playing first. Attack: no attack (or Tremble) is affordable. Powers: no Power is
+ * affordable. Block: the block cards that fit the energy can't bring the incoming damage down to
+ * the allowance (a Block group that is already satisfied counts as filled). An X-cost card in the
+ * group counts as filling it. False when nothing can be drawn.
  */
-export function drawGoesFirst(view: StrategyView): boolean {
+export function cannotFillTopGroup(view: StrategyView, config: StrategyConfig): boolean {
   if (!canDraw(view)) return false;
   const energy = view.state.player.energy;
-  let cost = 0;
-  for (const c of view.playable) {
-    if (isBaseCard(c) || isDrawCard(c) || isNetEnergyCard(c)) continue;
-    if (c.xCost) return false;
-    cost += c.cost ?? 0;
+  switch (config.order[0]) {
+    case 'attack':
+      return !pickPlayFirst(view) && !pickAttack(view.playable, energy);
+    case 'powers':
+      return !pickPower(view.playable, energy);
+    case 'block': {
+      const blocks = view.playable.filter(isBlockCard);
+      if (blocks.some((c) => c.xCost)) return false;
+      return maxBlockWith(blocks, energy) < blockNeeded(view, config);
+    }
+    default:
+      return false;
   }
-  return cost < energy;
+}
+
+/** Block still wanted for the Block group to be satisfied (incoming damage − Block − allowance). */
+function blockNeeded(view: StrategyView, config: StrategyConfig): number {
+  return view.intent.totalIncoming - view.state.player.block - config.allowThrough;
+}
+
+/** Most Block the cards give within `energy` (each card at most once). */
+function maxBlockWith(blocks: readonly Card[], energy: number): number {
+  const best = new Array<number>(energy + 1).fill(0);
+  for (const c of blocks) {
+    const cost = c.cost ?? 0;
+    const gain = totalBlock(c);
+    for (let e = energy; e >= cost; e--) best[e] = Math.max(best[e]!, best[e - cost]! + gain);
+  }
+  return best[energy]!;
 }
 
 /** #107: Battle Trance, once no other draw card in hand is playable (so every other draw comes first). */
@@ -491,17 +514,6 @@ function pickPureDraw(view: StrategyView): Card | undefined {
   );
 }
 
-/** #130: the best attack or block draw card, taken from the groups in priority order. */
-function pickGroupDraw(view: StrategyView, order: readonly StrategyGroup[]): Card | undefined {
-  const energy = view.state.player.energy;
-  const drawing = view.playable.filter(isDrawCard);
-  for (const g of order) {
-    const c = g === 'attack' ? pickAttack(drawing, energy) : g === 'block' ? pickBlock(drawing, energy) : undefined;
-    if (c) return c;
-  }
-  return undefined;
-}
-
 /** Tremble (#1), when affordable. */
 function pickPlayFirst(view: StrategyView): Card | undefined {
   return best(
@@ -511,27 +523,45 @@ function pickPlayFirst(view: StrategyView): Card | undefined {
 }
 
 /**
- * Plays made before the groups, in this order: Tremble when Attack ranks first (it is first
- * within the Attack group, and Attack is the top priority); a Brand / Burning Pact / Purity worth playing
- * (#108); when draw goes first (#130), a pure draw card; a card that nets energy (#22), as long
- * as some other card in hand could use it; when draw goes first, attack and block draw cards
- * (in group order), then Battle Trance after every other draw card.
+ * #132: a 0-cost draw card (any 0-cost card whose effects include a draw) played first in the
+ * turn; Battle Trance only once no other draw card is playable. Exhaust enablers keep their own
+ * rule. Nothing when nothing can be drawn.
  */
-function pickTop(view: StrategyView, order: readonly StrategyGroup[]): Card | undefined {
-  if (order[0] === 'attack') {
+function pickZeroCostDraw(view: StrategyView): Card | undefined {
+  if (!canDraw(view)) return undefined;
+  const zero = (c: Card) => !c.xCost && c.cost === 0;
+  const draw = best(
+    view.playable.filter((c) => zero(c) && isDrawCard(c) && !stopsDrawing(c) && !isExhaustEnabler(c)),
+    () => [],
+  );
+  if (draw) return draw;
+  const trance = pickTrance(view);
+  return trance && zero(trance) ? trance : undefined;
+}
+
+/**
+ * Plays made before the groups, in this order: a 0-cost draw card (#132); Tremble when Attack
+ * ranks first (it is first within the Attack group, and Attack is the top priority); a Brand /
+ * Burning Pact / Purity worth playing (#108); a pure draw card when the hand can't fill the top
+ * group (#132); a card that nets energy (#22), as long as some other card in hand could use it.
+ * Other pure draw cards wait until the groups are done (decide); attack and block draw cards are
+ * ranked within their group.
+ */
+function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
+  const zero = pickZeroCostDraw(view);
+  if (zero) return zero;
+  if (config.order[0] === 'attack') {
     const tremble = pickPlayFirst(view);
     if (tremble) return tremble;
   }
   const enabler = pickExhaustEnabler(view);
   if (enabler) return enabler;
-  const drawFirst = drawGoesFirst(view);
-  if (drawFirst) {
+  if (cannotFillTopGroup(view, config)) {
     const pure = pickPureDraw(view);
     if (pure) return pure;
   }
   const energy = best(view.playable.filter(isNetEnergyCard), (c) => [netEnergy(c)]);
   if (energy && view.state.player.hand.some((c) => c.uid !== energy.uid && wantsEnergy(c))) return energy;
-  if (drawFirst) return pickGroupDraw(view, order) ?? pickTrance(view);
   return undefined;
 }
 
@@ -671,7 +701,7 @@ export function blockIsLast(config: StrategyConfig): boolean {
 
 /**
  * #130 decision: Fiend Fire first when it would kill (#129); the top plays (pickTop); the groups
- * in order; once every group is done, a pure draw card (when draw didn't go first), leftover
+ * in order; once every group is done, a pure draw card (when it didn't go first, #132), leftover
  * block, Battle Trance, and last Second Wind / Fiend Fire (#108; with energy for one, Fiend Fire
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
@@ -684,7 +714,7 @@ function decideWith(view: StrategyView, config: StrategyConfig, planning: boolea
     const fire = playableFiendFire(view);
     if (fire && fiendFireKills(view, fire)) return play(fire);
   }
-  const top = pickTop(view, config.order);
+  const top = pickTop(view, config);
   if (top) return play(top);
   for (const g of config.order) {
     const c = pickFromGroup(view, g, config, planning);

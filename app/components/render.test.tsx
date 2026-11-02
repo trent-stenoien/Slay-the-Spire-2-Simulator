@@ -164,6 +164,7 @@ describe('views render', () => {
         library={[...DEFAULT_STRATEGIES, custom]}
         selection={[]}
         storageOk
+        powerNames={[]}
         onToggle={noop}
         onColor={noop}
         onAdd={noop}
