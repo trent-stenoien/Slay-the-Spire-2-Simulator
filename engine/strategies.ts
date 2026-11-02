@@ -4,7 +4,9 @@ import type {
   ChoiceResponse,
   DeepReadonly,
   Decision,
+  CardFilter,
   Effect,
+  PileName,
   PowerId,
   Strategy,
   StrategyConfig,
@@ -304,25 +306,34 @@ export function worthExhausting(card: Card): boolean {
 /** #139: Purity's order: tiers 1–4 and 7 (junk and Drum), then non-upgraded Strikes/Defends (5–6). */
 const PURITY_TIERS = [1, 2, 3, 4, 7, 5, 6];
 
+/** #139: `cards` in Purity's order: tiers 1–4 and 7 first, then 5–6; tier 8 is left out. */
+function purityOrder(cards: readonly Card[], config: StrategyConfig): Card[] {
+  const sorted = [...cards].sort((a, b) => a.uid - b.uid);
+  const out: Card[] = [];
+  for (const t of PURITY_TIERS) out.push(...sorted.filter((c) => exhaustTier(c, config) === t));
+  return out;
+}
+
 /**
  * #108 Strategy.choose for exhaust picks, shared by every strategy. A fixed count ("Exhaust 1
  * card") takes the first cards in the exhaust order. "Up to N" (Purity, #139) always takes tiers
  * 1–4 and 7, then fills with non-upgraded Strikes and Defends (5–6), up to N, and nothing else.
+ * #141: both skip every card whose removal would break the deck-health guard (see below).
+ * `played` is the card whose effect asks (already out of the hand): it is still in the active deck
+ * unless it leaves (Exhaust keyword, Power, Corruption). Without it, it counts as gone.
  */
 export function chooseExhaust(
   view: StrategyView,
   request: ChoiceRequest,
   config: StrategyConfig = GREEDY_CONFIG,
+  played?: Card,
 ): ChoiceResponse {
-  let picked: Card[];
-  if (request.max > request.min) {
-    const sorted = [...request.options].sort((a, b) => a.uid - b.uid);
-    picked = [];
-    for (const t of PURITY_TIERS) picked.push(...sorted.filter((c) => exhaustTier(c, config) === t));
-    picked = picked.slice(0, request.max);
-  } else {
-    picked = exhaustOrder(request.options, view, config).slice(0, request.max);
-  }
+  const upTo = request.max > request.min;
+  const ordered = upTo ? purityOrder(request.options, config) : exhaustOrder(request.options, view, config);
+  const picked =
+    request.purpose === 'exhaust'
+      ? guardedPicks(deckWhilePlaying(view.state, played), ordered, request.max)
+      : ordered.slice(0, request.max);
   if (picked.length < request.min) {
     for (const c of exhaustOrder(request.options, view, config)) {
       if (picked.length >= request.min) break;
@@ -330,6 +341,211 @@ export function chooseExhaust(
     }
   }
   return { uids: picked.map((c) => c.uid) };
+}
+
+// ---------------------------------------------------------------------------
+// #141 Deck-health guard (Trent): exhausting must not thin the deck too far.
+// ---------------------------------------------------------------------------
+
+/** #141: the active deck never drops below this many cards through an exhaust. */
+export const MIN_ACTIVE_DECK = 5;
+
+/** #141: the active deck keeps at least 1 damaging card per this many cards (rounded up). */
+export const DECK_CARDS_PER_DAMAGING = 5;
+
+/** #141: ids of `script` effects that deal damage to the enemy (Fiend Fire; Thrash also has an `attack`). */
+const DAMAGING_SCRIPT_IDS: readonly string[] = ['fiendFire', 'thrash'];
+
+/** Every effect of the card on its own, nested ones (repeat, schedule, conditional) included. */
+function allEffects(card: Card): DeepReadonly<Effect>[] {
+  const out: DeepReadonly<Effect>[] = [];
+  const walk = (effects: readonly DeepReadonly<Effect>[]) => {
+    for (const e of effects) {
+      out.push(e);
+      if (e.type === 'repeat' || e.type === 'schedule') walk(e.effects);
+      else if (e.type === 'conditional') walk([...e.then, ...(e.else ?? [])]);
+    }
+  };
+  walk(card.effects);
+  return out;
+}
+
+/**
+ * #141: a damaging card is one whose effects deal damage to the enemy: an `attack`, `dealDamage`,
+ * `enemyLoseHp` or `applyPoison` effect (nested ones too), or a damaging `script` (Fiend Fire,
+ * Thrash). Curses, statuses and Unplayable cards never count: they can't be played to deal it.
+ */
+export function dealsDamageToEnemy(card: Card): boolean {
+  if (isJunk(card) || card.keywords.includes('unplayable')) return false;
+  return allEffects(card).some(
+    (e) =>
+      e.type === 'attack' ||
+      e.type === 'dealDamage' ||
+      e.type === 'enemyLoseHp' ||
+      e.type === 'applyPoison' ||
+      (e.type === 'script' && DAMAGING_SCRIPT_IDS.includes(e.id)),
+  );
+}
+
+/** #141: the active deck is hand + draw pile + discard pile (played Powers and exhausted cards are out). */
+export function activeDeck(state: StrategyView['state']): Card[] {
+  const p = state.player;
+  return [...p.hand, ...p.drawPile, ...p.discardPile];
+}
+
+/** #141: true when an active deck is healthy: at least 5 cards, and damaging cards >= ceil(size / 5). */
+export function deckHealthy(deck: readonly Card[]): boolean {
+  if (deck.length < MIN_ACTIVE_DECK) return false;
+  return deck.filter(dealsDamageToEnemy).length >= Math.ceil(deck.length / DECK_CARDS_PER_DAMAGING);
+}
+
+/** `deck` without `removed` (by uid). */
+function without(deck: readonly Card[], removed: readonly Card[]): Card[] {
+  const gone = new Set(removed.map((c) => c.uid));
+  return deck.filter((c) => !gone.has(c.uid));
+}
+
+/** #141: a played card leaves the active deck for good: a Power, an Exhaust card, or a Skill under Corruption. */
+function leavesActiveDeck(card: Card, state: StrategyView['state']): boolean {
+  return (
+    card.type === 'power' ||
+    card.keywords.includes('exhaust') ||
+    (card.type === 'skill' && !!state.player.powers?.corruption)
+  );
+}
+
+/** #141: the active deck while `played` resolves (it is out of the hand; it stays unless it leaves, and unknown counts as gone). */
+function deckWhilePlaying(state: StrategyView['state'], played?: Card): Card[] {
+  const deck = activeDeck(state);
+  if (played && !leavesActiveDeck(played, state)) deck.push(played);
+  return deck;
+}
+
+/**
+ * #141: up to `max` cards of `ordered`, in order, each taken only when the deck stays healthy
+ * with it (and the ones before it) removed. A card that would break the guard is skipped.
+ */
+function guardedPicks(deck: readonly Card[], ordered: readonly Card[], max: number): Card[] {
+  const picked: Card[] = [];
+  for (const c of ordered) {
+    if (picked.length >= max) break;
+    if (deckHealthy(without(deck, [...picked, c]))) picked.push(c);
+  }
+  return picked;
+}
+
+/** The effects of a card that exhaust cards: `exhaustCards`, Fiend Fire and Thrash. */
+function exhaustSources(card: Card): DeepReadonly<Effect>[] {
+  return allEffects(card).filter(
+    (e) => e.type === 'exhaustCards' || (e.type === 'script' && (e.id === 'fiendFire' || e.id === 'thrash')),
+  );
+}
+
+function filterMatches(card: Card, f: DeepReadonly<CardFilter>): boolean {
+  if (f.types && !f.types.includes(card.type)) return false;
+  if (f.notTypes?.includes(card.type)) return false;
+  if (f.cardId !== undefined && card.cardId !== f.cardId) return false;
+  if (f.upgraded !== undefined && card.upgraded !== f.upgraded) return false;
+  return true;
+}
+
+/** #141 existing kill checks: Fiend Fire's (fiendFireKills), or the card's own attack damage covering HP + Block. */
+function playKillsEnemy(view: StrategyView, card: Card): boolean {
+  if (isFiendFire(card)) return fiendFireKills(view, card);
+  const { player, enemy } = view.state;
+  const x = card.xCost ? player.energy : 0;
+  const vigor = card.type === 'attack' ? (player.powers?.vigor ?? 0) : 0;
+  let dmg = 0;
+  for (const e of card.effects) {
+    if (e.type !== 'attack') continue;
+    const base = e.damage + (card.damageBonus ?? 0) + vigor;
+    const perHit = attackDamage(
+      base,
+      player.strength,
+      player.debuffs.weak,
+      enemy.debuffs.vulnerable,
+      player.powers?.cruelty ?? 0,
+    );
+    dmg += perHit * attackHits(e, x);
+  }
+  return dmg > 0 && dmg >= enemy.hp + enemy.block;
+}
+
+/**
+ * #141 worst case of a random exhaust of `n` of `candidates`: damaging cards go first (as many
+ * as there are), then the rest.
+ */
+function worstCaseRandom(candidates: readonly Card[], n: number): Card[] {
+  const damaging = candidates.filter(dealsDamageToEnemy);
+  const other = candidates.filter((c) => !dealsDamageToEnemy(c));
+  return [...damaging, ...other].slice(0, n);
+}
+
+/**
+ * #141: false when playing `card` could leave the deck unhealthy (see deckHealthy), so the
+ * strategy doesn't play it. Only cards that exhaust are held back; everything else is allowed.
+ * - a kill is the exception: the card (Fiend Fire, an attack like Cinder) would end the combat;
+ * - choice exhausts (Burning Pact, Brand, Purity, True Grit+): it needs a guard-keeping pick, in
+ *   the exhaust order (Purity, "up to N": at least one, it may take fewer; Brand / Burning Pact /
+ *   Purity only when a pick is worth exhausting, as before);
+ * - forced and random exhausts (Fiend Fire, Second Wind, Cinder, True Grit, Thrash): the result
+ *   must be healthy, with random picks counted at their worst case.
+ * The card itself leaves the deck if it exhausts (Fiend Fire, Brand, Purity).
+ */
+export function exhaustKeepsDeckHealthy(view: StrategyView, card: Card, config: StrategyConfig): boolean {
+  const sources = exhaustSources(card);
+  if (sources.length === 0 || playKillsEnemy(view, card)) return true;
+  const rest = withoutCards(view, [card]);
+  const player = rest.state.player;
+  const removed: Card[] = [];
+  let deck = deckWhilePlaying(rest.state, card);
+  const piles: Record<PileName, readonly Card[]> = {
+    hand: player.hand,
+    draw: player.drawPile,
+    discard: player.discardPile,
+    exhaust: [],
+  };
+  for (const e of sources) {
+    let gone: Card[];
+    if (e.type === 'script') {
+      const hand = without(piles.hand, removed);
+      gone =
+        e.id === 'fiendFire'
+          ? hand
+          : worstCaseRandom(
+              hand.filter((c) => c.type === 'attack'),
+              1,
+            );
+    } else if (e.type === 'exhaustCards') {
+      const candidates = without(piles[e.from ?? 'hand'], removed).filter(
+        (c) => !e.filter || filterMatches(c, e.filter),
+      );
+      const n = Math.min(e.count ?? candidates.length, candidates.length);
+      if (n === 0) continue;
+      if (e.mode === 'all') gone = candidates;
+      else if (e.mode === 'random') gone = worstCaseRandom(candidates, n);
+      else if (e.mode === 'top') gone = candidates.slice(candidates.length - n);
+      else {
+        const ordered = e.upTo ? purityOrder(candidates, config) : exhaustOrder(candidates, rest, config);
+        gone = guardedPicks(deck, ordered, n);
+        if (gone.length < (e.upTo ? 1 : n)) return false;
+        if (isExhaustEnabler(card) && !gone.some(worthExhausting)) return false;
+      }
+    } else {
+      continue;
+    }
+    removed.push(...gone);
+    deck = without(deck, gone);
+    if (gone.length > 0 && !deckHealthy(deck)) return false;
+  }
+  return true;
+}
+
+/** #141: the view with every exhaust card that could break the deck-health guard removed from `playable`. */
+function withoutGuardBroken(view: StrategyView, config: StrategyConfig): StrategyView {
+  if (!view.playable.some((c) => exhaustSources(c).length > 0)) return view;
+  const playable = view.playable.filter((c) => exhaustKeepsDeckHealthy(view, c, config));
+  return playable.length === view.playable.length ? view : { ...view, playable };
 }
 
 /**
@@ -890,7 +1106,7 @@ export function blockIsLast(config: StrategyConfig): boolean {
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
-  return decideWith(withoutLethal(withoutNeverPlayed(raw)), config, false);
+  return decideWith(withoutGuardBroken(withoutLethal(withoutNeverPlayed(raw)), config), config, false);
 }
 
 function decideWith(view: StrategyView, config: StrategyConfig, planning: boolean): Decision {
@@ -960,14 +1176,24 @@ const END: Decision = { kind: 'endTurn' };
 const play = (c: Card): Decision => ({ kind: 'play', uid: c.uid });
 
 /**
- * Strategies are stateless: each decision is recomputed from the view (the current hand and
- * energy, so cards drawn mid-turn are re-planned around), and one instance can safely be
- * reused across combats.
+ * Strategies keep no state between decisions: each one is recomputed from the view (the current
+ * hand and energy, so cards drawn mid-turn are re-planned around), and one instance can safely be
+ * reused across combats. (Only the card just played is remembered, for the choice it asks for.)
  */
 export function createStrategy(config: StrategyConfig): Strategy {
   const c = normalizeConfig(config);
   if (!c) throw new Error(`Invalid strategy config ${JSON.stringify(config)}`);
-  return { decide: (view) => decide(view, c), choose: (view, request) => chooseExhaust(view, request, c) };
+  // The card just chosen by decide, so a choice it asks for knows whether the card stays in the deck (#141).
+  let playing: Card | undefined;
+  return {
+    decide: (view) => {
+      const d = decide(view, c);
+      playing = d.kind === 'play' ? view.playable.find((p) => p.uid === d.uid) : undefined;
+      return d;
+    },
+    choose: (view, request) =>
+      chooseExhaust(view, request, c, playing && playing.uid === request.sourceUid ? playing : undefined),
+  };
 }
 
 // ---------------------------------------------------------------------------

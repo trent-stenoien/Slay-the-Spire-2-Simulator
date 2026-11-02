@@ -151,7 +151,8 @@ function viewOf(
       energy,
       strength: 0,
       debuffs: { vulnerable: 0, weak: 0, frail: 0 },
-      drawPile: [card('strike')],
+      // A deep draw pile of Strikes keeps the #141 deck-health guard out of the way of the older tests.
+      drawPile: Array.from({ length: 20 }, () => card('strike')),
       hand,
       discardPile: [],
       exhaustPile: [],
