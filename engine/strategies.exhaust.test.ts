@@ -2,8 +2,9 @@
 import { describe, expect, it } from 'vitest';
 import { makeCardInstance, simulateCombat } from './combat';
 import {
-  cardValue,
   chooseExhaust,
+  dealsBlockableDamage,
+  dealsDirectHpDamage,
   createStrategy,
   exhaustOrder,
   exhaustTier,
@@ -78,6 +79,20 @@ const extra: Record<string, CardDef> = {
     keywords: ['unplayable'],
     triggers: [{ when: 'turnEndInHand', effects: [{ type: 'loseHp', amount: 2 }] }],
   }),
+  /** A status with flat, blockable damage in hand (none in the data yet). */
+  blk: skill('blk', [], {
+    type: 'status',
+    cost: null,
+    keywords: ['unplayable'],
+    triggers: [{ when: 'turnEndInHand', effects: [{ type: 'dealDamage', amount: 3 }] }],
+  }),
+  /** A plain non-Ethereal status. */
+  wound: skill('wound', [], { type: 'status', cost: null, keywords: ['unplayable'] }),
+  mad_science_improvement: skill(
+    'mad_science_improvement',
+    [{ type: 'applyPower', power: 'upgradeAtCombatEnd', amount: 1 }],
+    { type: 'power', cost: 1 },
+  ),
   dazed: skill('dazed', [], { type: 'status', cost: null, keywords: ['unplayable', 'ethereal'] }),
   shrug: skill(
     'shrug',
@@ -176,85 +191,267 @@ const request = (options: CardInstance[], min: number, max: number): ChoiceReque
 
 const ids = (cs: readonly { cardId: string; upgraded: boolean }[]) => cs.map((c) => c.cardId + (c.upgraded ? '+' : ''));
 
-describe('#108 exhaust order (every strategy)', () => {
-  it('tiers: exhaust-benefit, curses/statuses, Strike, Defend, Strike+, Defend+, then the rest', () => {
+describe('#139 exhaust order (every strategy)', () => {
+  /** Block is the lower-priority group: Defend is the base card that goes first. */
+  const GREEDY = GREEDY_CONFIG;
+  /** Attack is the lower-priority group: Strike goes first. */
+  const BLOCK = blockFirstConfig(0);
+
+  it('tiers 1–8, with a card on each side of every boundary (Greedy: Block is the lower group)', () => {
     expect(
-      ['drum', 'burn', 'ascenders_bane', 'strike', 'defend', 'strike+', 'defend+', 'bash'].map((id) =>
-        exhaustTier(card(id)),
+      ['burn', 'drum', 'blk', 'wound', 'defend', 'strike', 'dazed', 'strike+', 'bash'].map((id) =>
+        exhaustTier(card(id), GREEDY),
       ),
-    ).toEqual([1, 2, 2, 3, 4, 5, 6, 7]);
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 8]);
+    expect(['defend', 'strike'].map((id) => exhaustTier(card(id), BLOCK))).toEqual([6, 5]);
+    // The curse from the ascension rule is Ethereal: tier 7.
+    expect(exhaustTier(card('ascenders_bane'), GREEDY)).toBe(7);
   });
 
-  it('full order: Drum, damaging status, other curse/status, Strike, Defend, Strike+, Defend+, lowest value', () => {
-    const hand = ['bash', 'defend+', 'strike+', 'shrug', 'defend', 'strike', 'dazed', 'burn', 'drum+', 'drum'].map(
-      card,
-    );
-    expect(ids(exhaustOrder(hand))).toEqual([
-      'drum',
-      'drum+',
+  it('full order: HP-loss junk, Drum, blockable junk, other junk, lower-group base, other base, Ethereal junk, the rest', () => {
+    // Energy 0: nothing is left to play, so no Ethereal exception.
+    const hand = ['bash', 'defend+', 'strike', 'dazed', 'defend', 'wound', 'drum', 'blk', 'burn', 'strike+'].map(card);
+    expect(ids(exhaustOrder(hand, viewOf(hand, 0), GREEDY))).toEqual([
       'burn',
-      'dazed',
-      'strike',
+      'drum',
+      'blk',
+      'wound',
       'defend',
-      'strike+',
+      'strike',
+      'dazed',
       'defend+',
-      'shrug',
+      'strike+',
       'bash',
     ]);
   });
 
-  it('within a tier the non-upgraded copy goes first, then lowest uid', () => {
-    const [a, b, c] = [card('bash+'), card('bash'), card('bash')];
-    expect(exhaustOrder([a!, b!, c!]).map((x) => x.uid)).toEqual([b!.uid, c!.uid, a!.uid]);
+  it('each tier boundary: a card of the next tier never goes before one of the tier above', () => {
+    const order = ['burn', 'drum', 'blk', 'wound', 'defend', 'strike', 'dazed', 'strike+'];
+    for (let i = 0; i + 1 < order.length; i++) {
+      const pair = [card(order[i + 1]!), card(order[i]!)];
+      expect(ids(exhaustOrder(pair, viewOf(pair, 0), GREEDY))).toEqual([order[i], order[i + 1]]);
+    }
   });
 
-  it('the rest goes by lowest value (Shrug It Off 8 Block + draw < Twin Strike 10 < Bash 8 + 2 Vulnerable)', () => {
-    expect(cardValue(card('shrug'))).toBe(11);
-    expect(cardValue(card('twin'))).toBe(10);
-    expect(cardValue(card('bash'))).toBe(14);
-    expect(ids(exhaustOrder(['bash', 'shrug', 'twin'].map(card)))).toEqual(['twin', 'shrug', 'bash']);
+  it('Drum of Battle goes after HP-loss junk but before blockable-damage and other junk', () => {
+    const hand = ['wound', 'blk', 'drum', 'burn'].map(card);
+    expect(ids(exhaustOrder(hand, viewOf(hand, 0), GREEDY))).toEqual(['burn', 'drum', 'blk', 'wound']);
   });
 
-  it('worth exhausting: tiers 1–2 and non-upgraded Strike / Defend only', () => {
-    expect(
-      ['drum', 'burn', 'strike', 'defend', 'strike+', 'defend+', 'bash'].map((id) => worthExhausting(card(id))),
-    ).toEqual([true, true, true, true, false, false, false]);
+  it('a curse/status with an exhaust trigger only is not damaging (the trigger does not hurt in hand)', () => {
+    expect(dealsDirectHpDamage(card('burn'))).toBe(true);
+    expect(dealsDirectHpDamage(card('blk'))).toBe(false);
+    expect(dealsBlockableDamage(card('blk'))).toBe(true);
+    expect(dealsBlockableDamage(card('burn'))).toBe(false);
+    expect(dealsDirectHpDamage(card('wound'))).toBe(false);
+    expect(dealsBlockableDamage(card('wound'))).toBe(false);
+    // Only curses and statuses count.
+    expect(dealsDirectHpDamage(card('brand'))).toBe(false);
+  });
+
+  it('no curse or status in the data has an HP-loss or damage effect yet (classes are fixture-tested)', () => {
+    const files = import.meta.glob<CardDef>(['../data/cards/curses/*.json', '../data/cards/status/*.json'], {
+      eager: true,
+      import: 'default',
+    });
+    expect(Object.keys(files).length).toBeGreaterThan(20);
+    for (const c of Object.values(files)) {
+      const effects = [...c.effects, ...(c.triggers ?? []).flatMap((t) => t.effects)];
+      expect(effects.filter((e) => e.type === 'loseHp' || e.type === 'attack' || e.type === 'dealDamage')).toEqual([]);
+    }
+  });
+
+  describe("the strategy's lower-priority group", () => {
+    const hand = () => ['strike', 'defend', 'strike', 'defend'].map(card);
+
+    it('Greedy (Attack before Block): Block is lower, so Defends go before Strikes', () => {
+      const h = hand();
+      expect(ids(exhaustOrder(h, viewOf(h, 0), GREEDY))).toEqual(['defend', 'defend', 'strike', 'strike']);
+    });
+
+    it('Block first (Block before Attack): Attack is lower, so Strikes go before Defends', () => {
+      const h = hand();
+      expect(ids(exhaustOrder(h, viewOf(h, 0), BLOCK))).toEqual(['strike', 'strike', 'defend', 'defend']);
+    });
+
+    it('only the positions of Attack and Block matter, not Powers', () => {
+      const orders: StrategyConfig['order'][] = [
+        ['attack', 'block', 'powers'],
+        ['powers', 'attack', 'block'],
+        ['attack', 'powers', 'block'],
+      ];
+      for (const order of orders) {
+        const h = hand();
+        expect(ids(exhaustOrder(h, viewOf(h, 0), { order, allowThrough: 0 }))[0]).toBe('defend');
+      }
+      const blockFirst: StrategyConfig['order'][] = [
+        ['block', 'attack', 'powers'],
+        ['powers', 'block', 'attack'],
+        ['block', 'powers', 'attack'],
+      ];
+      for (const order of blockFirst) {
+        const h = hand();
+        expect(ids(exhaustOrder(h, viewOf(h, 0), { order, allowThrough: 0 }))[0]).toBe('strike');
+      }
+    });
+
+    it('the strategy built by createStrategy answers with its own order, in combat choices', () => {
+      const h = hand();
+      const req = request(h, 1, 1);
+      expect(ids([h.find((c) => c.uid === createStrategy(GREEDY).choose!(viewOf(h, 0), req).uids[0])!])).toEqual([
+        'defend',
+      ]);
+      expect(ids([h.find((c) => c.uid === createStrategy(BLOCK).choose!(viewOf(h, 0), req).uids[0])!])).toEqual([
+        'strike',
+      ]);
+    });
+  });
+
+  describe('the Ethereal exception', () => {
+    it('Ethereal junk goes before a Strike that would otherwise be played (energy would be unused)', () => {
+      const h = ['strike', 'dazed'].map(card);
+      expect(ids(exhaustOrder(h, viewOf(h, 1), GREEDY))).toEqual(['dazed', 'strike']);
+    });
+
+    it('same for a Defend with a Block-first strategy', () => {
+      const h = ['defend', 'dazed'].map(card);
+      expect(ids(exhaustOrder(h, viewOf(h, 1, 20), BLOCK))).toEqual(['dazed', 'defend']);
+    });
+
+    it('no exception when the base card would not be played (no energy left)', () => {
+      const h = ['strike', 'dazed'].map(card);
+      expect(ids(exhaustOrder(h, viewOf(h, 0), GREEDY))).toEqual(['strike', 'dazed']);
+    });
+
+    it('no exception while another card still uses the energy; it applies to the last Strike', () => {
+      const h = ['strike', 'strike', 'dazed'].map(card);
+      expect(ids(exhaustOrder(h, viewOf(h, 1), GREEDY))).toEqual(['strike', 'dazed', 'strike']);
+    });
+
+    it('the exception only moves Ethereal junk: other junk stays above both', () => {
+      const h = ['strike', 'dazed', 'wound', 'burn'].map(card);
+      expect(ids(exhaustOrder(h, viewOf(h, 1), GREEDY))).toEqual(['burn', 'wound', 'dazed', 'strike']);
+    });
+
+    it('without a view the plain order applies (Ethereal junk after Strikes and Defends)', () => {
+      const h = ['dazed', 'strike'].map(card);
+      expect(ids(exhaustOrder(h))).toEqual(['strike', 'dazed']);
+    });
+  });
+
+  describe("cards that won't be played this turn (tier 8)", () => {
+    it('upgraded Strikes/Defends first (lower group first), then other cards from the lowest group upward', () => {
+      // Greedy: Attack, Powers, Block. Energy 0: nothing is played.
+      const h = ['bash', 'twin', 'shrug', 'flex', 'strike+', 'defend+'].map(card);
+      expect(ids(exhaustOrder(h, viewOf(h, 0), GREEDY))).toEqual([
+        'defend+',
+        'strike+',
+        'shrug',
+        'flex',
+        'bash',
+        'twin',
+      ]);
+      // Block first: Block, Powers, Attack.
+      const h2 = ['bash', 'twin', 'shrug', 'flex', 'strike+', 'defend+'].map(card);
+      expect(ids(exhaustOrder(h2, viewOf(h2, 0), BLOCK))).toEqual([
+        'strike+',
+        'defend+',
+        'bash',
+        'twin',
+        'flex',
+        'shrug',
+      ]);
+    });
+
+    it('a card the turn plan plays goes after the ones it does not', () => {
+      // Block first, no incoming damage: the plan plays Strike+ with the 1 energy; Defend+ is not played.
+      const h = ['strike+', 'defend+'].map(card);
+      expect(ids(exhaustOrder(h, viewOf(h, 1), BLOCK))).toEqual(['defend+', 'strike+']);
+      // No energy: neither is played, so the lower group's (Attack) Strike+ goes first.
+      const h2 = ['strike+', 'defend+'].map(card);
+      expect(ids(exhaustOrder(h2, viewOf(h2, 0), BLOCK))).toEqual(['strike+', 'defend+']);
+    });
+
+    it('the plan leaves out the exhausting card: energy is what is left after it was played', () => {
+      const h = ['twin', 'bash'].map(card);
+      // 1 energy: the plan plays Twin Strike (1); Bash (2) is not played, so it goes first.
+      expect(ids(exhaustOrder(h, viewOf(h, 1), GREEDY))).toEqual(['bash', 'twin']);
+    });
+
+    it('Second Wind and Fiend Fire count as played (they go last), so they are exhausted after other cards', () => {
+      const h = ['wind', 'bash'].map(card);
+      expect(ids(exhaustOrder(h, viewOf(h, 0), GREEDY))).toEqual(['bash', 'wind']);
+    });
   });
 
   it('"Exhaust 1 card" takes the first card in the order', () => {
     const hand = ['bash', 'defend', 'strike+', 'strike'].map(card);
-    expect(chooseExhaust(viewOf(hand), request(hand, 1, 1)).uids).toEqual([hand[3]!.uid]);
+    // Greedy: Defend is the lower-group base card.
+    expect(chooseExhaust(viewOf(hand, 0), request(hand, 1, 1)).uids).toEqual([hand[1]!.uid]);
+    expect(chooseExhaust(viewOf(hand, 0), request(hand, 1, 1), BLOCK).uids).toEqual([hand[3]!.uid]);
+  });
+
+  it('worth exhausting: tiers 1–7 only (junk incl. Ethereal, Drum, non-upgraded Strike/Defend)', () => {
+    expect(
+      ['burn', 'drum', 'blk', 'wound', 'strike', 'defend', 'dazed', 'strike+', 'defend+', 'bash'].map((id) =>
+        worthExhausting(card(id)),
+      ),
+    ).toEqual([true, true, true, true, true, true, true, false, false, false]);
   });
 });
 
-describe('#108 Purity ("up to 3/5")', () => {
-  const pick = (hand: string[], max: number) => {
+describe('#139 Purity ("up to 3/5")', () => {
+  const pick = (hand: string[], max: number, config?: StrategyConfig, energy = 0) => {
     const cs = hand.map(card);
-    const res = chooseExhaust(viewOf(cs), request(cs, 0, max));
+    const res = chooseExhaust(viewOf(cs, energy), request(cs, 0, max), config);
     return res.uids.map((u) => ids([cs.find((c) => c.uid === u)!])[0]);
   };
 
-  it('takes every tier 1–2 card up to the limit before any Strike or Defend', () => {
-    expect(pick(['strike', 'defend', 'burn', 'dazed', 'drum'], 3)).toEqual(['drum', 'burn', 'dazed']);
+  it('takes tiers 1–4 and 7 first, in tier order, up to the limit', () => {
+    expect(pick(['strike', 'defend', 'dazed', 'wound', 'drum', 'burn'], 4)).toEqual(['burn', 'drum', 'wound', 'dazed']);
+    expect(pick(['strike', 'defend', 'dazed', 'wound', 'drum', 'burn'], 3)).toEqual(['burn', 'drum', 'wound']);
+    expect(pick(['dazed', 'blk', 'wound'], 3)).toEqual(['blk', 'wound', 'dazed']);
   });
 
-  it('fills the remaining slots with non-upgraded Strikes, then non-upgraded Defends', () => {
+  it('Ethereal junk is always exhausted, before Strikes and Defends, even with energy to spend', () => {
+    expect(pick(['strike', 'dazed'], 1, GREEDY_CONFIG, 3)).toEqual(['dazed']);
+    expect(pick(['strike', 'dazed'], 3, GREEDY_CONFIG, 3)).toEqual(['dazed', 'strike']);
+  });
+
+  it('fills the remaining slots with non-upgraded Strikes/Defends, the lower-priority group first', () => {
     expect(pick(['defend', 'strike', 'dazed', 'defend', 'strike'], 5)).toEqual([
+      'dazed',
+      'defend',
+      'defend',
+      'strike',
+      'strike',
+    ]);
+    expect(pick(['defend', 'strike', 'dazed', 'defend', 'strike'], 3, blockFirstConfig(0))).toEqual([
       'dazed',
       'strike',
       'strike',
-      'defend',
-      'defend',
     ]);
   });
 
   it('never takes upgraded Strikes / Defends or other cards, even with slots left', () => {
     expect(pick(['strike+', 'defend+', 'bash', 'shrug', 'strike'], 5)).toEqual(['strike']);
-    expect(pick(['strike+', 'bash'], 3)).toEqual([]);
+    expect(pick(['strike+', 'bash', 'defend+'], 3)).toEqual([]);
   });
 
   it('stops at the limit', () => {
     expect(pick(['strike', 'strike', 'strike', 'strike'], 3)).toHaveLength(3);
+    expect(pick(['burn', 'burn', 'burn', 'burn', 'burn', 'burn'], 5)).toHaveLength(5);
+  });
+});
+
+describe('#135 Q7: strategies never play Mad Science (Improvement)', () => {
+  it('skips it with energy to spare, and still plays other cards', () => {
+    for (const config of [GREEDY_CONFIG, blockFirstConfig(0), blockFirstConfig(100)]) {
+      const s = createStrategy(config);
+      expect(s.decide(viewOf([card('mad_science_improvement')], 3))).toEqual({ kind: 'endTurn' });
+      const hand = [card('mad_science_improvement'), card('strike')];
+      expect(s.decide(viewOf(hand, 3))).toEqual({ kind: 'play', uid: hand[1]!.uid });
+    }
   });
 });
 
