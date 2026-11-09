@@ -7,6 +7,6 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    include: ['engine/**/*.test.ts', 'data/**/*.test.ts', 'app/**/*.test.{ts,tsx}'],
+    include: ['engine/**/*.test.ts', 'data/**/*.test.ts', 'app/**/*.test.{ts,tsx}', 'tools/**/*.test.ts'],
   },
 });
