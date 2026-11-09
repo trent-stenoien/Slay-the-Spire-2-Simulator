@@ -76,3 +76,15 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
 - `npm test`, `npm run typecheck`, and `npm run build` must pass before handing back.
 - Work on your own branch and request a merge; never touch `main`.
 - Design doc: https://claude.ai/artifact/D79XTt7hTXmws6JnNBGt7h
+
+## Keeping token use low
+
+- Orchestrator: start a fresh session with a handoff note (`HANDOFF.md`) when context gets long;
+  batch questions per card; use Sonnet for most sub-agents, Opus only for engine or design work.
+- Sub-agents: report back in a few lines (branch, PR, verdict, anything surprising). Put long
+  output (tables, logs) in a file and give its path instead of pasting it.
+- Run only the checks your task names. Once the check scripts exist (see the board card),
+  use `npm run compare-main` for engine behaviour and `npm run shot -- <panel>` for UI, not ad-hoc scripts.
+- Take few, small screenshots.
+- The full quality-review loop (test reviewer, test runner, readability) runs only after each
+  major update, such as completing a version, not per card.
