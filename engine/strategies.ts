@@ -303,21 +303,22 @@ export function worthExhausting(card: Card): boolean {
   return exhaustTier(card) <= 7;
 }
 
-/** #139: Purity's order: tiers 1–4 and 7 (junk and Drum), then non-upgraded Strikes/Defends (5–6). */
-const PURITY_TIERS = [1, 2, 3, 4, 7, 5, 6];
-
-/** #139: `cards` in Purity's order: tiers 1–4 and 7 first, then 5–6; tier 8 is left out. */
-function purityOrder(cards: readonly Card[], config: StrategyConfig): Card[] {
-  const sorted = [...cards].sort((a, b) => a.uid - b.uid);
-  const out: Card[] = [];
-  for (const t of PURITY_TIERS) out.push(...sorted.filter((c) => exhaustTier(c, config) === t));
-  return out;
+/**
+ * #139 / #141 Q3d: Purity's order: the regular exhaust order (exhaustOrder, with its Ethereal
+ * exception), limited to tiers 1–7: never upgraded Strikes/Defends or other cards (tier 8).
+ */
+function purityOrder(cards: readonly Card[], config: StrategyConfig, view?: StrategyView): Card[] {
+  return exhaustOrder(
+    cards.filter((c) => exhaustTier(c, config) <= 7),
+    view,
+    config,
+  );
 }
 
 /**
  * #108 Strategy.choose for exhaust picks, shared by every strategy. A fixed count ("Exhaust 1
- * card") takes the first cards in the exhaust order. "Up to N" (Purity, #139) always takes tiers
- * 1–4 and 7, then fills with non-upgraded Strikes and Defends (5–6), up to N, and nothing else.
+ * card") takes the first cards in the exhaust order. "Up to N" (Purity, #139) takes cards of
+ * tiers 1–7 in the same order (#141 Q3d), up to N, and nothing else.
  * #141: both skip every card whose removal would break the deck-health guard (see below).
  * `played` is the card whose effect asks (already out of the hand): it is still in the active deck
  * unless it leaves (Exhaust keyword, Power, Corruption). Without it, it counts as gone.
@@ -329,7 +330,7 @@ export function chooseExhaust(
   played?: Card,
 ): ChoiceResponse {
   const upTo = request.max > request.min;
-  const ordered = upTo ? purityOrder(request.options, config) : exhaustOrder(request.options, view, config);
+  const ordered = upTo ? purityOrder(request.options, config, view) : exhaustOrder(request.options, view, config);
   const picked =
     request.purpose === 'exhaust'
       ? guardedPicks(deckWhilePlaying(view.state, played), ordered, request.max)
@@ -347,11 +348,17 @@ export function chooseExhaust(
 // #141 Deck-health guard (Trent): exhausting must not thin the deck too far.
 // ---------------------------------------------------------------------------
 
-/** #141: the active deck never drops below this many cards through an exhaust. */
+/** #141: the active deck never drops below this many cards (plus its extra draw, see deckFloor) through an exhaust. */
 export const MIN_ACTIVE_DECK = 5;
 
 /** #141: the active deck keeps at least 1 damaging card per this many cards (rounded up). */
 export const DECK_CARDS_PER_DAMAGING = 5;
+
+/** #141 (Trent, 2026-11-09): the active deck always keeps at least this many damaging cards. */
+export const MIN_DAMAGING = 2;
+
+/** #141: extra draw counted for "draw until the hand is full" (a 10-card hand after the 5-card draw). */
+export const DRAW_UNTIL_FULL_EXTRA = 5;
 
 /** #141: ids of `script` effects that deal damage to the enemy (Fiend Fire; Thrash also has an `attack`). */
 const DAMAGING_SCRIPT_IDS: readonly string[] = ['fiendFire', 'thrash'];
@@ -393,10 +400,56 @@ export function activeDeck(state: StrategyView['state']): Card[] {
   return [...p.hand, ...p.drawPile, ...p.discardPile];
 }
 
-/** #141: true when an active deck is healthy: at least 5 cards, and damaging cards >= ceil(size / 5). */
+/**
+ * #141: the extra cards a card draws when played, from its effects (nested ones counted once):
+ * `draw` N counts N; `drawUntil` counts DRAW_UNTIL_FULL_EXTRA when it fills the hand (Scrawl), else
+ * 1 (it draws at least one: Pillage). Pommel Strike = 1, Burning Pact = 2, Battle Trance = 3.
+ */
+export function extraDraw(card: Card): number {
+  let n = 0;
+  for (const e of allEffects(card)) {
+    if (e.type === 'draw') n += e.amount;
+    else if (e.type === 'drawUntil') n += e.handFull ? DRAW_UNTIL_FULL_EXTRA : 1;
+  }
+  return n;
+}
+
+/** #141 (Trent, 2026-11-09): the deck floor, the most cards drawn in a turn: 5 + the extra draw of every card in the deck. */
+export function deckFloor(deck: readonly Card[]): number {
+  return deck.reduce((sum, c) => sum + extraDraw(c), MIN_ACTIVE_DECK);
+}
+
+/** #141: damaging cards an active deck of this size needs: max(2, ceil(size / 5)). */
+export function damagingNeeded(size: number): number {
+  return Math.max(MIN_DAMAGING, Math.ceil(size / DECK_CARDS_PER_DAMAGING));
+}
+
+/**
+ * #141: true when an active deck is healthy: at least deckFloor cards, and at least
+ * max(2, ceil(size / 5)) damaging cards.
+ */
 export function deckHealthy(deck: readonly Card[]): boolean {
-  if (deck.length < MIN_ACTIVE_DECK) return false;
-  return deck.filter(dealsDamageToEnemy).length >= Math.ceil(deck.length / DECK_CARDS_PER_DAMAGING);
+  if (deck.length < deckFloor(deck)) return false;
+  return deck.filter(dealsDamageToEnemy).length >= damagingNeeded(deck.length);
+}
+
+/**
+ * #141 (Trent): damage per energy, for choosing which damaging card to exhaust (lower goes first).
+ * Damage is the card's base damage to the enemy: attack damage × hits (+ its damage bonus), plus
+ * dealDamage, enemyLoseHp and Poison amounts, plus a damaging script's first value (Fiend Fire per
+ * card). X-cost cards count X = 1 (damage per energy spent). A 0-cost card (not X) is Infinity:
+ * it is free damage, so it is kept longest. Ignores Strength, Vulnerable and the like.
+ */
+export function damagePerEnergy(card: Card): number {
+  let dmg = 0;
+  for (const e of allEffects(card)) {
+    if (e.type === 'attack') dmg += (e.damage + (card.damageBonus ?? 0)) * attackHits(e, 1);
+    else if (e.type === 'dealDamage' || e.type === 'enemyLoseHp' || e.type === 'applyPoison') dmg += e.amount;
+    else if (e.type === 'script' && DAMAGING_SCRIPT_IDS.includes(e.id)) dmg += e.values?.[0] ?? 0;
+  }
+  if (card.xCost) return dmg;
+  const cost = card.cost ?? 0;
+  return cost <= 0 ? Infinity : dmg / cost;
 }
 
 /** `deck` without `removed` (by uid). */
@@ -424,12 +477,28 @@ function deckWhilePlaying(state: StrategyView['state'], played?: Card): Card[] {
 /**
  * #141: up to `max` cards of `ordered`, in order, each taken only when the deck stays healthy
  * with it (and the ones before it) removed. A card that would break the guard is skipped.
+ * Damage per energy (Trent): when the next pick is a damaging card and it is the last damaging
+ * card the guard lets go, the damaging card of `ordered` with the lowest damage per energy goes
+ * instead (ties: the one earlier in the order), so the best damage stays. With only Bash (4 per
+ * energy) and a Strike (6) to choose from, Bash goes before the last Strike.
  */
 function guardedPicks(deck: readonly Card[], ordered: readonly Card[], max: number): Card[] {
   const picked: Card[] = [];
+  const keeps = (cs: readonly Card[]) => deckHealthy(without(deck, [...picked, ...cs]));
   for (const c of ordered) {
     if (picked.length >= max) break;
-    if (deckHealthy(without(deck, [...picked, c]))) picked.push(c);
+    if (picked.includes(c) || !keeps([c])) continue;
+    let pick = c;
+    if (dealsDamageToEnemy(c)) {
+      const damaging = ordered.filter((d) => dealsDamageToEnemy(d) && !picked.includes(d));
+      const last = !damaging.some((d) => d !== c && keeps([c, d]));
+      if (last) {
+        for (const d of damaging) {
+          if (damagePerEnergy(d) < damagePerEnergy(pick) && keeps([d])) pick = d;
+        }
+      }
+    }
+    picked.push(pick);
   }
   return picked;
 }
@@ -472,13 +541,21 @@ function playKillsEnemy(view: StrategyView, card: Card): boolean {
 }
 
 /**
- * #141 worst case of a random exhaust of `n` of `candidates`: damaging cards go first (as many
- * as there are), then the rest.
+ * #141 worst case of a random exhaust of `n` of `candidates`, for the damaging-card count:
+ * damaging cards go first (as many as there are), then the rest.
  */
 function worstCaseRandom(candidates: readonly Card[], n: number): Card[] {
   const damaging = candidates.filter(dealsDamageToEnemy);
   const other = candidates.filter((c) => !dealsDamageToEnemy(c));
   return [...damaging, ...other].slice(0, n);
+}
+
+/**
+ * #141 worst case of a random exhaust of `n` of `candidates`, for the deck floor: the cards with
+ * the least extra draw go (so the floor drops least).
+ */
+function worstCaseRandomForFloor(candidates: readonly Card[], n: number): Card[] {
+  return [...candidates].sort((a, b) => extraDraw(a) - extraDraw(b)).slice(0, n);
 }
 
 /**
@@ -507,15 +584,17 @@ export function exhaustKeepsDeckHealthy(view: StrategyView, card: Card, config: 
   };
   for (const e of sources) {
     let gone: Card[];
+    // Random exhausts: also the worst case for the floor, which must be healthy too.
+    const randomFloorOk = (candidates: readonly Card[], n: number) =>
+      n === 0 || deckHealthy(without(deck, worstCaseRandomForFloor(candidates, n)));
     if (e.type === 'script') {
       const hand = without(piles.hand, removed);
-      gone =
-        e.id === 'fiendFire'
-          ? hand
-          : worstCaseRandom(
-              hand.filter((c) => c.type === 'attack'),
-              1,
-            );
+      if (e.id === 'fiendFire') gone = hand;
+      else {
+        const attacks = hand.filter((c) => c.type === 'attack');
+        if (!randomFloorOk(attacks, Math.min(1, attacks.length))) return false;
+        gone = worstCaseRandom(attacks, 1);
+      }
     } else if (e.type === 'exhaustCards') {
       const candidates = without(piles[e.from ?? 'hand'], removed).filter(
         (c) => !e.filter || filterMatches(c, e.filter),
@@ -523,10 +602,12 @@ export function exhaustKeepsDeckHealthy(view: StrategyView, card: Card, config: 
       const n = Math.min(e.count ?? candidates.length, candidates.length);
       if (n === 0) continue;
       if (e.mode === 'all') gone = candidates;
-      else if (e.mode === 'random') gone = worstCaseRandom(candidates, n);
-      else if (e.mode === 'top') gone = candidates.slice(candidates.length - n);
+      else if (e.mode === 'random') {
+        if (!randomFloorOk(candidates, n)) return false;
+        gone = worstCaseRandom(candidates, n);
+      } else if (e.mode === 'top') gone = candidates.slice(candidates.length - n);
       else {
-        const ordered = e.upTo ? purityOrder(candidates, config) : exhaustOrder(candidates, rest, config);
+        const ordered = e.upTo ? purityOrder(candidates, config, rest) : exhaustOrder(candidates, rest, config);
         gone = guardedPicks(deck, ordered, n);
         if (gone.length < (e.upTo ? 1 : n)) return false;
         if (isExhaustEnabler(card) && !gone.some(worthExhausting)) return false;

@@ -72,14 +72,14 @@ const extra: Record<string, CardDef> = {
     cost: 1,
     triggers: [{ when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 2 }] }],
   }),
-  /** A status that hurts while in hand (modelled on Burn; #115 will add the real trigger). */
+  /** A status that makes you lose HP while in hand (tier 1, "Lose X HP", modelled on Beckon; #115 adds the real trigger). */
   burn: skill('burn', [], {
     type: 'status',
     cost: null,
     keywords: ['unplayable'],
     triggers: [{ when: 'turnEndInHand', effects: [{ type: 'loseHp', amount: 2 }] }],
   }),
-  /** A status with flat, blockable damage in hand (none in the data yet). */
+  /** A status with flat, blockable damage in hand (tier 3, "Take X damage", modelled on Burn; #115 adds the real trigger). */
   blk: skill('blk', [], {
     type: 'status',
     cost: null,
@@ -192,6 +192,19 @@ const request = (options: CardInstance[], min: number, max: number): ChoiceReque
 
 const ids = (cs: readonly { cardId: string; upgraded: boolean }[]) => cs.map((c) => c.cardId + (c.upgraded ? '+' : ''));
 
+const junkFiles = import.meta.glob<CardDef>(['../data/cards/curses/*.json', '../data/cards/status/*.json'], {
+  eager: true,
+  import: 'default',
+});
+/** A curse/status's HP-loss or damage effects, triggers included. */
+const junkDamageEffects = (c: CardDef) =>
+  [...c.effects, ...(c.triggers ?? []).flatMap((t) => t.effects)].filter(
+    (e) => e.type === 'loseHp' || e.type === 'attack' || e.type === 'dealDamage',
+  );
+/** #141 Q3a wording: "lose 13 HP", "lose 1 HP for each card" vs "take 2 damage", "take 6/7/8 damage". */
+const LOSE_HP = /\blose \d+ HP\b/i;
+const TAKE_DAMAGE = /\btake [\d/]+ damage\b/i;
+
 describe('#139 exhaust order (every strategy)', () => {
   /** Block is the lower-priority group: Defend is the base card that goes first. */
   const GREEDY = GREEDY_CONFIG;
@@ -251,15 +264,31 @@ describe('#139 exhaust order (every strategy)', () => {
   });
 
   it('no curse or status in the data has an HP-loss or damage effect yet (classes are fixture-tested)', () => {
-    const files = import.meta.glob<CardDef>(['../data/cards/curses/*.json', '../data/cards/status/*.json'], {
-      eager: true,
-      import: 'default',
-    });
-    expect(Object.keys(files).length).toBeGreaterThan(20);
-    for (const c of Object.values(files)) {
-      const effects = [...c.effects, ...(c.triggers ?? []).flatMap((t) => t.effects)];
-      expect(effects.filter((e) => e.type === 'loseHp' || e.type === 'attack' || e.type === 'dealDamage')).toEqual([]);
+    expect(Object.keys(junkFiles).length).toBeGreaterThan(20);
+    for (const c of Object.values(junkFiles)) {
+      expect(junkDamageEffects(c)).toEqual([]);
     }
+  });
+
+  it('#141 Q3a: "Lose X HP" is non-blockable (tier 1), "Take X damage" is blockable (tier 3)', () => {
+    // The wording of every curse/status in the data, pinned so #115 models each with the right effect.
+    const byText = (re: RegExp) =>
+      Object.values(junkFiles)
+        .filter((c) => re.test(c.description))
+        .map((c) => c.id)
+        .sort();
+    expect(byText(LOSE_HP)).toEqual(['bad_luck', 'beckon', 'regret']);
+    expect(byText(TAKE_DAMAGE)).toEqual(['burn', 'decay', 'disintegration', 'infection', 'toxic', 'wither']);
+    // A card whose text says one must be modelled (and so classified) as that one.
+    for (const c of Object.values(junkFiles)) {
+      if (junkDamageEffects(c).length === 0) continue;
+      const inst = makeCardInstance(c, false, 1);
+      expect(dealsDirectHpDamage(inst)).toBe(LOSE_HP.test(c.description));
+      expect(dealsBlockableDamage(inst)).toBe(TAKE_DAMAGE.test(c.description));
+    }
+    // The fixtures modelled on Beckon ("lose 6 HP") and Burn ("take 2 damage") land in tiers 1 and 3.
+    expect(exhaustTier(card('burn'))).toBe(1);
+    expect(exhaustTier(card('blk'))).toBe(3);
   });
 
   describe("the strategy's lower-priority group", () => {
@@ -408,29 +437,36 @@ describe('#139 Purity ("up to 3/5")', () => {
     return res.uids.map((u) => ids([cs.find((c) => c.uid === u)!])[0]);
   };
 
-  it('takes tiers 1–4 and 7 first, in tier order, up to the limit', () => {
-    expect(pick(['strike', 'defend', 'dazed', 'wound', 'drum', 'burn'], 4)).toEqual(['burn', 'drum', 'wound', 'dazed']);
+  it('#141 Q3d: follows the regular exhaust order (tiers 1–7), up to the limit', () => {
+    // No energy: Strikes/Defends would not be played, so Dazed (tier 7) comes after them.
+    expect(pick(['strike', 'defend', 'dazed', 'wound', 'drum', 'burn'], 4)).toEqual([
+      'burn',
+      'drum',
+      'wound',
+      'defend',
+    ]);
     expect(pick(['strike', 'defend', 'dazed', 'wound', 'drum', 'burn'], 3)).toEqual(['burn', 'drum', 'wound']);
     expect(pick(['dazed', 'blk', 'wound'], 3)).toEqual(['blk', 'wound', 'dazed']);
   });
 
-  it('Ethereal junk is always exhausted, before Strikes and Defends, even with energy to spend', () => {
+  it('Ethereal junk goes before Strikes and Defends only by the regular Ethereal exception (energy to spend)', () => {
     expect(pick(['strike', 'dazed'], 1, GREEDY_CONFIG, 3)).toEqual(['dazed']);
     expect(pick(['strike', 'dazed'], 3, GREEDY_CONFIG, 3)).toEqual(['dazed', 'strike']);
+    expect(pick(['strike', 'dazed'], 1, GREEDY_CONFIG, 0)).toEqual(['strike']);
   });
 
-  it('fills the remaining slots with non-upgraded Strikes/Defends, the lower-priority group first', () => {
+  it('fills the slots with non-upgraded Strikes/Defends, the lower-priority group first', () => {
     expect(pick(['defend', 'strike', 'dazed', 'defend', 'strike'], 5)).toEqual([
+      'defend',
+      'defend',
+      'strike',
+      'strike',
       'dazed',
-      'defend',
-      'defend',
-      'strike',
-      'strike',
     ]);
     expect(pick(['defend', 'strike', 'dazed', 'defend', 'strike'], 3, blockFirstConfig(0))).toEqual([
-      'dazed',
       'strike',
       'strike',
+      'defend',
     ]);
   });
 

@@ -1,4 +1,7 @@
-/** #141 deck-health guard: exhausting keeps >= ceil(active deck / 5) damaging cards and >= 5 cards, unless it kills. */
+/**
+ * #141 deck-health guard: exhausting keeps >= max(2, ceil(active deck / 5)) damaging cards and
+ * >= 5 + extra draw cards, unless it kills; the last damaging card allowed to go is the lowest damage per energy.
+ */
 import { describe, expect, it } from 'vitest';
 import { makeCardInstance, simulateCombat } from './combat';
 import {
@@ -6,9 +9,13 @@ import {
   blockFirstConfig,
   chooseExhaust,
   createStrategy,
+  damagePerEnergy,
+  damagingNeeded,
   dealsDamageToEnemy,
+  deckFloor,
   deckHealthy,
   exhaustKeepsDeckHealthy,
+  extraDraw,
   GREEDY_CONFIG,
 } from './strategies';
 import { cards } from './testFixtures';
@@ -88,6 +95,37 @@ const defs: Record<string, CardDef> = {
     keywords: ['unplayable'],
   }),
   flex: base('flex', [{ type: 'gainStrength', amount: 2 }], { type: 'power', cost: 1 }),
+  pommel: {
+    ...cards.strike!,
+    id: 'pommel',
+    effects: [
+      { type: 'attack', damage: 9, hits: 1 },
+      { type: 'draw', amount: 1 },
+    ],
+    upgraded: null,
+  },
+  /** A 0-cost attack (Anger-like). */
+  anger: { ...cards.strike!, id: 'anger', cost: 0, effects: [{ type: 'attack', damage: 6, hits: 1 }], upgraded: null },
+  /** An X-cost attack (Whirlwind-like): 5 per X. */
+  whirl: {
+    ...cards.strike!,
+    id: 'whirl',
+    cost: 0,
+    xCost: true,
+    effects: [{ type: 'attack', damage: 5, hits: 1, xTimes: true }],
+    upgraded: null,
+  } as CardDef,
+  twin: { ...cards.strike!, id: 'twin', cost: 1, effects: [{ type: 'attack', damage: 5, hits: 2 }], upgraded: null },
+  scrawl: base('scrawl', [{ type: 'drawUntil', handFull: true }], { cost: 1, keywords: ['exhaust'] }),
+  pillage: {
+    ...cards.strike!,
+    id: 'pillage',
+    effects: [
+      { type: 'attack', damage: 6, hits: 1 },
+      { type: 'drawUntil', stopOn: { notTypes: ['attack'] } },
+    ],
+    upgraded: null,
+  },
 };
 
 let uid = 5000;
@@ -198,9 +236,10 @@ describe('#141 damaging card', () => {
 describe('#141 the guard: ratio and minimum', () => {
   const deck = (strikes: number, others: number) => [...many('strike', strikes), ...many('defend', others)];
 
-  it('needs damaging >= ceil(size / 5), at each size boundary', () => {
-    // size 5: 1 damaging; 6..10: 2; 11..15: 3.
-    expect([5, 6, 10, 11, 15, 16].map((n) => deckHealthy(deck(Math.ceil(n / 5), n - Math.ceil(n / 5))))).toEqual([
+  it('needs damaging >= max(2, ceil(size / 5)), at each size boundary', () => {
+    // size 5..10: 2 damaging; 11..15: 3; 16: 4.
+    expect([5, 6, 10, 11, 15, 16].map(damagingNeeded)).toEqual([2, 2, 2, 3, 3, 4]);
+    expect([5, 6, 10, 11, 15, 16].map((n) => deckHealthy(deck(damagingNeeded(n), n - damagingNeeded(n))))).toEqual([
       true,
       true,
       true,
@@ -209,17 +248,40 @@ describe('#141 the guard: ratio and minimum', () => {
       true,
     ]);
     expect(
-      [5, 6, 10, 11, 15, 16].map((n) => deckHealthy(deck(Math.ceil(n / 5) - 1, n - Math.ceil(n / 5) + 1))),
+      [5, 6, 10, 11, 15, 16].map((n) => deckHealthy(deck(damagingNeeded(n) - 1, n - damagingNeeded(n) + 1))),
     ).toEqual([false, false, false, false, false, false]);
     expect(deckHealthy(deck(2, 8))).toBe(true); // 10 cards, 2
     expect(deckHealthy(deck(2, 9))).toBe(false); // 11 cards, needs 3
     expect(deckHealthy(deck(3, 8))).toBe(true);
   });
 
+  it('always keeps at least 2 damaging cards, also where ceil(size / 5) would ask for 1', () => {
+    expect(deckHealthy(deck(1, 4))).toBe(false); // 5 cards: ceil(5 / 5) = 1, but 2 needed
+    expect(deckHealthy(deck(2, 3))).toBe(true);
+  });
+
   it('needs at least 5 cards, even when every card damages', () => {
     expect(deckHealthy(deck(4, 0))).toBe(false);
     expect(deckHealthy(deck(5, 0))).toBe(true);
     expect(deckHealthy([])).toBe(false);
+  });
+
+  it('the floor is 5 + the extra draw of every draw card in the deck', () => {
+    expect(deckFloor(deck(2, 3))).toBe(5); // no draw cards
+    expect(deckFloor([card('pommel'), ...deck(2, 3)])).toBe(6);
+    expect(deckFloor([card('pommel'), card('pommel'), ...deck(2, 3)])).toBe(7);
+    expect(deckFloor([card('pact'), ...deck(2, 3)])).toBe(7); // Burning Pact draws 2
+    // One Pommel Strike: 5 cards are not enough, 6 are.
+    expect(deckHealthy([card('pommel'), ...deck(1, 3)])).toBe(false);
+    expect(deckHealthy([card('pommel'), ...deck(1, 4)])).toBe(true);
+    expect(deckHealthy([card('pommel'), card('pommel'), ...deck(0, 4)])).toBe(false);
+    expect(deckHealthy([card('pommel'), card('pommel'), ...deck(0, 5)])).toBe(true);
+  });
+
+  it('the extra draw comes from the card effects', () => {
+    expect(['strike', 'pommel', 'pact', 'scrawl', 'pillage', 'grit'].map((id) => extraDraw(card(id)))).toEqual([
+      0, 1, 2, 5, 1, 0,
+    ]);
   });
 
   it('the active deck is hand + draw + discard (the exhaust pile does not count)', () => {
@@ -238,11 +300,64 @@ describe('#141 the guard: ratio and minimum', () => {
     expect(playedId(fixed)).toBe('pact'); // 11 cards, 3 damaging
   });
 
-  it('a boundary through a real exhaust: the 5-card minimum', () => {
-    const five = { hand: [card('pact'), card('wound')], draw: many('strike', 4) };
-    expect(playedId(five)).toBe('pact'); // 4 Strikes + Burning Pact = 5
-    const four = { hand: [card('pact'), card('wound')], draw: many('strike', 3) };
-    expect(playedId(four)).toBeNull(); // 4 cards
+  it('a boundary through a real exhaust: the floor (Burning Pact draws 2, so 7)', () => {
+    const seven = { hand: [card('pact'), card('wound')], draw: many('strike', 6) };
+    expect(playedId(seven)).toBe('pact'); // 6 Strikes + Burning Pact = 7
+    const six = { hand: [card('pact'), card('wound')], draw: many('strike', 5) };
+    expect(playedId(six)).toBeNull(); // 6 cards
+  });
+});
+
+describe('#141 damage per energy', () => {
+  it('Strike 6, Bash 4, Pommel Strike 9, two hits count; 0-cost is Infinity; X-cost counts X = 1', () => {
+    expect(['strike', 'bash', 'pommel', 'twin', 'anger', 'whirl'].map((id) => damagePerEnergy(card(id)))).toEqual([
+      6,
+      4,
+      9,
+      10,
+      Infinity,
+      5,
+    ]);
+    expect(damagePerEnergy(card('fiend'))).toBe(Infinity); // 0-cost fixture
+  });
+
+  const request = (options: CardInstance[]): ChoiceRequest => ({
+    purpose: 'exhaust',
+    from: 'hand',
+    to: 'exhaust',
+    options,
+    min: 1,
+    max: 1,
+  });
+  /** True Grit+ stays in the deck; the others make up the rest. */
+  const pickWith = (options: CardInstance[], draw: CardInstance[], nothingPlayable = false) => {
+    const view = viewOf({ hand: options, draw });
+    if (nothingPlayable) view.playable = []; // no card is planned: tier 8 goes by uid
+    const uids = chooseExhaust(view, request(options), blockFirstConfig(0), card('grit+')).uids;
+    return options.find((c) => c.uid === uids[0])!.cardId;
+  };
+
+  it('Bash goes before the last Strike when only one more damaging card may go', () => {
+    // 11 cards, 3 damaging: one may go (10 cards, 2), a second may not (9 cards, 1).
+    expect(pickWith([card('strike'), card('bash')], [card('strike'), ...many('defend', 7)])).toBe('bash');
+  });
+
+  it('with room for more, the regular order applies (Strike first for Block-first)', () => {
+    // 12 cards, 4 damaging: after a Strike (11, 3), another could still go (10, 2).
+    expect(pickWith([card('strike'), card('bash')], [...many('strike', 2), ...many('defend', 7)])).toBe('strike');
+  });
+
+  it('a 0-cost attack is kept longest; an X-cost attack counts its damage per X', () => {
+    // Nothing planned: Anger (lower uid) is first in the order. With room it goes; at the margin
+    // it stays (Infinity), even against a Pommel Strike (9 per energy).
+    expect(pickWith([card('anger'), card('pommel')], [...many('strike', 2), ...many('defend', 7)], true)).toBe('anger');
+    expect(pickWith([card('anger'), card('pommel')], [card('strike'), ...many('defend', 7)], true)).toBe('pommel');
+    // Whirlwind-like (5) goes before a Strike (6), even though the Strike is first in the order.
+    expect(pickWith([card('strike'), card('whirl')], [card('strike'), ...many('defend', 7)])).toBe('whirl');
+  });
+
+  it('the damaging card the order picks stays when it already has the lowest damage per energy', () => {
+    expect(pickWith([card('strike'), card('pommel')], [card('strike'), ...many('defend', 7)])).toBe('strike');
   });
 });
 
@@ -418,6 +533,17 @@ describe('#141 forced and random exhausts: the strategy does not play the card i
       draw: [...many('strike', 2), ...many('defend', 5)],
     };
     expect(playedId(s)).toBe('grit');
+  });
+
+  it('True Grit (random): the worst case for the floor keeps the draw card and exhausts the other', () => {
+    // True Grit, Burning Pact, a Defend and 4 Strikes: 7 cards, floor 7 (Pact draws 2).
+    // If the Pact went, 6 cards with floor 5 would be fine; if the Defend goes, 6 < 7.
+    const hand = [card('grit'), card('pact'), card('defend')];
+    expect(exhaustKeepsDeckHealthy(viewOf({ hand, draw: many('strike', 4) }), hand[0]!, GREEDY_CONFIG)).toBe(false);
+    const hand2 = [card('grit'), card('pact'), card('defend')];
+    expect(exhaustKeepsDeckHealthy(viewOf({ hand: hand2, draw: many('strike', 5) }), hand2[0]!, GREEDY_CONFIG)).toBe(
+      true,
+    );
   });
 
   it('True Grit (random): the 5-card minimum counts too', () => {
