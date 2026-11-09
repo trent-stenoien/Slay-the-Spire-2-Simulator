@@ -84,7 +84,8 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
 - Sub-agents: report back in a few lines (branch, PR, verdict, anything surprising). Put long
   output (tables, logs) in a file and give its path instead of pasting it.
 - Run only the checks your task names. Once the check scripts exist (see the board card),
-  use `npm run compare-main` for engine behaviour and `npm run shot -- <panel>` for UI, not ad-hoc scripts.
+  use `npm run compare-main` for engine behaviour (prints `identical` or the first difference; full output in `.check-output/`)
+  and `npm run shot -- <panel>` for UI (`setup|deck|strategies|results|log`; prints the PNG path), not ad-hoc scripts.
 - Take few, small screenshots.
 - The full quality-review loop (test reviewer, test runner, readability) runs only after each
   major update, such as completing a version, not per card.
