@@ -195,7 +195,8 @@ export function lowerPriorityBase(config: StrategyConfig): 'strike' | 'defend' {
  * #139 exhaust tier (Trent, #108 final order), lower goes first, for every strategy:
  * 1 curse/status that makes you lose HP, 2 exhaust-benefit cards (Drum of Battle), 3 curse/status
  * with flat blockable damage, 4 other non-Ethereal curse/status, 5 non-upgraded Strike or Defend
- * of the lower-priority group, 6 the other non-upgraded one, 7 Ethereal curse/status, 8 anything
+ * of the lower-priority group, 6 the other non-upgraded one, 6.5 a draw-only card costing 1+ while
+ * the draw cards are exhaustible (#144, see TallyConfig), 7 Ethereal curse/status, 8 anything
  * else (the cards that won't be played; see exhaustOrder).
  */
 export function exhaustTier(card: Card, config: StrategyConfig = GREEDY_CONFIG): number {
@@ -206,7 +207,47 @@ export function exhaustTier(card: Card, config: StrategyConfig = GREEDY_CONFIG):
   if (!card.upgraded && (card.cardId === 'strike' || card.cardId === 'defend')) {
     return card.cardId === lowerPriorityBase(config) ? 5 : 6;
   }
+  if (drawCardExhaustible(card, config)) return DRAW_TIER;
   return 8;
+}
+
+/** #144: the exhaust tier of a draw-only card costing 1+ while draw cards are exhaustible: right after Strikes and Defends. */
+const DRAW_TIER = 6.5;
+
+/** #144: draw cards are exhaustible once at least this share of the turns so far this combat ended with 0 energy. */
+export const DRAW_EXHAUST_ZERO_ENERGY_SHARE = 0.8;
+
+/**
+ * #144 (Trent): the strategy's config plus what it has seen this combat. `drawExhaustible` is true
+ * when at least DRAW_EXHAUST_ZERO_ENERGY_SHARE of the turns so far ended with 0 energy (so every
+ * point of energy goes to cards, and a draw card that costs energy is worth less than a Strike).
+ * createStrategy sets it per decision; a plain StrategyConfig means false.
+ */
+export interface TallyConfig extends StrategyConfig {
+  drawExhaustible?: boolean;
+}
+
+/** #144: true when `config` says draw cards are exhaustible (see TallyConfig). */
+function drawsExhaustible(config: StrategyConfig | undefined): boolean {
+  return !!(config as TallyConfig | undefined)?.drawExhaustible;
+}
+
+/** #144: a card that only draws: every effect is a draw (or Battle Trance's no-more-draws power). Burning Pact exhausts too, so it is not. */
+export function isDrawOnly(card: Card): boolean {
+  return (
+    isDrawCard(card) &&
+    card.effects.every(
+      (e) => e.type === 'draw' || e.type === 'drawUntil' || (e.type === 'applyPower' && e.power === 'noDraw'),
+    )
+  );
+}
+
+/**
+ * #144: a draw-only card costing 1+ energy, while the draw cards are
+ * exhaustible. A 0-cost one (and any, otherwise) is never exhausted: its draw counts in the deck floor.
+ */
+function drawCardExhaustible(card: Card, config: StrategyConfig | undefined): boolean {
+  return drawsExhaustible(config) && isDrawOnly(card) && !card.xCost && (card.cost ?? 0) >= 1;
 }
 
 /** `hand` with `card` removed, as a view (for planning the turn without it). */
@@ -237,12 +278,15 @@ function leavesEnergyUnused(view: StrategyView, config: StrategyConfig, base: Ca
   return without > withIt;
 }
 
-/** Exhaust sort key for tier 8: planned cards last, upgraded Strike/Defend first, lowest group first, uid. */
+/**
+ * Exhaust sort key for tier 8: draw-only cards last (#144: never exhausted unless forced), then
+ * planned cards, upgraded Strike/Defend first, lowest group first, uid.
+ */
 function tier8Key(card: Card, config: StrategyConfig, planned: ReadonlySet<number>): number[] {
   const g = groupOf(card, config);
   const lowFirst = g === null ? -1 : -config.order.indexOf(g);
   const basic = card.cardId === 'strike' || card.cardId === 'defend';
-  return [planned.has(card.uid) ? 1 : 0, basic ? 0 : 1, lowFirst, card.uid];
+  return [isDrawOnly(card) ? 1 : 0, planned.has(card.uid) ? 1 : 0, basic ? 0 : 1, lowFirst, card.uid];
 }
 
 /**
@@ -299,8 +343,8 @@ function cmp(a: readonly number[], b: readonly number[]): number {
 }
 
 /** #108: a card worth spending an exhaust effect on: any junk, Drum of Battle, or a non-upgraded Strike or Defend (tiers 1–7). */
-export function worthExhausting(card: Card): boolean {
-  return exhaustTier(card) <= 7;
+export function worthExhausting(card: Card, config: StrategyConfig = GREEDY_CONFIG): boolean {
+  return exhaustTier(card, config) <= 7;
 }
 
 /**
@@ -333,7 +377,7 @@ export function chooseExhaust(
   const ordered = upTo ? purityOrder(request.options, config, view) : exhaustOrder(request.options, view, config);
   const picked =
     request.purpose === 'exhaust'
-      ? guardedPicks(deckWhilePlaying(view.state, played), ordered, request.max)
+      ? guardedPicks(deckWhilePlaying(view.state, played), ordered, request.max, config)
       : ordered.slice(0, request.max);
   if (picked.length < request.min) {
     for (const c of exhaustOrder(request.options, view, config)) {
@@ -461,8 +505,9 @@ export function extraDraw(card: Card, deck: readonly Card[] = []): number {
 }
 
 /** #141 (Trent, 2026-11-09): the deck floor, the most cards drawn in a turn: 5 + the extra draw of every card in the deck. */
-export function deckFloor(deck: readonly Card[]): number {
-  return deck.reduce((sum, c) => sum + extraDraw(c, deck), MIN_ACTIVE_DECK);
+export function deckFloor(deck: readonly Card[], config?: StrategyConfig): number {
+  // #144: a draw card that is exhaustible is expected to go, so its draw is not counted; otherwise it is.
+  return deck.reduce((sum, c) => sum + (drawCardExhaustible(c, config) ? 0 : extraDraw(c, deck)), MIN_ACTIVE_DECK);
 }
 
 /** #141: damaging cards an active deck of this size needs: max(2, ceil(size / 5)). */
@@ -474,8 +519,8 @@ export function damagingNeeded(size: number): number {
  * #141: true when an active deck is healthy: at least deckFloor cards, and at least
  * max(2, ceil(size / 5)) damaging cards.
  */
-export function deckHealthy(deck: readonly Card[]): boolean {
-  if (deck.length < deckFloor(deck)) return false;
+export function deckHealthy(deck: readonly Card[], config?: StrategyConfig): boolean {
+  if (deck.length < deckFloor(deck, config)) return false;
   return deck.filter(dealsDamageToEnemy).length >= damagingNeeded(deck.length);
 }
 
@@ -528,9 +573,9 @@ function deckWhilePlaying(state: StrategyView['state'], played?: Card): Card[] {
  * instead (ties: the one earlier in the order), so the best damage stays. With only Bash (4 per
  * energy) and a Strike (6) to choose from, Bash goes before the last Strike.
  */
-function guardedPicks(deck: readonly Card[], ordered: readonly Card[], max: number): Card[] {
+function guardedPicks(deck: readonly Card[], ordered: readonly Card[], max: number, config?: StrategyConfig): Card[] {
   const picked: Card[] = [];
-  const keeps = (cs: readonly Card[]) => deckHealthy(without(deck, [...picked, ...cs]));
+  const keeps = (cs: readonly Card[]) => deckHealthy(without(deck, [...picked, ...cs]), config);
   for (const c of ordered) {
     if (picked.length >= max) break;
     if (picked.includes(c) || !keeps([c])) continue;
@@ -601,8 +646,9 @@ function worstCaseRandom(candidates: readonly Card[], n: number): Card[] {
  * #141 worst case of a random exhaust of `n` of `candidates`, for the deck floor: the cards with
  * the least extra draw go (so the floor drops least).
  */
-function worstCaseRandomForFloor(candidates: readonly Card[], n: number): Card[] {
-  return [...candidates].sort((a, b) => extraDraw(a) - extraDraw(b)).slice(0, n);
+function worstCaseRandomForFloor(candidates: readonly Card[], n: number, config?: StrategyConfig): Card[] {
+  const draw = (c: Card) => (drawCardExhaustible(c, config) ? 0 : extraDraw(c));
+  return [...candidates].sort((a, b) => draw(a) - draw(b)).slice(0, n);
 }
 
 /**
@@ -633,7 +679,7 @@ export function exhaustKeepsDeckHealthy(view: StrategyView, card: Card, config: 
     let gone: Card[];
     // Random exhausts: also the worst case for the floor, which must be healthy too.
     const randomFloorOk = (candidates: readonly Card[], n: number) =>
-      n === 0 || deckHealthy(without(deck, worstCaseRandomForFloor(candidates, n)));
+      n === 0 || deckHealthy(without(deck, worstCaseRandomForFloor(candidates, n, config)), config);
     if (e.type === 'script') {
       const hand = without(piles.hand, removed);
       if (e.id === 'fiendFire') gone = hand;
@@ -655,16 +701,16 @@ export function exhaustKeepsDeckHealthy(view: StrategyView, card: Card, config: 
       } else if (e.mode === 'top') gone = candidates.slice(candidates.length - n);
       else {
         const ordered = e.upTo ? purityOrder(candidates, config, rest) : exhaustOrder(candidates, rest, config);
-        gone = guardedPicks(deck, ordered, n);
+        gone = guardedPicks(deck, ordered, n, config);
         if (gone.length < (e.upTo ? 1 : n)) return false;
-        if (isExhaustEnabler(card) && !gone.some(worthExhausting)) return false;
+        if (isExhaustEnabler(card) && !gone.some((c) => worthExhausting(c, config))) return false;
       }
     } else {
       continue;
     }
     removed.push(...gone);
     deck = without(deck, gone);
-    if (gone.length > 0 && !deckHealthy(deck)) return false;
+    if (gone.length > 0 && !deckHealthy(deck, config)) return false;
   }
   return true;
 }
@@ -865,8 +911,8 @@ export function fiendFireThatBeats(view: StrategyView): Card | undefined {
 }
 
 /** #108: the best Brand / Burning Pact / Purity to play now: only while another card in hand is worth exhausting. */
-export function pickExhaustEnabler(view: StrategyView): Card | undefined {
-  const worth = (card: Card) => view.state.player.hand.some((c) => c.uid !== card.uid && worthExhausting(c));
+export function pickExhaustEnabler(view: StrategyView, config: StrategyConfig = GREEDY_CONFIG): Card | undefined {
+  const worth = (card: Card) => view.state.player.hand.some((c) => c.uid !== card.uid && worthExhausting(c, config));
   return best(
     view.playable.filter((c) => isExhaustEnabler(c) && worth(c)),
     () => [],
@@ -1106,7 +1152,7 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
     const tremble = pickPlayFirst(view);
     if (tremble) return tremble;
   }
-  const enabler = pickExhaustEnabler(view);
+  const enabler = pickExhaustEnabler(view, config);
   if (enabler) return enabler;
   if (cannotFillTopGroup(view, config)) {
     const pure = pickPureDraw(view);
@@ -1328,23 +1374,74 @@ const END: Decision = { kind: 'endTurn' };
 const play = (c: Card): Decision => ({ kind: 'play', uid: c.uid });
 
 /**
- * Strategies keep no state between decisions: each one is recomputed from the view (the current
- * hand and energy, so cards drawn mid-turn are re-planned around), and one instance can safely be
- * reused across combats. (Only the card just played is remembered, for the choice it asks for.)
+ * #144: the turns of one combat so far, to tell whether at least 80% of them ended with 0 energy.
+ * Built only from what decide sees (the turn number, the energy at endTurn), so it is deterministic.
+ */
+class EnergyTally {
+  private turn = 0;
+  private played = 0;
+  private ended = false;
+  private endEnergy = 0;
+  private turns = 0;
+  private zero = 0;
+
+  /** Call before each decision: closes the previous turn when a new one starts, resets on a new combat. */
+  observe(view: StrategyView): void {
+    const turn = view.state.turn;
+    const played = view.state.player.counters?.cardsPlayedThisCombat ?? 0;
+    const newCombat =
+      this.turn === 0 ||
+      turn < this.turn ||
+      turn > this.turn + 1 ||
+      (turn === this.turn && (this.ended || played < this.played));
+    if (newCombat) {
+      this.turns = 0;
+      this.zero = 0;
+    } else if (turn === this.turn + 1 && this.ended) {
+      this.turns++;
+      if (this.endEnergy === 0) this.zero++;
+    }
+    this.turn = turn;
+    this.played = played;
+    this.ended = false;
+  }
+
+  /** Call after each decision. */
+  record(view: StrategyView, d: Decision): void {
+    if (d.kind !== 'endTurn') return;
+    this.ended = true;
+    this.endEnergy = view.state.player.energy;
+  }
+
+  /** True when at least DRAW_EXHAUST_ZERO_ENERGY_SHARE of the finished turns ended with 0 energy (none finished: false). */
+  get drawExhaustible(): boolean {
+    return this.turns > 0 && this.zero / this.turns >= DRAW_EXHAUST_ZERO_ENERGY_SHARE;
+  }
+}
+
+/**
+ * Strategies re-compute each decision from the view (the current hand and energy, so cards drawn
+ * mid-turn are re-planned around). Remembered: the card just played, for the choice it asks for
+ * (#141), and the energy tally of the combat (#144, EnergyTally; it resets by itself on a new
+ * combat, so one instance can still be reused across combats).
  */
 export function createStrategy(config: StrategyConfig): Strategy {
   const c = normalizeConfig(config);
   if (!c) throw new Error(`Invalid strategy config ${JSON.stringify(config)}`);
   // The card just chosen by decide, so a choice it asks for knows whether the card stays in the deck (#141).
   let playing: Card | undefined;
+  const tally = new EnergyTally();
+  const withTally = (): TallyConfig => ({ ...c, drawExhaustible: tally.drawExhaustible });
   return {
     decide: (view) => {
-      const d = decide(view, c);
+      tally.observe(view);
+      const d = decide(view, withTally());
+      tally.record(view, d);
       playing = d.kind === 'play' ? view.playable.find((p) => p.uid === d.uid) : undefined;
       return d;
     },
     choose: (view, request) =>
-      chooseExhaust(view, request, c, playing && playing.uid === request.sourceUid ? playing : undefined),
+      chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined),
   };
 }
 
