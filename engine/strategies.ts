@@ -1147,6 +1147,8 @@ function pickZeroCostDraw(view: StrategyView): Card | undefined {
  * ranked within their group.
  */
 function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
+  const heal = pickNotYet(view);
+  if (heal) return heal;
   const zero = pickZeroCostDraw(view);
   if (zero) return zero;
   if (config.order[0] === 'attack') {
@@ -1166,6 +1168,23 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
     return pure;
   }
   return undefined;
+}
+
+/** #115: Not Yet is played first, but only when it would heal at least this much HP now. */
+export const NOT_YET_MIN_HEAL = 8;
+
+/** #115 (Trent): the playable healing card (Not Yet) that would restore the most HP, if at least NOT_YET_MIN_HEAL. */
+function pickNotYet(view: StrategyView): Card | undefined {
+  const { hp, maxHp } = view.state.player;
+  const heals = (c: Card): number =>
+    Math.min(
+      c.effects.reduce((n, e) => n + (e.type === 'heal' ? e.amount : 0), 0),
+      maxHp - hp,
+    );
+  return best(
+    view.playable.filter((c) => heals(c) >= NOT_YET_MIN_HEAL),
+    (c) => [heals(c)],
+  );
 }
 
 /**

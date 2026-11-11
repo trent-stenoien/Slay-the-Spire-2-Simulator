@@ -199,7 +199,7 @@ const junkFiles = import.meta.glob<CardDef>(['../data/cards/curses/*.json', '../
 /** A curse/status's HP-loss or damage effects, triggers included. */
 const junkDamageEffects = (c: CardDef) =>
   [...c.effects, ...(c.triggers ?? []).flatMap((t) => t.effects)].filter(
-    (e) => e.type === 'loseHp' || e.type === 'attack' || e.type === 'dealDamage',
+    (e) => e.type === 'loseHp' || e.type === 'repeat' || e.type === 'attack' || e.type === 'dealDamage',
   );
 /** #141 Q3a wording: "lose 13 HP", "lose 1 HP for each card" vs "take 2 damage", "take 6/7/8 damage". */
 const LOSE_HP = /\blose \d+ HP\b/i;
@@ -263,10 +263,15 @@ describe('#139 exhaust order (every strategy)', () => {
     expect(dealsDirectHpDamage(card('brand'))).toBe(false);
   });
 
-  it('no curse or status in the data has an HP-loss or damage effect yet (classes are fixture-tested)', () => {
+  it('#115: the nine HP-loss / damage curses and statuses carry their effect in a trigger', () => {
     expect(Object.keys(junkFiles).length).toBeGreaterThan(20);
-    for (const c of Object.values(junkFiles)) {
-      expect(junkDamageEffects(c)).toEqual([]);
+    const modelled = Object.values(junkFiles).filter((c) => junkDamageEffects(c).length > 0);
+    expect(modelled.map((c) => c.id).sort()).toEqual(
+      ['bad_luck', 'beckon', 'burn', 'decay', 'disintegration', 'infection', 'regret', 'toxic', 'wither'].sort(),
+    );
+    for (const c of modelled) {
+      expect(c.simulated).toBe(true);
+      expect(c.effects).toEqual([]);
     }
   });
 

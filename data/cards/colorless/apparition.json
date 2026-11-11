@@ -12,7 +12,13 @@
     "ethereal",
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "intangible",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "keywords": [
       "exhaust"
@@ -20,7 +26,7 @@
   },
   "description": "Ethereal. / Gain 1 Intangible. / Exhaust.",
   "upgradedDescription": "Gain 1 Intangible. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

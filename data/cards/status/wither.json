@@ -12,10 +12,35 @@
     "unplayable"
   ],
   "effects": [],
-  "upgraded": {},
+  "upgraded": {
+    "triggers": [
+      {
+        "when": "turnEndInHand",
+        "effects": [
+          {
+            "type": "attack",
+            "damage": 6,
+            "hits": 1
+          }
+        ]
+      }
+    ]
+  },
   "description": "Unplayable. / At the end of your turn, if this is in your Hand, take 3 damage.",
   "upgradedDescription": "Unplayable. / At the end of your turn, if this is in your Hand, take 6 damage.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
-  "lastUpdateVersion": "v0.107.1"
+  "lastUpdateVersion": "v0.107.1",
+  "triggers": [
+    {
+      "when": "turnEndInHand",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 3,
+          "hits": 1
+        }
+      ]
+    }
+  ]
 }
