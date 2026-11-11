@@ -1157,11 +1157,33 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   if (enabler) return enabler;
   const energy = best(view.playable.filter(isNetEnergyCard), (c) => [netEnergy(c)]);
   if (energy && view.state.player.hand.some((c) => c.uid !== energy.uid && wantsEnergy(c))) return energy;
-  if (cannotFillTopGroup(view, config)) {
-    const pure = pickPureDraw(view);
-    if (pure) return pure;
+  const pure = pickPureDraw(view);
+  if (
+    pure &&
+    cannotFillTopGroup(view, config) &&
+    (config.order[0] === 'block' || !spendsAllWithoutDraw(view, config))
+  ) {
+    return pure;
   }
   return undefined;
+}
+
+/**
+ * #127 (Trent): true when the rest of the turn, with no pure draw card, spends all the energy
+ * (X-cost cards or expensive Powers can), so a pure draw card has nothing to add. Not used when
+ * Block ranks first: the #132 block rule (draw first when the block cards can't reach the target) wins.
+ */
+function spendsAllWithoutDraw(view: StrategyView, config: StrategyConfig): boolean {
+  const keep = (c: Card) => !(isPureDrawCard(c) && !stopsDrawing(c) && !isExhaustEnabler(c));
+  const p = view.state.player;
+  const sub = {
+    ...view,
+    state: { ...view.state, player: { ...p, hand: p.hand.filter(keep) } },
+    playable: view.playable.filter(keep),
+  };
+  let e = p.energy;
+  for (const c of planTurn(sub, config, e)) e = (c.xCost ? 0 : e - (c.cost ?? 0)) + energyGain(c);
+  return e <= 0;
 }
 
 /** Energy left over after playing a net-energy card. */
