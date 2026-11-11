@@ -1,5 +1,5 @@
 import { createRng } from './rng';
-import { resolveEnemy } from './enemy';
+import { patternMoveIds, patternPool, resolveEnemy } from './enemy';
 import { attackDamage, attackHits, blockGain, isPlayable } from './rules';
 import { chooseExhaust, createStrategy } from './strategies';
 import {
@@ -130,9 +130,13 @@ function resolveCheckedEnemy(data: GameData, config: CombatConfig): EnemyDef {
   const baseEnemy = data.enemies[config.enemyId];
   if (!baseEnemy) throw new Error(`Unknown enemy "${config.enemyId}"`);
   const enemyDef = resolveEnemy(baseEnemy, config.ascension);
-  const order = enemyDef.pattern.order;
-  if (order.length === 0) throw new Error(`Enemy ${enemyDef.id} has an empty pattern`);
-  for (const id of order) {
+  const { pattern } = enemyDef;
+  const pool = patternPool(pattern);
+  if (pool.length === 0) throw new Error(`Enemy ${enemyDef.id} has an empty pattern`);
+  if (pattern.type === 'random' && pattern.noRepeat && pool.length < 2) {
+    throw new Error(`Enemy ${enemyDef.id}: a no-repeat random pattern needs at least 2 moves`);
+  }
+  for (const id of patternMoveIds(pattern)) {
     if (!enemyDef.moves[id]) throw new Error(`Enemy ${enemyDef.id} pattern uses unknown move "${id}"`);
   }
   return enemyDef;
@@ -234,7 +238,6 @@ class Combat {
   private readonly state: CombatState;
   private readonly log: GameEvent[] | null;
   private readonly rng: Rng;
-  private readonly order: readonly string[];
   /** #109: Vigor added to every hit of the Attack card being played (0 otherwise). */
   private activeVigor = 0;
   /** #135: each Rolling Boulder played is its own instance with its own damage (the sum is in powers). */
@@ -251,11 +254,14 @@ class Combat {
     logging: boolean,
   ) {
     this.log = logging ? [] : null;
-    this.order = enemyDef.pattern.order;
-    // RNG use order is fixed: (1) enemy HP, (2) random pattern start, (3) shuffle.
+    // RNG use order is fixed: (1) enemy HP, (2) random cycle start or first random pick (when
+    // there is no opener), (3) shuffle. Later random picks happen right after each enemy move.
     this.rng = createRng(config.seed);
     const enemyHp = this.rng.int(enemyDef.hp.min, enemyDef.hp.max);
-    const startIndex = enemyDef.pattern.start === 'random' ? this.rng.int(0, this.order.length - 1) : 0;
+    const { pattern } = enemyDef;
+    const startIndex =
+      pattern.type === 'cycle' && pattern.start === 'random' ? this.rng.int(0, pattern.order.length - 1) : 0;
+    const firstMove = pattern.opener?.[0] ?? this.poolMove(startIndex, null);
     this.rng.shuffle(deck);
     this.state = {
       turn: 0,
@@ -282,6 +288,8 @@ class Combat {
         debuffs: emptyDebuffs(),
         poison: 0,
         patternIndex: startIndex,
+        movesMade: 0,
+        nextMoveId: firstMove,
       },
     };
     this.log?.push({ t: 'combatStart', seed: config.seed, enemyHp, playerHp: character.maxHp });
@@ -527,7 +535,7 @@ class Combat {
     const { id: moveId, move } = this.currentMove();
     log?.push({ t: 'enemyMove', moveId, name: move.name });
     const died = this.resolveEffects('enemy', move.effects);
-    enemy.patternIndex = (enemy.patternIndex + 1) % this.order.length;
+    this.advancePattern(moveId);
     if (died === 'player' || player.hp <= 0) return 'loss';
     // #109 Thorns can kill the enemy during its own move.
     if (died === 'enemy' || enemy.hp <= 0) return 'win';
@@ -538,8 +546,36 @@ class Combat {
   }
 
   private currentMove(): { id: string; move: EnemyMove } {
-    const id = this.order[this.enemy.patternIndex] as string;
+    const id = this.enemy.nextMoveId as string;
     return { id, move: this.enemyDef.moves[id]! };
+  }
+
+  /**
+   * #4: the pool move after `last` (null at combat start). Cycle: order[patternIndex].
+   * Random: a seeded pick from the pool, skipping `last` when the pattern says noRepeat.
+   */
+  private poolMove(patternIndex: number, last: string | null): string {
+    const { pattern } = this.enemyDef;
+    if (pattern.type === 'cycle') return pattern.order[patternIndex] as string;
+    const options = pattern.noRepeat && last !== null ? pattern.moves.filter((id) => id !== last) : pattern.moves;
+    return options[this.rng.int(0, options.length - 1)] as string;
+  }
+
+  /** #4: after a move: opener moves first, then the cycle advances (only past cycle moves) or a random pick. */
+  private advancePattern(lastMoveId: string): void {
+    const { enemy } = this;
+    const { pattern } = this.enemyDef;
+    const openerLength = pattern.opener?.length ?? 0;
+    const made = (enemy.movesMade ?? 0) + 1;
+    enemy.movesMade = made;
+    if (made < openerLength) {
+      enemy.nextMoveId = pattern.opener![made];
+      return;
+    }
+    if (pattern.type === 'cycle' && made > openerLength) {
+      enemy.patternIndex = (enemy.patternIndex + 1) % pattern.order.length;
+    }
+    enemy.nextMoveId = this.poolMove(enemy.patternIndex, lastMoveId);
   }
 
   private fighter(side: Side): Fighter {
@@ -585,6 +621,13 @@ class Combat {
         case 'applyFrail':
           this.applyDebuff(other, 'frail', e.amount);
           break;
+        case 'applyShrink': {
+          // #4: enemy moves only. Does not stack: a second Shrink keeps the larger percent.
+          if (source !== 'enemy') throw new Error('Shrink on enemies is not simulated yet');
+          player.shrink = Math.max(player.shrink ?? 0, e.amount);
+          log?.push({ t: 'shrink', percent: player.shrink });
+          break;
+        }
         case 'applyPoison':
           if (source !== 'player') throw new Error('Poison on the player is not simulated yet');
           enemy.poison += e.amount;
@@ -867,7 +910,9 @@ class Combat {
     const t = this.fighter(target);
     const base = damage + (source === 'player' ? this.activeVigor : 0);
     const cruelty = target === 'enemy' ? this.power('cruelty') : 0;
-    const perHit = attackDamage(base, a.strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty);
+    // #4 Shrink is on the player only (v1), so only the player's attacks shrink.
+    const shrink = source === 'player' ? (this.player.shrink ?? 0) : 0;
+    const perHit = attackDamage(base, a.strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink);
     for (let h = 0; h < hits; h++) {
       const blocked = Math.min(t.block, perHit);
       t.block -= blocked;

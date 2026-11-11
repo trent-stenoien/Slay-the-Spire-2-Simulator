@@ -61,6 +61,17 @@ describe('replayCombat', () => {
     const b = replayCombat(gameData, setup, blockFirstConfig(4), 77);
     expect(a).toEqual(b);
   });
+  it('a random-pattern enemy (#4) has a known intent every turn, including a final round it never acted in', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const r = replayCombat(gameData, { ...setup, enemyId: 'sludge_spinner' }, GREEDY_CONFIG, seed);
+      expect(r.ok).toBe(true);
+      if (!r.ok) continue;
+      expect(r.intents.every((i) => i !== null)).toBe(true);
+      r.replay.rounds.forEach((round, i) => {
+        if (round.enemyMoveId) expect(r.intents[i]!.intent.moveId).toBe(round.enemyMoveId);
+      });
+    }
+  });
   it('reports errors instead of throwing', () => {
     const r = replayCombat(gameData, { ...setup, enemyId: 'nope' }, GREEDY_CONFIG, 1);
     expect(r.ok).toBe(false);

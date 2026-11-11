@@ -42,6 +42,8 @@ export function effectText(e: Effect): string {
       return `Apply ${e.amount} Frail`;
     case 'applyPoison':
       return `Apply ${e.amount} Poison`;
+    case 'applyShrink':
+      return `Apply Shrink (attacks deal ${e.amount}% less damage)`;
     case 'gainEnergy':
       return `Gain ${e.amount} Energy`;
     case 'gainStars':

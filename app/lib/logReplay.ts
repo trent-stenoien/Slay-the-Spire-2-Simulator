@@ -204,6 +204,8 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
       return `${ev.side === 'player' ? 'You get' : 'Enemy gets'} ${ev.amount} ${cap(ev.kind)} (total ${ev.total})`;
     case 'poison':
       return `Enemy gets ${ev.amount} Poison (total ${ev.total})`;
+    case 'shrink':
+      return `You are Shrunk: your attacks deal ${ev.percent}% less damage`;
     case 'poisonDamage':
       return `Enemy loses ${ev.amount} HP from Poison (${ev.hpAfter} HP left)`;
     case 'loseHp':
@@ -283,25 +285,14 @@ function powerName(id: string): string {
 }
 
 /**
- * Move id the enemy intends in round `i`: the logged move, or (for a final
- * round that ended before the enemy acted) the move after the previous one in
- * the cycle. Null when it cannot be known (e.g. a random-start enemy killed on turn 1).
+ * Move id the enemy intends in round `i`: the logged move, or (for a final round that ended
+ * before the enemy acted) the intent the strategy saw that turn (`seen`: turn → move id).
+ * Null when neither is known (e.g. combat ended before the player's first decision).
  */
-export function intendedMoveId(
-  rounds: readonly Round[],
-  i: number,
-  order: readonly string[],
-  start: 'first' | 'random',
-): string | null {
+export function intendedMoveId(rounds: readonly Round[], i: number, seen: ReadonlyMap<number, string>): string | null {
   const r = rounds[i];
   if (!r) return null;
-  if (r.enemyMoveId) return r.enemyMoveId;
-  const prev = rounds[i - 1]?.enemyMoveId;
-  if (prev) {
-    const at = order.indexOf(prev);
-    return at < 0 ? null : (order[(at + 1) % order.length] ?? null);
-  }
-  return i === 0 && start === 'first' ? (order[0] ?? null) : null;
+  return r.enemyMoveId ?? seen.get(r.turn) ?? null;
 }
 
 /** "Ascension 5" (the log page spells the level out). */

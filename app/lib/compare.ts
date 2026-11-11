@@ -2,9 +2,18 @@
  * Combat replay for the log views, and turn alignment for the side-by-side compare view:
  * every column shows the same turn; a column whose combat already ended shows that instead.
  */
-import { computeIntent, runCombat } from '../../engine/combat';
+import { computeIntent, simulateCombat } from '../../engine/combat';
 import { resolveEnemy } from '../../engine/enemy';
-import type { CombatResult, Effect, EnemyIntent, GameData, Outcome, StrategyConfig } from '../../engine/types';
+import { createStrategy } from '../../engine/strategies';
+import type {
+  CombatResult,
+  Effect,
+  EnemyIntent,
+  GameData,
+  Outcome,
+  Strategy,
+  StrategyConfig,
+} from '../../engine/types';
 import { buildReplay, intendedMoveId, type Replay } from './logReplay';
 import type { SetupState } from './url';
 
@@ -21,7 +30,18 @@ export function replayCombat(
   seed: number,
 ): ReplayedCombat {
   try {
-    const result = runCombat(
+    // #4: record the intent the strategy sees each turn, so a final round the enemy never acted
+    // in still shows its intent (a random pattern's next move can't be worked out from the log).
+    const seen = new Map<number, string>();
+    const inner = createStrategy(strategy);
+    const recording: Strategy = {
+      decide: (view) => {
+        if (!seen.has(view.state.turn)) seen.set(view.state.turn, view.intent.moveId);
+        return inner.decide(view);
+      },
+    };
+    if (inner.choose) recording.choose = inner.choose;
+    const result = simulateCombat(
       data,
       {
         characterId: setup.characterId,
@@ -31,6 +51,7 @@ export function replayCombat(
         strategy,
         seed,
       },
+      recording,
       { log: true },
     );
     const replay = buildReplay(result.log ?? []);
@@ -38,7 +59,7 @@ export function replayCombat(
     const resolved = base ? resolveEnemy(base, setup.ascension) : null;
     const intents = replay.rounds.map((round, i): TurnIntent => {
       if (!resolved) return null;
-      const id = intendedMoveId(replay.rounds, i, resolved.pattern.order, resolved.pattern.start);
+      const id = intendedMoveId(replay.rounds, i, seen);
       const move = id ? resolved.moves[id] : undefined;
       return id && move
         ? { intent: computeIntent(id, move, round.start.enemy, round.start.player), effects: move.effects }

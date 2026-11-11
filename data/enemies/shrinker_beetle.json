@@ -1,0 +1,26 @@
+{
+  "id": "shrinker_beetle",
+  "code": "SB",
+  "name": "Shrinker Beetle",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "easy",
+  "hp": { "min": 38, "max": 40 },
+  "moves": {
+    "shrinker": { "name": "Shrinker", "effects": [{ "type": "applyShrink", "amount": 30 }] },
+    "chomp": { "name": "Chomp", "effects": [{ "type": "attack", "damage": 7, "hits": 1 }] },
+    "stomp": { "name": "Stomp", "effects": [{ "type": "attack", "damage": 13, "hits": 1 }] }
+  },
+  "pattern": { "type": "cycle", "opener": ["shrinker"], "order": ["chomp", "stomp"], "start": "first" },
+  "ascension": {
+    "8": { "hp": { "min": 40, "max": 42 } },
+    "9": {
+      "moves": {
+        "chomp": { "effects": [{ "type": "attack", "damage": 8, "hits": 1 }] },
+        "stomp": { "effects": [{ "type": "attack", "damage": 14, "hits": 1 }] }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

@@ -580,6 +580,7 @@ function playKillsEnemy(view: StrategyView, card: Card): boolean {
       player.debuffs.weak,
       enemy.debuffs.vulnerable,
       player.powers?.cruelty ?? 0,
+      player.shrink ?? 0,
     );
     dmg += perHit * attackHits(e, x);
   }
@@ -821,6 +822,7 @@ export function fiendFireKills(view: StrategyView, card: Card): boolean {
     player.debuffs.weak,
     enemy.debuffs.vulnerable,
     cruelty,
+    player.shrink ?? 0,
   );
   return perHit * hits >= enemy.hp + enemy.block;
 }

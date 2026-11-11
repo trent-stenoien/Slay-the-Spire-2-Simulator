@@ -138,7 +138,7 @@ describe('real game data', () => {
 
   it('Nibbit has the wiki moves: Butt, Hesitant Slice, Hiss', () => {
     const nb = gameData.enemies.nibbit!;
-    expect(nb.pattern.order).toEqual(['butt', 'hesitantSlice', 'hiss']);
+    expect(nb.pattern).toMatchObject({ order: ['butt', 'hesitantSlice', 'hiss'] });
     expect(nb.moves.hesitantSlice?.name).toBe('Hesitant Slice');
     expect(nb.moves).not.toHaveProperty('hesitantStrike');
   });
@@ -190,10 +190,58 @@ describe('imported characters and enemies', () => {
   });
 
   it('Seapunk cycles Sea Kick, Spinning Kick, Bubble Burp', () => {
-    expect(enemyByCode('Sp')?.pattern.order).toEqual(['seaKick', 'spinningKick', 'bubbleBurp']);
+    expect(enemyByCode('Sp')?.pattern).toMatchObject({ order: ['seaKick', 'spinningKick', 'bubbleBurp'] });
+  });
+
+  // #4, data/import/enemies-notes.md and data/raw/intents.txt.
+  it('Shrinker Beetle opens with Shrinker (30% Shrink), then alternates Chomp / Stomp', () => {
+    const e = enemyByCode('SB')!;
+    expect(e).toMatchObject({ id: 'shrinker_beetle', zone: 'overgrowth', difficulty: 'easy' });
+    expect(e.pattern).toEqual({ type: 'cycle', opener: ['shrinker'], order: ['chomp', 'stomp'], start: 'first' });
+    expect(e.moves.shrinker!.effects).toEqual([{ type: 'applyShrink', amount: 30 }]);
+  });
+
+  it.each([
+    [0, { min: 38, max: 40 }, 7, 13],
+    [8, { min: 40, max: 42 }, 7, 13],
+    [9, { min: 40, max: 42 }, 8, 14],
+  ] as const)('Shrinker Beetle at A%i has the wiki numbers', (asc, hp, chomp, stomp) => {
+    const e = resolveEnemy(gameData.enemies.shrinker_beetle!, asc);
+    expect(e.hp).toEqual(hp);
+    expect(e.moves.chomp!.effects).toEqual([{ type: 'attack', damage: chomp, hits: 1 }]);
+    expect(e.moves.stomp!.effects).toEqual([{ type: 'attack', damage: stomp, hits: 1 }]);
+  });
+
+  it('Sludge Spinner opens with Oil Spray, then picks at random without repeats', () => {
+    const e = enemyByCode('SS')!;
+    expect(e).toMatchObject({ id: 'sludge_spinner', zone: 'underdocks', difficulty: 'easy' });
+    expect(e.pattern).toEqual({
+      type: 'random',
+      opener: ['oilSpray'],
+      moves: ['oilSpray', 'rage', 'slam'],
+      noRepeat: true,
+    });
+  });
+
+  it.each([
+    [0, { min: 37, max: 39 }, 8, 6, 11],
+    [8, { min: 41, max: 42 }, 8, 6, 11],
+    [9, { min: 41, max: 42 }, 9, 7, 12],
+  ] as const)('Sludge Spinner at A%i has the wiki numbers', (asc, hp, oil, rage, slam) => {
+    const e = resolveEnemy(gameData.enemies.sludge_spinner!, asc);
+    expect(e.hp).toEqual(hp);
+    expect(e.moves.oilSpray!.effects).toEqual([
+      { type: 'attack', damage: oil, hits: 1 },
+      { type: 'applyWeak', amount: 1 },
+    ]);
+    expect(e.moves.rage!.effects).toEqual([
+      { type: 'attack', damage: rage, hits: 1 },
+      { type: 'gainStrength', amount: 3 },
+    ]);
+    expect(e.moves.slam!.effects).toEqual([{ type: 'attack', damage: slam, hits: 1 }]);
   });
 
   it('Fuzzy Wurm Crawler cycles Acid Goop, Inhale, Acid Goop', () => {
-    expect(enemyByCode('FW')?.pattern.order).toEqual(['acidGoop', 'inhale', 'acidGoop']);
+    expect(enemyByCode('FW')?.pattern).toMatchObject({ order: ['acidGoop', 'inhale', 'acidGoop'] });
   });
 });

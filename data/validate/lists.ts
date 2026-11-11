@@ -200,6 +200,9 @@ export const DIFFICULTIES = ['easy', 'normal', 'elite', 'boss', 'minion', 'event
 
 export const PATTERN_STARTS = ['first', 'random'] as const;
 
+/** #4: cycle (fixed order) or random (seeded pick, optionally never the same move twice in a row). */
+export const PATTERN_TYPES = ['cycle', 'random'] as const;
+
 export const AMOUNT_EFFECTS = [
   'gainBlock',
   'gainStrength',
@@ -209,6 +212,7 @@ export const AMOUNT_EFFECTS = [
   'applyPoison',
   'gainEnergy',
   'gainStars',
+  'applyShrink',
 ] as const;
 
 export const TWO_CHAR_CODE = /^[A-Za-z0-9]{2}$/;

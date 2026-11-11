@@ -141,7 +141,7 @@ describe('runCombat setup', () => {
       b: { name: 'B', effects: [] },
       c: { name: 'C', effects: [] },
     });
-    e.pattern.start = 'random';
+    e.pattern = { type: 'cycle', order: ['a', 'b', 'c'], start: 'random' };
     const data = withEnemy(makeGameData(), e);
     const starts = new Set<string>();
     for (let s = 0; s < 50; s++) {
