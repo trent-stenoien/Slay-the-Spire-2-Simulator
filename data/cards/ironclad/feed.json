@@ -16,6 +16,18 @@
       "type": "attack",
       "damage": 10,
       "hits": 1
+    },
+    {
+      "type": "conditional",
+      "if": {
+        "kind": "fatal"
+      },
+      "then": [
+        {
+          "type": "gainMaxHp",
+          "amount": 3
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -24,12 +36,24 @@
         "type": "attack",
         "damage": 12,
         "hits": 1
+      },
+      {
+        "type": "conditional",
+        "if": {
+          "kind": "fatal"
+        },
+        "then": [
+          {
+            "type": "gainMaxHp",
+            "amount": 4
+          }
+        ]
       }
     ]
   },
   "description": "Deal 10 damage. / If Fatal, raise your Max HP by 3. / Exhaust.",
   "upgradedDescription": "Deal 12 damage. / If Fatal, raise your Max HP by 4. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

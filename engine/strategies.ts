@@ -1141,12 +1141,15 @@ function pickZeroCostDraw(view: StrategyView): Card | undefined {
 /**
  * Plays made before the groups, in this order: a 0-cost draw card (#132); Tremble when Attack
  * ranks first (it is first within the Attack group, and Attack is the top priority); a Brand /
- * Burning Pact / Purity worth playing (#108); a pure draw card when the hand can't fill the top
- * group (#132); a card that nets energy (#22), as long as some other card in hand could use it.
+ * Burning Pact / Purity worth playing (#108); a card that nets energy (#22), as long as some other
+ * card in hand could use it (#127: before any pure draw card); then a pure draw card when the
+ * hand can't fill the top group (#132).
  * Other pure draw cards wait until the groups are done (decide); attack and block draw cards are
  * ranked within their group.
  */
 function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
+  const heal = pickNotYet(view);
+  if (heal) return heal;
   const zero = pickZeroCostDraw(view);
   if (zero) return zero;
   if (config.order[0] === 'attack') {
@@ -1155,13 +1158,52 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   }
   const enabler = pickExhaustEnabler(view, config);
   if (enabler) return enabler;
-  if (cannotFillTopGroup(view, config)) {
-    const pure = pickPureDraw(view);
-    if (pure) return pure;
-  }
   const energy = best(view.playable.filter(isNetEnergyCard), (c) => [netEnergy(c)]);
   if (energy && view.state.player.hand.some((c) => c.uid !== energy.uid && wantsEnergy(c))) return energy;
+  const pure = pickPureDraw(view);
+  if (
+    pure &&
+    cannotFillTopGroup(view, config) &&
+    (config.order[0] === 'block' || !spendsAllWithoutDraw(view, config))
+  ) {
+    return pure;
+  }
   return undefined;
+}
+
+/** #115: Not Yet is played first, but only when it would heal at least this much HP now. */
+export const NOT_YET_MIN_HEAL = 8;
+
+/** #115 (Trent): the playable healing card (Not Yet) that would restore the most HP, if at least NOT_YET_MIN_HEAL. */
+function pickNotYet(view: StrategyView): Card | undefined {
+  const { hp, maxHp } = view.state.player;
+  const heals = (c: Card): number =>
+    Math.min(
+      c.effects.reduce((n, e) => n + (e.type === 'heal' ? e.amount : 0), 0),
+      maxHp - hp,
+    );
+  return best(
+    view.playable.filter((c) => heals(c) >= NOT_YET_MIN_HEAL),
+    (c) => [heals(c)],
+  );
+}
+
+/**
+ * #127 (Trent): true when the rest of the turn, with no pure draw card, spends all the energy
+ * (X-cost cards or expensive Powers can), so a pure draw card has nothing to add. Not used when
+ * Block ranks first: the #132 block rule (draw first when the block cards can't reach the target) wins.
+ */
+function spendsAllWithoutDraw(view: StrategyView, config: StrategyConfig): boolean {
+  const keep = (c: Card) => !(isPureDrawCard(c) && !stopsDrawing(c) && !isExhaustEnabler(c));
+  const p = view.state.player;
+  const sub = {
+    ...view,
+    state: { ...view.state, player: { ...p, hand: p.hand.filter(keep) } },
+    playable: view.playable.filter(keep),
+  };
+  let e = p.energy;
+  for (const c of planTurn(sub, config, e)) e = (c.xCost ? 0 : e - (c.cost ?? 0)) + energyGain(c);
+  return e <= 0;
 }
 
 /** Energy left over after playing a net-energy card. */

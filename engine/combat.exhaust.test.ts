@@ -333,10 +333,10 @@ describe('#108 Second Wind', () => {
     expect(t1.filter((e) => e.t === 'block')).toHaveLength(0);
   });
 
-  it('repeat with a counter other than lastEffectCount is not simulated yet', () => {
+  it('repeat with a counter other than lastEffectCount and handSize is not simulated yet', () => {
     const d = data();
     d.cards.probe = skill('probe', 'Pr', [
-      { type: 'repeat', per: 'handSize', effects: [{ type: 'gainBlock', amount: 1 }] },
+      { type: 'repeat', per: 'cardsPlayedThisTurn', effects: [{ type: 'gainBlock', amount: 1 }] },
     ]);
     expect(() =>
       simulateCombat(
@@ -344,7 +344,7 @@ describe('#108 Second Wind', () => {
         cfg({ deck: deckOf(['probe', 5]) }),
         scripted((t) => (t === 1 ? ['probe'] : [])),
       ),
-    ).toThrow(/Effect "repeat" is not simulated yet \(counter "handSize"\)/);
+    ).toThrow(/Effect "repeat" is not simulated yet \(counter "cardsPlayedThisTurn"\)/);
   });
 });
 

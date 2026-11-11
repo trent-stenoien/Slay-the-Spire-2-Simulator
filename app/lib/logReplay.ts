@@ -137,7 +137,8 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
         const t = side(ev.target);
         t.block -= ev.blocked;
         t.hp = Math.max(0, t.hp - ev.hpLoss);
-        if (cur) {
+        // #115: a curse or status hitting the player (source = target) is not an attack by either side.
+        if (cur && ev.source !== ev.target) {
           if (ev.source === 'enemy') cur.enemyAttack += ev.amount;
           else cur.playerAttack += ev.amount;
         }
@@ -155,6 +156,13 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
         break;
       case 'loseHp':
         side(ev.side).hp = ev.hpAfter;
+        break;
+      case 'heal':
+        player.hp = ev.hpAfter;
+        break;
+      case 'maxHp':
+        player.maxHp = ev.maxHpAfter;
+        player.hp = ev.hpAfter;
         break;
       case 'enemyMove':
         if (cur) {
@@ -190,7 +198,7 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
     case 'energy':
       return `You gain ${ev.amount} energy (${ev.total} energy)`;
     case 'damage': {
-      const by = ev.source === 'player' ? 'You hit' : 'Enemy hits';
+      const by = ev.source !== ev.target ? (ev.source === 'player' ? 'You hit' : 'Enemy hits') : 'You take';
       const parts = [`${by} for ${ev.amount}`];
       if (ev.blocked > 0) parts.push(`${ev.blocked} blocked`);
       parts.push(`${ev.hpLoss} HP lost`);
@@ -212,6 +220,14 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
       return ev.side === 'player'
         ? `You lose ${ev.amount} HP (${ev.hpAfter} HP left)`
         : `Enemy loses ${ev.amount} HP (${ev.hpAfter} HP left)`;
+    case 'heal':
+      return `You heal ${ev.amount} HP (${ev.hpAfter} HP)`;
+    case 'maxHp':
+      return ev.amount >= 0
+        ? `Your Max HP rises by ${ev.amount} (${ev.hpAfter}/${ev.maxHpAfter} HP)`
+        : `You lose ${-ev.amount} Max HP (${ev.hpAfter}/${ev.maxHpAfter} HP)`;
+    case 'enemySkip':
+      return 'Enemy is Stunned and skips its move';
     case 'draw':
       return `You draw ${name(ev.cardId)}`;
     case 'powerApplied':

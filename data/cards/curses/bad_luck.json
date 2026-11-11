@@ -16,7 +16,18 @@
   "upgraded": null,
   "description": "Unplayable. / At the end of your turn, if this is in your Hand, lose 13 HP. / Eternal.",
   "upgradedDescription": null,
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
-  "lastUpdateVersion": "v0.107.1"
+  "lastUpdateVersion": "v0.107.1",
+  "triggers": [
+    {
+      "when": "turnEndInHand",
+      "effects": [
+        {
+          "type": "loseHp",
+          "amount": 13
+        }
+      ]
+    }
+  ]
 }
