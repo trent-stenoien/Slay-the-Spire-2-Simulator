@@ -84,6 +84,8 @@ export function DistributionChart({
   initialMode = 'kde',
   hidden: hiddenProp,
   onHiddenChange,
+  colorBlind: colorBlindProp,
+  onColorBlindChange,
   percentileHref,
 }: {
   rows: ResultRow[];
@@ -91,6 +93,9 @@ export function DistributionChart({
   /** Optional controlled legend state (ids of hidden strategies); the parent can then react to it. */
   hidden?: ReadonlySet<string>;
   onHiddenChange?: (hidden: ReadonlySet<string>) => void;
+  /** Optional controlled color-blind palette state, shared with the rest of the results panel. */
+  colorBlind?: boolean;
+  onColorBlindChange?: (on: boolean) => void;
   /**
    * Optional link for a percentile label: given the ids of every strategy showing percentiles
    * (chart order), the label's strategy and its HP value. Labels without an href stay plain text.
@@ -105,7 +110,12 @@ export function DistributionChart({
     onHiddenChange?.(next);
   };
   const [showPercentiles, setShowPercentiles] = useState(true);
-  const [colorBlind, setColorBlind] = useState(false);
+  const [ownColorBlind, setOwnColorBlind] = useState(false);
+  const colorBlind = colorBlindProp ?? ownColorBlind;
+  const setColorBlind = (on: boolean) => {
+    if (colorBlindProp === undefined) setOwnColorBlind(on);
+    onColorBlindChange?.(on);
+  };
   const palette = chartPalette(colorBlind);
   const [bandwidthFactor, setBandwidthFactor] = useState<number>(BANDWIDTH_FACTOR.default);
   const clipId = useId();
@@ -159,7 +169,7 @@ export function DistributionChart({
         <ModePicker mode={mode} onChange={setMode} />
         {mode === 'kde' && <BandwidthSlider factor={bandwidthFactor} onChange={setBandwidthFactor} />}
         <div className="legend-row">
-          <ChartLegend rows={rows} hidden={hidden} onChange={setHidden} palette={palette} />
+          <ChartLegend rows={rows} hidden={hidden} onChange={setHidden} palette={palette} colorBlind={colorBlind} />
           <ColorBlindToggle on={colorBlind} onChange={setColorBlind} />
           <PercentileToggle on={showPercentiles} onChange={setShowPercentiles} />
         </div>

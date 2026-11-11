@@ -648,6 +648,17 @@ table.stats {
   margin-right: 6px;
   vertical-align: baseline;
 }
+.legend-swatch-line {
+  display: inline-block;
+  width: 18px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: middle;
+  overflow: visible;
+}
+.strategy-check .legend-swatch-line {
+  margin-right: 0;
+}
 .chart-box {
   margin-top: 16px;
 }
