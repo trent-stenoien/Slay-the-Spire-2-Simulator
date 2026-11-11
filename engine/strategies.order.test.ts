@@ -28,6 +28,16 @@ const extra: Record<string, CardDef> = {
     effects: [{ type: 'gainStrength', amount: 5 }],
     upgraded: null,
   },
+  bigpower: {
+    ...cards.defend!,
+    id: 'bigpower',
+    code: 'Bp',
+    name: 'Big Power',
+    type: 'power',
+    cost: 3,
+    effects: [{ type: 'gainStrength', amount: 3 }],
+    upgraded: null,
+  },
   xflex: {
     ...cards.defend!,
     id: 'xflex',
@@ -356,6 +366,25 @@ describe('#132 draw rule', () => {
       // Allow 12 → 10 block leaves 10 through, within the allowance: no draw first.
       const roomy = blockFirstConfig(12);
       expect(playTurn(roomy, [card(D), card(D), card('scry'), card(S)], 20)[0]).toBe(D);
+    });
+
+    it('#127: a net-energy card (Fuel) is played before the pure draw card, which then follows', () => {
+      const plays = playTurn(scared, [card(D), card(D), card('scry'), card('fuel')], 20);
+      expect(plays.slice(0, 2)).toEqual(['fuel', 'scry']);
+    });
+
+    it('#127: the draw card is skipped when an X-cost card spends all the energy', () => {
+      const attackFirst = config(order('attack', 'powers', 'block'));
+      expect(playTurn(attackFirst, [card('scry'), card('xflex')], 0)[0]).toBe('xflex');
+      // Nothing else to spend the energy on: the draw card still goes first.
+      expect(playTurn(attackFirst, [card('scry'), card(D)], 0)[0]).toBe('scry');
+    });
+
+    it('#127: the draw card is skipped when an expensive Power spends all the energy', () => {
+      const attackFirst = config(order('attack', 'powers', 'block'));
+      expect(playTurn(attackFirst, [card('scry'), card('bigpower')], 0)[0]).toBe('bigpower');
+      // With 4 energy the Power leaves 1 over, so the draw card is worth playing first.
+      expect(playTurn(attackFirst, [card('scry'), card('bigpower')], 0, { energy: 4 })[0]).toBe('scry');
     });
 
     it('Block first: enough block cards to reach the target means the draw card waits', () => {
