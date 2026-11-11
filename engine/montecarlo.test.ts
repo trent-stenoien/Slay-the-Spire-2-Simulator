@@ -154,6 +154,8 @@ describe('summarize', () => {
       avgHpLost: 0,
       avgTurnsToKill: null,
       avgTurns: 0,
+      avgGold: 0,
+      potionRate: 0,
       deathRate: 0,
       turnCapRate: 0,
       hpLostCounts: [0],

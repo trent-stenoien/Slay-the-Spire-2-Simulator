@@ -23,6 +23,8 @@ function fakeSummary(strategyId: string, over: Partial<StrategySummary> = {}): S
     avgHpLost: 10.25,
     avgTurnsToKill: 5.5,
     avgTurns: 6,
+    avgGold: 0,
+    potionRate: 0,
     deathRate: 0.25,
     turnCapRate: 0,
     hpLostCounts: [0, 0, 1, 0, 2, 1],
