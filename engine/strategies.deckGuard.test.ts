@@ -15,8 +15,10 @@ import {
   deckFloor,
   deckHealthy,
   exhaustKeepsDeckHealthy,
+  drawUntilEstimate,
   extraDraw,
   GREEDY_CONFIG,
+  pickAttack,
 } from './strategies';
 import { cards } from './testFixtures';
 import { cfg, deckOf, dummyData } from './combatTestHelpers';
@@ -115,6 +117,21 @@ const defs: Record<string, CardDef> = {
     effects: [{ type: 'attack', damage: 5, hits: 1, xTimes: true }],
     upgraded: null,
   } as CardDef,
+  /** Upgraded Whirlwind-like: 8 per X. */
+  'whirl+': {
+    ...cards.strike!,
+    id: 'whirl+',
+    cost: 0,
+    xCost: true,
+    effects: [{ type: 'attack', damage: 8, hits: 1, xTimes: true }],
+    upgraded: null,
+  } as CardDef,
+  /** A 1-cost 5-damage attack (ties un-upgraded Whirlwind). */
+  five: { ...cards.strike!, id: 'five', effects: [{ type: 'attack', damage: 5, hits: 1 }], upgraded: null },
+  /** A 2-cost attack, 7 per energy. */
+  heavy: { ...cards.strike!, id: 'heavy', cost: 2, effects: [{ type: 'attack', damage: 14, hits: 1 }], upgraded: null },
+  /** "Draw until the hand is full" without Exhaust. */
+  fill: base('fill', [{ type: 'drawUntil', handFull: true }], { cost: 1 }),
   twin: { ...cards.strike!, id: 'twin', cost: 1, effects: [{ type: 'attack', damage: 5, hits: 2 }], upgraded: null },
   scrawl: base('scrawl', [{ type: 'drawUntil', handFull: true }], { cost: 1, keywords: ['exhaust'] }),
   pillage: {
@@ -279,9 +296,86 @@ describe('#141 the guard: ratio and minimum', () => {
   });
 
   it('the extra draw comes from the card effects', () => {
-    expect(['strike', 'pommel', 'pact', 'scrawl', 'pillage', 'grit'].map((id) => extraDraw(card(id)))).toEqual([
-      0, 1, 2, 5, 1, 0,
+    expect(['strike', 'pommel', 'pact', 'scrawl', 'fill', 'pillage', 'grit'].map((id) => extraDraw(card(id)))).toEqual([
+      0, 1, 2, 0, 5, 1, 0,
     ]);
+  });
+
+  it('#147: Scrawl exhausts, so it adds nothing to the floor (a non-exhausting "fill the hand" adds 5)', () => {
+    expect(deckFloor([card('scrawl'), ...deck(2, 3)])).toBe(5);
+    expect(deckFloor([card('fill'), ...deck(2, 3)])).toBe(10);
+    expect(deckHealthy([card('scrawl'), ...deck(2, 2)])).toBe(true); // 5 cards
+  });
+});
+
+describe('#147 Pillage: estimated draw (option C)', () => {
+  const stopOn = { notTypes: ['attack' as const] };
+  const est = (attacks: number, others: number, handAfter = 4) =>
+    drawUntilEstimate([...many('strike', attacks), ...many('defend', others)], stopOn, handAfter);
+
+  it("Trent's example: 4 Strikes + 1 Defend: 80% (+1), then 75% (stop) -> 2", () => {
+    expect(est(4, 1)).toBe(2);
+  });
+
+  it('draws at least 1; below 80% on the first step stays at 1', () => {
+    expect(est(0, 0)).toBe(1);
+    expect(est(0, 5)).toBe(1);
+    expect(est(3, 1)).toBe(1); // 75%
+    expect(est(1, 1)).toBe(1);
+  });
+
+  it('steps one card at a time while the chance stays >= 80%', () => {
+    // 8 Strikes + 1 Defend: 8/9, 7/8, 6/7, 5/6, 4/5 (+5), 3/4 stop -> 6.
+    expect(est(8, 1, 0)).toBe(6);
+    // 8 Strikes + 2 Defends: 80% (+1), 7/9 = 77.8% stop -> 2.
+    expect(est(8, 2, 0)).toBe(2);
+    // All attacks: every step is 100% until the pile runs out.
+    expect(est(3, 0, 0)).toBe(4);
+  });
+
+  it('capped at 10 - hand size after Pillage', () => {
+    // 10 Anger-like + 1 Defend: 7 steps (10/11 ... 4/5), 3/4 stop -> 8 uncapped.
+    expect(est(10, 1, 0)).toBe(8);
+    expect(est(10, 1, 4)).toBe(6);
+    expect(est(10, 1, 9)).toBe(1);
+    expect(est(10, 1, 10)).toBe(0);
+  });
+
+  it('in the deck floor: the rest of the active deck stands in for the draw pile, hand of 4 after it', () => {
+    expect(extraDraw(card('pillage'), [...many('strike', 4), card('defend')])).toBe(2);
+    expect(deckFloor([card('pillage'), ...many('strike', 4), card('defend')])).toBe(7); // 5 + 2
+    expect(deckFloor([card('pillage'), ...many('strike', 3), ...many('defend', 3)])).toBe(6); // 50%: 5 + 1
+    expect(deckFloor([card('pillage'), ...many('strike', 12), card('defend')])).toBe(11); // capped: 5 + 6
+    expect(deckHealthy([card('pillage'), ...many('strike', 4), card('defend')])).toBe(false); // 6 < 7
+    // One more Strike raises the estimate too (5/6, 4/5, then 3/4: 3): 7 < 8.
+    expect(deckHealthy([card('pillage'), ...many('strike', 5), card('defend')])).toBe(false);
+    expect(deckHealthy([card('pillage'), ...many('strike', 2), ...many('defend', 4)])).toBe(true); // 7 >= 5 + 1
+  });
+});
+
+describe('#147 X-cost attacks in play order (single enemy): damage for 1 energy vs damage per energy', () => {
+  const pick = (ids: string[], energy = 3) => pickAttack(ids.map(card), energy)?.cardId;
+
+  it('un-upgraded Whirlwind (5) after Strike (6); upgraded Whirlwind (8) before Strike', () => {
+    expect(pick(['whirl', 'strike'])).toBe('strike');
+    expect(pick(['whirl+', 'strike'])).toBe('whirl+');
+  });
+
+  it('per energy, not total: Whirlwind+ (8) before a 2-cost 14-damage attack (7 per energy)', () => {
+    expect(pick(['heavy', 'whirl+'])).toBe('whirl+');
+    expect(pick(['heavy', 'whirl'])).toBe('heavy');
+  });
+
+  it('a tie goes to the other attack; a 0-cost attack always comes first; Vulnerable still leads', () => {
+    expect(pick(['whirl', 'five'])).toBe('five'); // 5 vs 5
+    expect(pick(['whirl', 'twin'])).toBe('twin'); // 5 vs 10 per energy
+    expect(pick(['whirl+', 'anger'])).toBe('anger');
+    expect(pick(['whirl+', 'bash'])).toBe('bash');
+  });
+
+  it('a full Greedy turn at 3 energy', () => {
+    expect(playedId({ hand: [card('whirl+'), card('strike')], energy: 3 })).toBe('whirl+');
+    expect(playedId({ hand: [card('whirl'), card('strike')], energy: 3 })).toBe('strike');
   });
 
   it('the active deck is hand + draw + discard (the exhaust pile does not count)', () => {
@@ -354,6 +448,16 @@ describe('#141 damage per energy', () => {
     expect(pickWith([card('anger'), card('pommel')], [card('strike'), ...many('defend', 7)], true)).toBe('pommel');
     // Whirlwind-like (5) goes before a Strike (6), even though the Strike is first in the order.
     expect(pickWith([card('strike'), card('whirl')], [card('strike'), ...many('defend', 7)])).toBe('whirl');
+  });
+
+  it('#147: a 0-cost card is never picked by the damage-per-energy rule', () => {
+    // Strike first in the order; Anger (0-cost) has the lowest damage of all but is never the swap.
+    expect(pickWith([card('strike'), card('anger')], [card('strike'), ...many('defend', 7)])).toBe('strike');
+    // Anger first in the order (nothing planned, lower uid): swapped for the Strike at the margin.
+    expect(pickWith([card('anger'), card('strike')], [card('strike'), ...many('defend', 7)], true)).toBe('strike');
+    // Only 0-cost damaging cards: the order's pick stands.
+    const [a1, a2] = [card('anger'), card('fiend')];
+    expect(pickWith([a1, a2], [card('anger'), ...many('defend', 7)], true)).toBe('anger');
   });
 
   it('the damaging card the order picks stays when it already has the lowest damage per energy', () => {
