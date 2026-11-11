@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  checkedVisibleIds,
+  checkedIds,
   combatRangeLabel,
   fromDisplayCombat,
   percentileLinkTarget,
@@ -29,17 +29,13 @@ describe('combat number conversion (display is 1-based, internal 0-based)', () =
   });
 });
 
-describe('checkedVisibleIds', () => {
+describe('checkedIds', () => {
   const ids = ['a', 'b', 'c'];
   it('keeps checked strategies in picker order', () => {
-    expect(checkedVisibleIds(ids, new Set(), new Set(['c', 'a']))).toEqual(['a', 'c']);
-  });
-  it('drops strategies hidden on the chart', () => {
-    expect(checkedVisibleIds(ids, new Set(['a']), new Set(['a', 'b']))).toEqual(['b']);
-    expect(checkedVisibleIds(ids, new Set(ids), new Set(ids))).toEqual([]);
+    expect(checkedIds(ids, new Set(['c', 'a']))).toEqual(['a', 'c']);
   });
   it('ignores checked ids that are not in the run', () => {
-    expect(checkedVisibleIds(ids, new Set(), new Set(['z']))).toEqual([]);
+    expect(checkedIds(ids, new Set(['z']))).toEqual([]);
   });
 });
 

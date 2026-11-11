@@ -7,7 +7,7 @@ import { DistributionChart } from './DistributionChart';
 import { toggleHidden } from '../lib/chart';
 import { logHref } from '../lib/links';
 import {
-  checkedVisibleIds,
+  checkedIds,
   combatRangeLabel,
   fromDisplayCombat,
   percentileLinkTarget,
@@ -38,7 +38,7 @@ export function ResultsView({ data, result }: { data: GameData; result: RunResul
           }}
         />
       )}
-      {rows.length > 0 && <ViewCombat data={data} result={result} combats={combats} hidden={hidden} />}
+      {rows.length > 0 && <ViewCombat data={data} result={result} combats={combats} />}
     </div>
   );
 }
@@ -83,13 +83,11 @@ export function ViewCombat({
   data,
   result,
   combats,
-  hidden,
   initialChecked,
 }: {
   data: GameData;
   result: RunResult;
   combats: number;
-  hidden: ReadonlySet<string>;
   /** Strategy ids checked at first (default: the first row). */
   initialChecked?: readonly string[];
 }) {
@@ -100,11 +98,9 @@ export function ViewCombat({
     () => new Set(initialChecked ?? rows.slice(0, 1).map((r) => r.strategyId)),
   );
   if (rows.length === 0) return null;
-  // Strategies hidden on the chart are not listed, and never count as checked.
-  const visibleRows = rows.filter((r) => !hidden.has(r.strategyId));
-  const ids = checkedVisibleIds(
+  // Every strategy is listed, whether or not it is hidden on the chart.
+  const ids = checkedIds(
     rows.map((r) => r.strategyId),
-    hidden,
     checked,
   );
   const button = pickerButton(ids.length);
@@ -118,21 +114,17 @@ export function ViewCombat({
       <div className="field-row">
         <fieldset className="field strategy-checks">
           <legend>Strategies</legend>
-          {visibleRows.length === 0 ? (
-            <span className="muted small">None shown on the chart.</span>
-          ) : (
-            visibleRows.map((r) => (
-              <label
-                key={r.strategyId}
-                className="strategy-check"
-                style={{ '--strategy-color': COLOR_HEX[r.color] } as CSSProperties}
-              >
-                <input type="checkbox" checked={checked.has(r.strategyId)} onChange={() => toggle(r.strategyId)} />
-                <span className="legend-swatch" style={{ background: COLOR_HEX[r.color] }} aria-hidden />
-                {r.name}
-              </label>
-            ))
-          )}
+          {rows.map((r) => (
+            <label
+              key={r.strategyId}
+              className="strategy-check"
+              style={{ '--strategy-color': COLOR_HEX[r.color] } as CSSProperties}
+            >
+              <input type="checkbox" checked={checked.has(r.strategyId)} onChange={() => toggle(r.strategyId)} />
+              <span className="legend-swatch" style={{ background: COLOR_HEX[r.color] }} aria-hidden />
+              {r.name}
+            </label>
+          ))}
         </fieldset>
         <label className="field field-narrow">
           <span>{combatRangeLabel(combats)}</span>
@@ -142,7 +134,6 @@ export function ViewCombat({
             min={1}
             max={Math.max(1, combats)}
             value={text}
-            disabled={visibleRows.length === 0}
             onChange={(e) => {
               setText(e.target.value);
               const n = fromDisplayCombat(e.target.value, combats);
@@ -161,11 +152,9 @@ export function ViewCombat({
         )}
       </div>
       <p className="muted small">
-        {visibleRows.length === 0
-          ? 'Show at least one strategy on the chart to view its combats.'
-          : button.disabled
-            ? 'Check at least one strategy to view its combat.'
-            : `Combat ${toDisplayCombat(idx)} uses seed ${seed}; every strategy faces the same combat for a given number.`}
+        {button.disabled
+          ? 'Check at least one strategy to view its combat.'
+          : `Combat ${toDisplayCombat(idx)} uses seed ${seed}; every strategy faces the same combat for a given number.`}
       </p>
     </div>
   );

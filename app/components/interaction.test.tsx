@@ -234,7 +234,7 @@ describe('deck builder interactions', () => {
 });
 
 describe('chart legend and smoothing slider', () => {
-  it('clicking a legend entry hides that strategy everywhere it is drawn, and clicking again shows it', async () => {
+  it('clicking a legend entry hides that strategy on the chart only (View a combat still lists it), and clicking again shows it', async () => {
     const { container } = render(<ResultsView data={gameData} result={result} />);
     const checks = () =>
       [...container.querySelectorAll('.strategy-checks label')].map((l) => l.textContent?.trim() ?? '');
@@ -245,7 +245,7 @@ describe('chart legend and smoothing slider', () => {
     expect(legendButton('Greedy Damage').getAttribute('aria-pressed')).toBe('false');
     expect(legendButton('Greedy Damage').className).toContain('off');
     expect(curveFills(container)).toBe(1);
-    expect(checks()).toEqual(['Scared Block']);
+    expect(checks()).toEqual(['Scared Block', 'Greedy Damage']);
 
     await userEvent.click(legendButton('Greedy Damage'));
     expect(legendButton('Greedy Damage').getAttribute('aria-pressed')).toBe('true');
