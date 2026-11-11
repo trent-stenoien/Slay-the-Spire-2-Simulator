@@ -16,6 +16,11 @@
       "type": "attack",
       "damage": 33,
       "hits": 1
+    },
+    {
+      "type": "applyEnemyPower",
+      "power": "stun",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -24,12 +29,17 @@
         "type": "attack",
         "damage": 44,
         "hits": 1
+      },
+      {
+        "type": "applyEnemyPower",
+        "power": "stun",
+        "amount": 1
       }
     ]
   },
   "description": "Deal 33 damage. / Stun the enemy. / Exhaust.",
   "upgradedDescription": "Deal 44 damage. / Stun the enemy. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

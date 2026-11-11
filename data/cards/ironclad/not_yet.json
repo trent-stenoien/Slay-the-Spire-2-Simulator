@@ -11,11 +11,23 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "heal",
+      "amount": 10
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "heal",
+        "amount": 13
+      }
+    ]
+  },
   "description": "Heal 10 HP. / Exhaust.",
   "upgradedDescription": "Heal 13 HP. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
