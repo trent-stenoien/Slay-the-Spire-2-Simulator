@@ -17,16 +17,9 @@ export function combatRangeLabel(combats: number): string {
   return `Combat # (1-${Math.max(1, combats)})`;
 }
 
-/**
- * The checked strategies that can be opened: those both checked and visible on the chart,
- * in picker order. Strategies hidden on the chart are not listed in the picker, so they never count.
- */
-export function checkedVisibleIds(
-  orderedIds: readonly string[],
-  hidden: ReadonlySet<string>,
-  checked: ReadonlySet<string>,
-): string[] {
-  return orderedIds.filter((id) => !hidden.has(id) && checked.has(id));
+/** The checked strategies, in picker order. Hiding a strategy on the chart does not affect this. */
+export function checkedIds(orderedIds: readonly string[], checked: ReadonlySet<string>): string[] {
+  return orderedIds.filter((id) => checked.has(id));
 }
 
 /** The picker button: "Open combat log" for one checked strategy, "Compare" for 2+, disabled for none. */

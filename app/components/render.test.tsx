@@ -64,10 +64,8 @@ const result: RunResult = {
 const noop = () => {};
 const renderChart = () => renderToStaticMarkup(<DistributionChart rows={resultRows(result)} />);
 const renderResults = () => renderToStaticMarkup(<ResultsView data={gameData} result={result} />);
-const renderViewCombat = (hidden: ReadonlySet<string>, initialChecked?: string[]) =>
-  renderToStaticMarkup(
-    <ViewCombat data={gameData} result={result} combats={10} hidden={hidden} initialChecked={initialChecked} />,
-  );
+const renderViewCombat = (initialChecked?: string[]) =>
+  renderToStaticMarkup(<ViewCombat data={gameData} result={result} combats={10} initialChecked={initialChecked} />);
 const renderResultsPanel = (
   status: RunStatus,
   {
@@ -399,28 +397,24 @@ describe('views render', () => {
     expect(html).toMatch(/href="[^"]*&amp;n=0"/);
   });
 
-  it('lists a checkbox per visible strategy; one checked opens the combat log', () => {
-    const html = renderViewCombat(new Set());
+  it('lists a checkbox per strategy; one checked opens the combat log', () => {
+    const html = renderViewCombat();
     expect(html.match(/type="checkbox"/g)).toHaveLength(2);
     expect(html).not.toContain('<select');
     expect(html).toContain('>Open combat log</a>');
     expect(html).toMatch(/href="[^"]*&amp;st=b0pa&amp;n=0"/); // sorted first: Scared Block, no k for one strategy
-    const hidden = renderViewCombat(new Set(['g']));
-    expect(hidden.match(/type="checkbox"/g)).toHaveLength(1);
-    expect(hidden).not.toContain('Greedy Damage');
   });
 
   it('reads Compare with 2+ checked and links every checked strategy with its color', () => {
-    const html = renderViewCombat(new Set(), ['g', 's']);
+    const html = renderViewCombat(['g', 's']);
     expect(html).toContain('>Compare</a>');
     expect(html).toMatch(/href="[^"]*&amp;st=b0pa,apb&amp;k=p,b&amp;n=0"/);
   });
 
-  it('disables the button with nothing checked (or every checked strategy hidden)', () => {
-    for (const html of [renderViewCombat(new Set(), []), renderViewCombat(new Set(['g']), ['g'])]) {
-      expect(html).toContain('aria-disabled="true"');
-      expect(html).not.toContain('</a>');
-    }
+  it('disables the button with nothing checked', () => {
+    const html = renderViewCombat([]);
+    expect(html).toContain('aria-disabled="true"');
+    expect(html).not.toContain('</a>');
   });
 
   it('renders the compare view: one column per strategy on the same turn, with name, color and outcome', () => {
