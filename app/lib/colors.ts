@@ -11,6 +11,29 @@ export const COLOR_HEX: Record<StrategyColor, string> = {
   purple: '#8a5cd6',
 };
 
+/** Okabe-Ito palette (color-blind safe), same keys as COLOR_HEX. Used by the chart's color-blind toggle. */
+export const COLOR_HEX_COLOR_BLIND: Record<StrategyColor, string> = {
+  blue: '#0072b2',
+  green: '#009e73',
+  yellow: '#e69f00',
+  red: '#d55e00',
+  purple: '#cc79a7',
+};
+
+/** Stroke dash per strategy color, applied only in color-blind mode so lines also differ by shape. Blue stays solid. */
+export const DASH_BY_COLOR: Record<StrategyColor, string | undefined> = {
+  blue: undefined,
+  green: '8 4',
+  yellow: '2 3',
+  red: '12 4 2 4',
+  purple: '14 5',
+};
+
+/** Chart colors for the current mode: the default palette, or the Okabe-Ito palette in color-blind mode. */
+export function chartPalette(colorBlind: boolean): Record<StrategyColor, string> {
+  return colorBlind ? COLOR_HEX_COLOR_BLIND : COLOR_HEX;
+}
+
 export interface Selection {
   strategyId: string;
   color: StrategyColor;

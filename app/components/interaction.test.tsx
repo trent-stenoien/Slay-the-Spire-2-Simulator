@@ -335,6 +335,33 @@ describe('percentile label links', () => {
     expect(percentileLinks(container)).toHaveLength(0);
     expect(container.querySelector('.pband')).toBeNull();
   });
+
+  it('the Color-blind palette toggle swaps the line colors to Okabe-Ito and adds dashes; off by default', async () => {
+    const { container } = render(<ResultsView data={gameData} result={result} />);
+    const lines = () => [...container.querySelectorAll<SVGPathElement>('svg.chart path[fill="none"]')];
+    // Lines follow the table order (Scared Block, purple, first). Default: original palette, solid.
+    expect(lines().map((p) => p.getAttribute('stroke'))).toEqual(['#8a5cd6', '#2f6fdf']);
+    expect(lines().every((p) => p.getAttribute('stroke-dasharray') === null)).toBe(true);
+    await userEvent.click(screen.getByLabelText('Color-blind palette'));
+    // Okabe-Ito colors; purple gets its long dash, blue stays solid.
+    expect(lines().map((p) => p.getAttribute('stroke'))).toEqual(['#cc79a7', '#0072b2']);
+    expect(lines().map((p) => p.getAttribute('stroke-dasharray'))).toEqual(['14 5', null]);
+    // Every strategy key follows the same palette and dash: legend, stats table and "View a combat" list.
+    const keys = () => [...container.querySelectorAll<SVGLineElement>('svg.legend-swatch-line line')];
+    expect(keys().map((l) => l.getAttribute('stroke'))).toEqual(
+      Array(3)
+        .fill(null)
+        .flatMap(() => ['#cc79a7', '#0072b2']),
+    );
+    expect(keys().map((l) => l.getAttribute('stroke-dasharray'))).toEqual(
+      Array(3)
+        .fill(null)
+        .flatMap(() => ['14 5', null]),
+    );
+    expect(container.querySelectorAll('.legend-swatch:not(.legend-swatch-line)')).toHaveLength(0);
+    await userEvent.click(screen.getByLabelText('Color-blind palette'));
+    expect(lines().map((p) => p.getAttribute('stroke'))).toEqual(['#8a5cd6', '#2f6fdf']);
+  });
 });
 
 describe('view-a-combat picker', () => {

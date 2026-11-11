@@ -1,14 +1,18 @@
 import { useState, type CSSProperties } from 'react';
 import { deriveSeed } from '../../engine/rng';
-import type { GameData, RunResult } from '../../engine/types';
-import { COLOR_HEX } from '../lib/colors';
+import type { GameData, RunResult, StrategyColor } from '../../engine/types';
+import { chartPalette, COLOR_HEX } from '../lib/colors';
+import { Swatch } from './ChartControls';
 import {
   describeRun,
   fmtHpLostRange,
   fmtNumber,
   fmtRate,
   fmtRewards,
-  hasRewards, sortedResultRows, type ResultRow } from '../lib/results';
+  hasRewards,
+  sortedResultRows,
+  type ResultRow,
+} from '../lib/results';
 import { DistributionChart } from './DistributionChart';
 import { toggleHidden } from '../lib/chart';
 import { logHref } from '../lib/links';
@@ -27,16 +31,21 @@ export function ResultsView({ data, result }: { data: GameData; result: RunResul
   const cfg = result.config;
   const combats = rows[0]?.summary.combats ?? 0;
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set());
+  // One color-blind setting for the whole results panel, so every strategy key uses the same colors.
+  const [colorBlind, setColorBlind] = useState(false);
+  const palette = chartPalette(colorBlind);
 
   return (
     <div className="results">
       <p className="muted small">{describeRun(data, cfg)}</p>
-      <StatsTable rows={rows} />
+      <StatsTable rows={rows} colorBlind={colorBlind} palette={palette} />
       {rows.length > 0 && (
         <DistributionChart
           rows={rows}
           hidden={hidden}
           onHiddenChange={setHidden}
+          colorBlind={colorBlind}
+          onColorBlindChange={setColorBlind}
           percentileHref={(markedIds, strategyId, hpLost) => {
             const row = rows.find((r) => r.strategyId === strategyId);
             const t = row ? percentileLinkTarget(markedIds, strategyId, hpLost, row.summary.firstCombatByHpLost) : null;
@@ -44,12 +53,22 @@ export function ResultsView({ data, result }: { data: GameData; result: RunResul
           }}
         />
       )}
-      {rows.length > 0 && <ViewCombat data={data} result={result} combats={combats} />}
+      {rows.length > 0 && (
+        <ViewCombat data={data} result={result} combats={combats} colorBlind={colorBlind} palette={palette} />
+      )}
     </div>
   );
 }
 
-function StatsTable({ rows }: { rows: readonly ResultRow[] }) {
+function StatsTable({
+  rows,
+  colorBlind,
+  palette,
+}: {
+  rows: readonly ResultRow[];
+  colorBlind: boolean;
+  palette: Record<StrategyColor, string>;
+}) {
   const showRewards = hasRewards(rows.map((r) => r.summary));
   return (
     <div className="table-wrap">
@@ -68,7 +87,7 @@ function StatsTable({ rows }: { rows: readonly ResultRow[] }) {
           {rows.map((r) => (
             <tr key={r.strategyId}>
               <th scope="row">
-                <span className="legend-swatch" style={{ background: COLOR_HEX[r.color] }} aria-hidden />
+                <Swatch color={palette[r.color]} colorBlind={colorBlind} strategyColor={r.color} />
                 {r.name}
               </th>
               <td>{fmtNumber(r.summary.avgHpLost)}</td>
@@ -93,10 +112,15 @@ export function ViewCombat({
   result,
   combats,
   initialChecked,
+  colorBlind = false,
+  palette = COLOR_HEX,
 }: {
   data: GameData;
   result: RunResult;
   combats: number;
+  /** Color-blind palette and dash keys, shared with the chart (default: the normal palette). */
+  colorBlind?: boolean;
+  palette?: Record<StrategyColor, string>;
   /** Strategy ids checked at first (default: the first row). */
   initialChecked?: readonly string[];
 }) {
@@ -127,10 +151,10 @@ export function ViewCombat({
             <label
               key={r.strategyId}
               className="strategy-check"
-              style={{ '--strategy-color': COLOR_HEX[r.color] } as CSSProperties}
+              style={{ '--strategy-color': palette[r.color] } as CSSProperties}
             >
               <input type="checkbox" checked={checked.has(r.strategyId)} onChange={() => toggle(r.strategyId)} />
-              <span className="legend-swatch" style={{ background: COLOR_HEX[r.color] }} aria-hidden />
+              <Swatch color={palette[r.color]} colorBlind={colorBlind} strategyColor={r.color} />
               {r.name}
             </label>
           ))}
