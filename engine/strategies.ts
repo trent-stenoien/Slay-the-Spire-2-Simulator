@@ -195,7 +195,7 @@ export function lowerPriorityBase(config: StrategyConfig): 'strike' | 'defend' {
  * #139 exhaust tier (Trent, #108 final order), lower goes first, for every strategy:
  * 1 curse/status that makes you lose HP, 2 exhaust-benefit cards (Drum of Battle), 3 curse/status
  * with flat blockable damage, 4 other non-Ethereal curse/status, 5 non-upgraded Strike or Defend
- * of the lower-priority group, 6 the other non-upgraded one, 6.5 a pure draw card costing 1+ while
+ * of the lower-priority group, 6 the other non-upgraded one, 6.5 a draw-only card costing 1+ while
  * the draw cards are exhaustible (#144, see TallyConfig), 7 Ethereal curse/status, 8 anything
  * else (the cards that won't be played; see exhaustOrder).
  */
@@ -211,7 +211,7 @@ export function exhaustTier(card: Card, config: StrategyConfig = GREEDY_CONFIG):
   return 8;
 }
 
-/** #144: the exhaust tier of a pure draw card costing 1+ while draw cards are exhaustible: right after Strikes and Defends. */
+/** #144: the exhaust tier of a draw-only card costing 1+ while draw cards are exhaustible: right after Strikes and Defends. */
 const DRAW_TIER = 6.5;
 
 /** #144: draw cards are exhaustible once at least this share of the turns so far this combat ended with 0 energy. */
@@ -232,12 +232,22 @@ function drawsExhaustible(config: StrategyConfig | undefined): boolean {
   return !!(config as TallyConfig | undefined)?.drawExhaustible;
 }
 
+/** #144: a card that only draws: every effect is a draw (or Battle Trance's no-more-draws power). Burning Pact exhausts too, so it is not. */
+export function isDrawOnly(card: Card): boolean {
+  return (
+    isDrawCard(card) &&
+    card.effects.every(
+      (e) => e.type === 'draw' || e.type === 'drawUntil' || (e.type === 'applyPower' && e.power === 'noDraw'),
+    )
+  );
+}
+
 /**
- * #144: a pure draw card (no attack or Block part) costing 1+ energy, while the draw cards are
+ * #144: a draw-only card costing 1+ energy, while the draw cards are
  * exhaustible. A 0-cost one (and any, otherwise) is never exhausted: its draw counts in the deck floor.
  */
 function drawCardExhaustible(card: Card, config: StrategyConfig | undefined): boolean {
-  return drawsExhaustible(config) && isPureDrawCard(card) && !card.xCost && (card.cost ?? 0) >= 1;
+  return drawsExhaustible(config) && isDrawOnly(card) && !card.xCost && (card.cost ?? 0) >= 1;
 }
 
 /** `hand` with `card` removed, as a view (for planning the turn without it). */
@@ -269,14 +279,14 @@ function leavesEnergyUnused(view: StrategyView, config: StrategyConfig, base: Ca
 }
 
 /**
- * Exhaust sort key for tier 8: pure draw cards last (#144: never exhausted unless forced), then
+ * Exhaust sort key for tier 8: draw-only cards last (#144: never exhausted unless forced), then
  * planned cards, upgraded Strike/Defend first, lowest group first, uid.
  */
 function tier8Key(card: Card, config: StrategyConfig, planned: ReadonlySet<number>): number[] {
   const g = groupOf(card, config);
   const lowFirst = g === null ? -1 : -config.order.indexOf(g);
   const basic = card.cardId === 'strike' || card.cardId === 'defend';
-  return [isPureDrawCard(card) ? 1 : 0, planned.has(card.uid) ? 1 : 0, basic ? 0 : 1, lowFirst, card.uid];
+  return [isDrawOnly(card) ? 1 : 0, planned.has(card.uid) ? 1 : 0, basic ? 0 : 1, lowFirst, card.uid];
 }
 
 /**

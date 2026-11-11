@@ -35,6 +35,11 @@ const defs: Record<string, CardDef> = {
   /** Draw only, free. */
   free: def('free', 0, [{ type: 'draw', amount: 3 }]),
   /** Draws, but also gives Block: not a pure draw card. */
+  /** Burning Pact: draws, but also exhausts a card, so it is not draw-only. */
+  pact: def('pact', 1, [
+    { type: 'exhaustCards', count: 1, mode: 'choose' },
+    { type: 'draw', amount: 2 },
+  ]),
   shrug: def('shrug', 1, [
     { type: 'gainBlock', amount: 8 },
     { type: 'draw', amount: 1 },
@@ -49,9 +54,9 @@ const ids = (cs: readonly { cardId: string }[]) => cs.map((c) => c.cardId);
 const OPEN: TallyConfig = { ...GREEDY_CONFIG, drawExhaustible: true };
 
 describe('#144 exhaust tier of pure draw cards', () => {
-  it('1+ cost pure draw: tier 6.5 when exhaustible, else 8; 0-cost and draw+Block are always 8', () => {
-    expect(['think', 'free', 'shrug'].map((id) => exhaustTier(card(id), OPEN))).toEqual([6.5, 8, 8]);
-    expect(['think', 'free', 'shrug'].map((id) => exhaustTier(card(id), GREEDY_CONFIG))).toEqual([8, 8, 8]);
+  it('1+ cost pure draw: tier 6.5 when exhaustible, else 8; 0-cost, draw+Block and Burning Pact are always 8', () => {
+    expect(['think', 'free', 'shrug', 'pact'].map((id) => exhaustTier(card(id), OPEN))).toEqual([6.5, 8, 8, 8]);
+    expect(['think', 'free', 'shrug', 'pact'].map((id) => exhaustTier(card(id), GREEDY_CONFIG))).toEqual([8, 8, 8, 8]);
     expect(worthExhausting(card('think'), OPEN)).toBe(true);
     expect(worthExhausting(card('think'))).toBe(false);
   });
