@@ -286,23 +286,23 @@ describe('chart legend and smoothing slider', () => {
 describe('percentile label links', () => {
   it('link to the compare view with two strategies shown, and to one combat log after hiding one', async () => {
     const { container } = render(<ResultsView data={gameData} result={result} />);
-    // Two visible: 10 labels, each opening both strategies (chart order b0, g) with their colors.
+    // Two visible: 6 labels (equal percentiles merge), each opening both strategies (chart order b0, g) with their colors.
     let links = percentileLinks(container);
-    expect(links).toHaveLength(10);
+    expect(links).toHaveLength(6);
     expect(links.every((h) => /&st=b0pa,apb&k=p,b&n=\d+$/.test(h))).toBe(true);
     // Scared Block P50 = 1 HP -> its first combat with 1 HP lost is index 0.
     expect(links.some((h) => h.endsWith('&n=0'))).toBe(true);
 
     await userEvent.click(legendButton('Scared Block'));
     links = percentileLinks(container);
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(3);
     // Greedy alone: no colors, just its own combat; P75 = 4 HP -> first combat index 1, P50 = 3 -> index 0.
     expect(links.every((h) => /&st=apb&n=\d+$/.test(h))).toBe(true);
     expect(links.some((h) => h.endsWith('&n=1'))).toBe(true);
     expect(links.some((h) => h.endsWith('&n=0'))).toBe(true);
   });
 
-  it('three visible strategies get no percentile labels', () => {
+  it('three visible strategies still get percentile labels, and the Show Percentiles toggle hides them', async () => {
     const three: RunResult = {
       ...result,
       config: {
@@ -315,7 +315,10 @@ describe('percentile label links', () => {
       summaries: [...result.summaries, { ...result.summaries[0]!, strategyId: 'b4' }],
     };
     const { container } = render(<ResultsView data={gameData} result={three} />);
+    expect(percentileLinks(container).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByLabelText('Show Percentiles'));
     expect(percentileLinks(container)).toHaveLength(0);
+    expect(container.querySelector('.pband')).toBeNull();
   });
 });
 

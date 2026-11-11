@@ -257,8 +257,8 @@ describe('views render', () => {
 
   it('draws percentile marks for each of two visible strategies, in their colors, with a P25-P75 band each', () => {
     const html = renderChart();
-    expect(html.match(/class="pmark"/g)).toHaveLength(10);
-    expect(html.match(/class="pmark-label"/g)).toHaveLength(10);
+    expect(html.match(/class="pmark"/g)).toHaveLength(6); // equal values share a line and label
+    expect(html.match(/class="pmark-label"/g)).toHaveLength(6);
     expect(html.match(/class="pband"/g)).toHaveLength(2);
     expect(html).toContain('--mark-color:#8a5cd6');
     expect(html).toContain('--mark-color:#2f6fdf');
@@ -266,22 +266,29 @@ describe('views render', () => {
     expect(html.match(/class="pband"[^>]*fill-opacity="0.075"/g)).toHaveLength(2);
   });
 
-  it('draws no percentile marks while three strategies are visible', () => {
+  it('still draws percentile marks with three visible strategies, one label row each', () => {
     const rows = resultRows(result);
     const third = { ...rows[0]!, strategyId: 'x', name: 'Third', color: 'green' as const };
     const html = renderToStaticMarkup(<DistributionChart rows={[...rows, third]} />);
-    expect(html).not.toContain('class="pmark"');
-    expect(html).not.toContain('class="pband"');
-    expect(html).not.toContain('P50 =');
+    expect(html.match(/class="pband"/g)).toHaveLength(3);
+    const ys = new Set([...html.matchAll(/class="pmark-label" x="[^"]*" y="([^"]*)"/g)].map((m) => m[1]));
+    expect(ys.size).toBe(3);
+  });
+
+  it('puts all of a strategy\'s labels on one line and has a Show Percentiles checkbox, on by default', () => {
+    const html = renderChart();
+    const ys = [...html.matchAll(/class="pmark-label" x="[^"]*" y="([^"]*)"/g)].map((m) => m[1]);
+    expect(new Set(ys).size).toBe(2);
+    expect(html).toMatch(/class="pct-toggle small"><input type="checkbox" checked=""[^>]*\/>Show Percentiles/);
   });
 
   it('draws five labelled percentile markers when only one strategy is in the results', () => {
     const one = resultRows(result).filter((r) => r.strategyId === 'g'); // [0, 0, 2, 3, 5]: 10 combats
     const html = renderToStaticMarkup(<DistributionChart rows={one} />);
-    expect(html.match(/class="pmark"/g)).toHaveLength(5);
+    expect(html.match(/class="pmark"/g)).toHaveLength(3);
     expect(html.match(/class="pband"/g)).toHaveLength(1);
-    for (const label of ['P5 = 2', 'P25 = 3', 'P50 = 3', 'P75 = 4', 'P95 = 4'])
-      expect(html).toContain(`>${label}</text>`);
+    // Equal values share a label.
+    for (const label of ['P5 = 2', 'P25–P50 = 3', 'P75–P95 = 4']) expect(html).toContain(`>${label}</text>`);
   });
 
   it('has no Raw view button: only Smoothed (KDE) and Cumulative', () => {
@@ -488,12 +495,12 @@ describe('views render', () => {
         percentileHref={(ids, id, hp) => `#${ids.join('+')}/${id}/${hp}`}
       />,
     );
-    expect(one.match(/class="pmark-link"/g)).toHaveLength(5);
+    expect(one.match(/class="pmark-link"/g)).toHaveLength(3); // P25-50 share a label
     expect(one).toContain('href="#g/g/4"');
     expect(one).toContain('href="#g/g/3"');
     // ResultsView builds the real links: two strategies shown, so each label opens the compare view.
     const html = renderResults();
-    expect(html.match(/class="pmark-link"/g)).toHaveLength(10);
+    expect(html.match(/class="pmark-link"/g)).toHaveLength(6);
     // Greedy P75 = 4 -> first combat index 1; Greedy P50 = 3 and Scared P50 = 1 -> index 0. Both strategies, in chart order.
     expect(html).toMatch(/class="pmark-link" href="[^"]*&amp;st=b0pa,apb&amp;k=p,b&amp;n=1"/);
     expect(html).toMatch(/class="pmark-link" href="[^"]*&amp;st=b0pa,apb&amp;k=p,b&amp;n=0"/);
