@@ -184,6 +184,17 @@ describe('deck builder interactions', () => {
   });
 
   it("disables both + buttons at a card's copy limit, with a tooltip (#137)", async () => {
+    // No real card is limited right now (#135): limit Crimson Mantle for this test only.
+    const mantle = gameData.cards.crimson_mantle as { maxCopies?: number };
+    mantle.maxCopies = 1;
+    try {
+      await limitTest();
+    } finally {
+      delete mantle.maxCopies;
+    }
+  });
+
+  async function limitTest() {
     render(<DeckHarness initial={[]} />);
     const addStd = () => screen.getByRole('button', { name: 'Add one standard Crimson Mantle' }) as HTMLButtonElement;
     const addUp = () => screen.getByRole('button', { name: 'Add one upgraded Crimson Mantle+' }) as HTMLButtonElement;
@@ -198,7 +209,7 @@ describe('deck builder interactions', () => {
     expect(addStd().disabled).toBe(false);
     // Cards without a limit are unaffected.
     expect((screen.getByRole('button', { name: 'Add one standard Strike' }) as HTMLButtonElement).disabled).toBe(false);
-  });
+  }
 
   it.each([
     ['Statuses', 'statuses'],

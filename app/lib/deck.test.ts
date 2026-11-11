@@ -87,7 +87,8 @@ describe('deck edits', () => {
 });
 
 describe('copy limits (#137)', () => {
-  const boulder = gameData.cards.rolling_boulder!;
+  // No card is limited right now (#135), so test the mechanism with a limited copy.
+  const boulder = { ...gameData.cards.rolling_boulder!, maxCopies: 1 };
   const strike = gameData.cards.strike!;
   it('counts Standard and Upgraded together', () => {
     const d: Deck = [{ cardId: 'rolling_boulder', upgraded: true, count: 1 }];
@@ -100,6 +101,7 @@ describe('copy limits (#137)', () => {
     expect(atCopyLimit([{ cardId: 'rolling_boulder', upgraded: true, count: 1 }], boulder)).toBe(true);
   });
   it('never limits a card without maxCopies', () => {
+    expect(atCopyLimit([{ cardId: 'rolling_boulder', upgraded: false, count: 9 }], gameData.cards.rolling_boulder!)).toBe(false);
     expect(atCopyLimit([{ cardId: 'strike', upgraded: false, count: 50 }], strike)).toBe(false);
   });
 });
