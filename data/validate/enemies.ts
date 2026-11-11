@@ -1,5 +1,5 @@
 /** Enemy validation: moves, patterns and Ascension overrides. */
-import { CONTRACT_EFFECTS, ZONES, DIFFICULTIES, PATTERN_STARTS, NUMERIC_KEY } from './lists';
+import { CONTRACT_EFFECTS, ZONES, DIFFICULTIES, PATTERN_STARTS, PATTERN_TYPES, NUMERIC_KEY } from './lists';
 import { type Obj, isOneOf, isObj, Reporter, checkTwoCharCode } from './shared';
 import { checkEffects } from './effects';
 
@@ -16,6 +16,9 @@ function checkEnemyOnlyEffects(r: Reporter, list: unknown, path: string): void {
     if (e.type === 'gainEnergy') r.add(`${path}[${i}].type`, 'is "gainEnergy", but enemies have no energy');
     if (isOneOf(e.type, CONTRACT_EFFECTS)) {
       r.add(`${path}[${i}].type`, `is "${e.type}", which is not simulated on enemy moves`);
+    }
+    if (e.type === 'applyShrink' && typeof e.amount === 'number' && e.amount > 100) {
+      r.add(`${path}[${i}].amount`, 'is a percent and must be at most 100');
     }
     if (e.xTimes === true) r.add(`${path}[${i}].xTimes`, 'is only allowed on X-cost cards');
   });
@@ -38,23 +41,42 @@ function checkRange(r: Reporter, v: unknown, path: string): void {
   }
 }
 
+/** A list of move ids that must all exist; `allowEmpty` for the opener. Returns the list. */
+function checkMoveList(
+  r: Reporter,
+  list: unknown[] | undefined,
+  path: string,
+  moveIds: Set<string>,
+  allowEmpty = false,
+): unknown[] | undefined {
+  if (!list) return undefined;
+  if (list.length === 0 && !allowEmpty) r.add(path, 'must not be empty');
+  list.forEach((id, i) => {
+    if (typeof id !== 'string') {
+      r.add(`${path}[${i}]`, 'must be a string');
+    } else if (!moveIds.has(id)) {
+      r.add(`${path}[${i}]`, `references unknown move id "${id}"`);
+    }
+  });
+  return list;
+}
+
+/** Cycle: `order` + `start`. #4 random: `moves` + `noRepeat`. Both: optional `opener`. */
 function checkPattern(r: Reporter, v: unknown, path: string, moveIds: Set<string>): void {
   if (!isObj(v)) {
     r.add(path, 'must be an object');
     return;
   }
-  r.oneOf(v, 'type', ['cycle'], `${path}.type`);
+  r.oneOf(v, 'type', PATTERN_TYPES, `${path}.type`);
+  if (v.opener !== undefined) checkMoveList(r, r.arr(v, 'opener', `${path}.opener`), `${path}.opener`, moveIds, true);
+  if (v.type === 'random') {
+    const moves = checkMoveList(r, r.arr(v, 'moves', `${path}.moves`), `${path}.moves`, moveIds);
+    if (typeof v.noRepeat !== 'boolean') r.add(`${path}.noRepeat`, 'must be true or false');
+    else if (v.noRepeat && moves && moves.length === 1) r.add(`${path}.moves`, 'needs at least 2 moves with noRepeat');
+    return;
+  }
   r.oneOf(v, 'start', PATTERN_STARTS, `${path}.start`);
-  const order = r.arr(v, 'order', `${path}.order`);
-  if (!order) return;
-  if (order.length === 0) r.add(`${path}.order`, 'must not be empty');
-  order.forEach((id, i) => {
-    if (typeof id !== 'string') {
-      r.add(`${path}.order[${i}]`, 'must be a string');
-    } else if (!moveIds.has(id)) {
-      r.add(`${path}.order[${i}]`, `references unknown move id "${id}"`);
-    }
-  });
+  checkMoveList(r, r.arr(v, 'order', `${path}.order`), `${path}.order`, moveIds);
 }
 
 export function checkEnemy(r: Reporter, e: Obj): void {

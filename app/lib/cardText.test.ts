@@ -16,6 +16,7 @@ describe('card text', () => {
     [{ type: 'applyFrail', amount: 3 } as const, 'Apply 3 Frail'],
     [{ type: 'applyPoison', amount: 3 } as const, 'Apply 3 Poison'],
     [{ type: 'gainEnergy', amount: 2 } as const, 'Gain 2 Energy'],
+    [{ type: 'applyShrink', amount: 30 } as const, 'Apply Shrink (attacks deal 30% less damage)'],
     [
       { type: 'attack', damage: 5, hits: 1, allEnemies: true, xTimes: true } as const,
       'Deal 5 damage to ALL enemies X times',

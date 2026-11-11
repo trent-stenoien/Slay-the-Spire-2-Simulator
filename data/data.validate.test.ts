@@ -127,6 +127,35 @@ describe('validateGameData on broken fixtures', () => {
     );
   });
 
+  it('accepts opener and random no-repeat patterns, and reports broken ones (#4)', () => {
+    const d = fixture();
+    d.enemies.nibbit.pattern = { type: 'random', opener: ['hiss'], moves: ['butt', 'hiss'], noRepeat: true };
+    d.enemies.nibbit.ascension['9'].pattern = { type: 'cycle', opener: ['hiss'], order: ['butt'], start: 'first' };
+    expect(errorsOf(d)).toEqual([]);
+    d.enemies.nibbit.pattern = { type: 'random', opener: ['bite'], moves: ['butt'], noRepeat: true };
+    d.enemies.nibbit.ascension['9'].pattern = { type: 'random', moves: [], noRepeat: 'yes' };
+    const errs = errorsOf(d);
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*pattern\.opener\[0\].*"bite"/));
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*pattern\.moves.*at least 2/));
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*ascension\.9\.pattern\.moves.*empty/));
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*ascension\.9\.pattern\.noRepeat/));
+    d.enemies.nibbit.pattern = { type: 'shuffle', order: ['butt'], start: 'first' };
+    expect(errorsOf(d)).toContainEqual(expect.stringMatching(/enemies\/nibbit.*pattern\.type/));
+  });
+
+  it('accepts applyShrink on enemy moves (a percent) and rejects it on simulated cards (#4)', () => {
+    const d = fixture();
+    d.enemies.nibbit.moves.hiss.effects.push({ type: 'applyShrink', amount: 30 });
+    expect(errorsOf(d)).toEqual([]);
+    d.enemies.nibbit.moves.hiss.effects.push({ type: 'applyShrink', amount: 130 });
+    expect(errorsOf(d)).toContainEqual(
+      expect.stringMatching(/enemies\/nibbit.*moves\.hiss\.effects\[2\]\.amount.*percent/),
+    );
+    const c = fixture();
+    c.cards.strike.effects.push({ type: 'applyShrink', amount: 30 });
+    expect(errorsOf(c)).toContainEqual(expect.stringMatching(/cards\/strike.*"simulated".*applyShrink/));
+  });
+
   it('accepts gainEnergy on cards and rejects it on enemy moves', () => {
     const d = fixture();
     d.cards.strike.effects.push({ type: 'gainEnergy', amount: 1 });

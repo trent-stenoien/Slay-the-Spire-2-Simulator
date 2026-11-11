@@ -70,6 +70,8 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
   if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
   if (UNSIMULATED_EFFECTS.has(name)) return name;
+  // #4: Shrink is simulated on enemy moves only (it Shrinks the player).
+  if (name === 'applyShrink') return name;
   if (name === 'drawUntil') return unsimulatedFilter(e.stopOn, 'drawUntil.stopOn');
   if (name === 'exhaustCards') {
     if (e.from === 'exhaust') return 'exhaustCards.from.exhaust';

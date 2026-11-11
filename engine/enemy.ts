@@ -5,7 +5,18 @@ function cloneEffects(effects: readonly Effect[]): Effect[] {
 }
 
 function clonePattern(p: MovePattern): MovePattern {
-  return { ...p, order: [...p.order] };
+  const opener = p.opener ? { opener: [...p.opener] } : {};
+  return p.type === 'cycle' ? { ...p, order: [...p.order], ...opener } : { ...p, moves: [...p.moves], ...opener };
+}
+
+/** #4: the moves a pattern repeats or picks from (cycle `order`, random `moves`), without the opener. */
+export function patternPool(p: MovePattern): readonly string[] {
+  return p.type === 'cycle' ? p.order : p.moves;
+}
+
+/** #4: every move id a pattern names: opener first, then the pool. */
+export function patternMoveIds(p: MovePattern): string[] {
+  return [...(p.opener ?? []), ...patternPool(p)];
 }
 
 /**

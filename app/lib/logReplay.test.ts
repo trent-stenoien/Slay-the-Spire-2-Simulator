@@ -54,6 +54,7 @@ describe('log replay', () => {
     );
     expect(describeEvent({ t: 'blockReset', side: 'player' }, name)).toBeNull();
     expect(describeEvent({ t: 'poison', amount: 3, total: 5 }, name)).toBe('Enemy gets 3 Poison (total 5)');
+    expect(describeEvent({ t: 'shrink', percent: 30 }, name)).toBe('You are Shrunk: your attacks deal 30% less damage');
     expect(describeEvent({ t: 'poisonDamage', amount: 5, hpAfter: 37 }, name)).toBe(
       'Enemy loses 5 HP from Poison (37 HP left)',
     );
@@ -142,13 +143,14 @@ describe('log replay', () => {
   });
 
   it('works out the intended move, including after a kill', () => {
-    expect(intendedMoveId(replay.rounds, 0, ['butt', 'hesitantSlice', 'hiss'], 'first')).toBe('butt');
-    const r = (id: string | null) => ({ enemyMoveId: id }) as Round;
-    const order = ['a', 'b', 'c'];
-    expect(intendedMoveId([r('c'), r(null)], 1, order, 'first')).toBe('a');
-    expect(intendedMoveId([r(null)], 0, order, 'first')).toBe('a');
-    expect(intendedMoveId([r(null)], 0, order, 'random')).toBeNull();
-    expect(intendedMoveId([], 0, order, 'first')).toBeNull();
+    expect(intendedMoveId(replay.rounds, 0, new Map())).toBe('butt');
+    const r = (turn: number, id: string | null) => ({ turn, enemyMoveId: id }) as Round;
+    const seen = new Map([[2, 'a']]);
+    // The logged move wins; a final round without a move falls back to the intent seen that turn.
+    expect(intendedMoveId([r(1, 'c'), r(2, null)], 0, seen)).toBe('c');
+    expect(intendedMoveId([r(1, 'c'), r(2, null)], 1, seen)).toBe('a');
+    expect(intendedMoveId([r(1, null)], 0, seen)).toBeNull();
+    expect(intendedMoveId([], 0, seen)).toBeNull();
   });
 });
 
