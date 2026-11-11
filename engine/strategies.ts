@@ -886,7 +886,7 @@ export function otherAttackDamage(view: StrategyView, fire: Card): number {
   let sum = 0;
   for (;;) {
     const affordable = pool.filter((c) => c.cost !== null && (c.xCost ? energy > 0 : c.cost <= energy));
-    const a = pickAttack(affordable, energy);
+    const a = pickAttack(affordable, energy, view.state.enemy.debuffs.vulnerable);
     if (!a) return sum;
     const x = a.xCost ? energy : 0;
     for (const e of a.effects) {
@@ -976,16 +976,27 @@ function attackDamagePerEnergy(card: Card): number {
 }
 
 /**
- * Best attack to play: Vulnerable-appliers first, then highest total base damage
+ * #11 (Trent): a Vulnerable-applier goes before other attacks only when the enemy has no
+ * Vulnerable and the energy covers it plus the cheapest other attack (an X-cost one needs 1);
+ * otherwise attacks are ranked by damage as usual (the estimate-based version is #149).
+ */
+function vulnerableFirst(card: Card, attacks: readonly Card[], energy: number, enemyVulnerable: number): boolean {
+  if (enemyVulnerable > 0 || card.xCost) return false;
+  const others = attacks.filter((c) => c.uid !== card.uid).map((c) => (c.xCost ? 1 : (c.cost ?? 0)));
+  return others.length > 0 && (card.cost ?? 0) + Math.min(...others) <= energy;
+}
+
+/**
+ * Best attack to play: Vulnerable-appliers first (only under vulnerableFirst, #11), then highest total base damage
  * (damage × hits), then cards that draw (#107), ties → lowest uid. X-cost attacks (never at 0
  * energy; they spend all of it) are compared with the best other attack by damage per energy
  * (#147, single enemy): the X-cost attack goes first only when it applies Vulnerable and the other
  * doesn't, or (same Vulnerable) its damage for 1 energy is higher than the other's damage per
  * energy. At 3 energy: Whirlwind (5) after Strike (6), Whirlwind+ (8) before Strike.
  */
-export function pickAttack(playable: readonly Card[], energy = 0): Card | undefined {
+export function pickAttack(playable: readonly Card[], energy = 0, enemyVulnerable = 0): Card | undefined {
   const attacks = playable.filter((c) => isAttackCard(c) && xCostPlayable(c, energy));
-  const vuln = (c: Card) => (appliesVulnerable(c) ? 1 : 0);
+  const vuln = (c: Card) => (appliesVulnerable(c) && vulnerableFirst(c, attacks, energy, enemyVulnerable) ? 1 : 0);
   const other = best(
     attacks.filter((c) => !c.xCost),
     (c) => [vuln(c), totalBaseDamage(c, energy), draws(c)],
@@ -1069,7 +1080,7 @@ export function cannotFillTopGroup(view: StrategyView, config: StrategyConfig): 
   const energy = view.state.player.energy;
   switch (config.order[0]) {
     case 'attack':
-      return !pickPlayFirst(view) && !pickAttack(view.playable, energy);
+      return !pickPlayFirst(view) && !pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable);
     case 'powers':
       return !pickPower(view.playable, energy);
     case 'block': {
@@ -1246,7 +1257,7 @@ function pickFromGroup(
     case 'attack': {
       const first = pickPlayFirst(view);
       if (first) return first;
-      const atk = pickAttack(view.playable, energy);
+      const atk = pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable);
       return planning ? atk : (pickFiendFire(view, config, atk) ?? atk);
     }
     case 'powers':
