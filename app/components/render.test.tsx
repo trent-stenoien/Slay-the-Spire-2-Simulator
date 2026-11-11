@@ -290,7 +290,7 @@ describe('views render', () => {
     expect(html.match(/class="pmark"/g)).toHaveLength(3);
     expect(html.match(/class="pband"/g)).toHaveLength(1);
     // Equal values share a label.
-    for (const label of ['P5 = 2', 'P25–50 = 3', 'P75–95 = 4']) expect(html).toContain(`>${label}</text>`);
+    for (const label of ['P5 = 2', 'P25–P50 = 3', 'P75–P95 = 4']) expect(html).toContain(`>${label}</text>`);
   });
 
   it('has no Raw view button: only Smoothed (KDE) and Cumulative', () => {

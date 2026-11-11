@@ -369,10 +369,10 @@ describe('mergeMarkers', () => {
   });
   it('merges equal values into one label', () => {
     const out = mergeMarkers([m(5, 3), m(25, 8), m(50, 8), m(75, 9), m(95, 9)]);
-    expect(out.map((g) => g.label)).toEqual(['P5 = 3', 'P25–50 = 8', 'P75–95 = 9']);
+    expect(out.map((g) => g.label)).toEqual(['P5 = 3', 'P25–P50 = 8', 'P75–P95 = 9']);
   });
   it('merges all five when every value is equal', () => {
-    expect(mergeMarkers([5, 25, 50, 75, 95].map((p) => m(p, 4))).map((g) => g.label)).toEqual(['P5–95 = 4']);
+    expect(mergeMarkers([5, 25, 50, 75, 95].map((p) => m(p, 4))).map((g) => g.label)).toEqual(['P5–P95 = 4']);
   });
 });
 

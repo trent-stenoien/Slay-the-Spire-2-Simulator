@@ -299,7 +299,7 @@ export function mergeMarkers(markers: readonly PercentileMarker[]): MergedMarker
     else out.push({ ps: [m.p], value: m.value, label: '' });
   }
   for (const g of out) {
-    const names = g.ps.length === 1 ? `P${g.ps[0]}` : `P${g.ps[0]}–${g.ps[g.ps.length - 1]}`;
+    const names = g.ps.length === 1 ? `P${g.ps[0]}` : `P${g.ps[0]}–P${g.ps[g.ps.length - 1]}`;
     g.label = `${names} = ${g.value}`;
   }
   return out;
