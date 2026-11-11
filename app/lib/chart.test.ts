@@ -220,6 +220,8 @@ const row = (strategyId: string, hpLostCounts: number[]) => ({
     avgHpLost: 0,
     avgTurnsToKill: null,
     avgTurns: 1,
+    avgGold: 0,
+    potionRate: 0,
     deathRate: 0,
     turnCapRate: 0,
     hpLostCounts,

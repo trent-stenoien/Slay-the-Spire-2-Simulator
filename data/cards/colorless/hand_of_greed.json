@@ -14,6 +14,18 @@
       "type": "attack",
       "damage": 20,
       "hits": 1
+    },
+    {
+      "type": "conditional",
+      "if": {
+        "kind": "fatal"
+      },
+      "then": [
+        {
+          "type": "gainGold",
+          "amount": 20
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -22,12 +34,24 @@
         "type": "attack",
         "damage": 25,
         "hits": 1
+      },
+      {
+        "type": "conditional",
+        "if": {
+          "kind": "fatal"
+        },
+        "then": [
+          {
+            "type": "gainGold",
+            "amount": 25
+          }
+        ]
       }
     ]
   },
   "description": "Deal 20 damage. / If Fatal, gain 20 Gold.",
   "upgradedDescription": "Deal 25 damage. / If Fatal, gain 25 Gold.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

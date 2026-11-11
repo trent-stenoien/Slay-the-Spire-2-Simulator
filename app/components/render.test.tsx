@@ -42,6 +42,8 @@ const result: RunResult = {
       avgHpLost: 8.4,
       avgTurnsToKill: 6.1,
       avgTurns: 6.4,
+      avgGold: 0,
+      potionRate: 0,
       deathRate: 0.1,
       turnCapRate: 0,
       hpLostCounts: [0, 0, 2, 3, 5],
@@ -53,6 +55,8 @@ const result: RunResult = {
       avgHpLost: 3.2,
       avgTurnsToKill: null,
       avgTurns: 9.5,
+      avgGold: 0,
+      potionRate: 0,
       deathRate: 0,
       turnCapRate: 0.2,
       hpLostCounts: [4, 4, 2],
@@ -229,6 +233,19 @@ describe('views render', () => {
     const table = html.slice(html.indexOf('<table'), html.indexOf('</table>'));
     expect(table).toContain('<td>0\u20131</td>'); // Scared Block [4,4,2]
     expect(table).toContain('<td>3\u20134</td>'); // Greedy Damage [0,0,2,3,5]
+  });
+
+  it('adds a Rewards column only when some strategy gained a reward (#104)', () => {
+    const heads = (html: string) => [...html.matchAll(/<th scope="col">([^<]*)<\/th>/g)].map((m) => m[1]);
+    expect(heads(renderResults())).not.toContain('Rewards');
+    const withRewards: RunResult = {
+      ...result,
+      summaries: result.summaries.map((s, i) => (i === 0 ? { ...s, avgGold: 14.2, potionRate: 0.63 } : s)),
+    };
+    const html = renderToStaticMarkup(<ResultsView data={gameData} result={withRewards} />);
+    expect(heads(html).at(-1)).toBe('Rewards');
+    expect(html).toContain('<td>+14.2 gold avg · Random Potion 63%</td>');
+    expect(html).toContain('<td>—</td>'); // the strategy with no rewards
   });
 
   it('puts the legend above the chart, as toggle buttons, with the KDE smoothing slider', () => {
@@ -457,6 +474,8 @@ describe('views render', () => {
       avgHpLost: 0,
       avgTurnsToKill: null,
       avgTurns: 1,
+      avgGold: 0,
+      potionRate: 0,
       deathRate: 0,
       turnCapRate: 0,
       hpLostCounts,

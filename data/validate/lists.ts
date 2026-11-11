@@ -51,12 +51,14 @@ export const CONTRACT_EFFECTS = [
   'heal',
   'gainMaxHp',
   'loseMaxHp',
+  'gainGold',
+  'gainPotion',
   'script',
 ] as const;
 
 /**
  * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
- * #115 heal, gainMaxHp, loseMaxHp. `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
+ * #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion.  `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
  * are checked by field in data/validate/cards.ts.
  */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
@@ -67,13 +69,12 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'heal',
   'gainMaxHp',
   'loseMaxHp',
+  'gainGold',
+  'gainPotion',
 ]);
 
 /** #115: enemy powers the engine simulates (Whistle's Stun); strengthLossThisTurn waits for #110. */
 export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun']);
-
-/** #115: `conditional` conditions the engine evaluates (Feed's "if Fatal"); the rest wait for #111. */
-export const SIMULATED_CONDITIONS = new Set<string>(['fatal']);
 
 /**
  * #108: `repeat` stays unsimulated in general (#111), but a simulated card may repeat "for each

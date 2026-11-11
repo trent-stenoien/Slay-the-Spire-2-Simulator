@@ -56,6 +56,22 @@ export function fmtRate(fraction: number): string {
   return Number.isFinite(fraction) ? `${(fraction * 100).toFixed(1)}%` : '—';
 }
 
+/** #104: true when some strategy gained gold or a potion (the Rewards column is shown only then). */
+export function hasRewards(summaries: readonly Pick<StrategySummary, 'avgGold' | 'potionRate'>[]): boolean {
+  return summaries.some((s) => s.avgGold > 0 || s.potionRate > 0);
+}
+
+/** #104: "+14.2 gold avg · Random Potion 63%"; "—" when the strategy gained nothing. */
+export function fmtRewards(s: Pick<StrategySummary, 'avgGold' | 'potionRate'>): string {
+  const parts: string[] = [];
+  if (s.avgGold > 0) parts.push(`+${s.avgGold.toFixed(1)} gold avg`);
+  if (s.potionRate > 0) {
+    const pct = Math.round(s.potionRate * 100);
+    parts.push(`Random Potion ${pct === 0 ? '<1' : pct}%`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : '—';
+}
+
 /** A random 32-bit run seed. `random` is injectable for tests. */
 export function randomSeed(random: () => number = Math.random): number {
   return Math.floor(random() * 0x100000000) >>> 0;

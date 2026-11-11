@@ -8,7 +8,6 @@ import {
   SIMULATED_FILTER_FIELDS,
   SIMULATED_REPEAT_COUNTERS,
   SIMULATED_ENEMY_POWERS,
-  SIMULATED_CONDITIONS,
   SIMULATED_SCRIPTS,
   SIMULATED_TRIGGERS,
   UNSIMULATED_EFFECTS,
@@ -71,9 +70,10 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'applyPower') return SIMULATED_POWERS.has(String(e.power)) ? undefined : name;
   if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
   if (name === 'applyEnemyPower') return SIMULATED_ENEMY_POWERS.has(String(e.power)) ? undefined : name;
+  // #104: only "if Fatal" (the previous attack killed the enemy) is simulated, with simulated branches.
   if (name === 'conditional') {
-    const kind = isObj(e.if) ? String(e.if.kind) : '';
-    return SIMULATED_CONDITIONS.has(kind) ? (unsimulatedIn(e.then) ?? unsimulatedIn(e.else)) : name;
+    const fatal = isObj(e.if) && e.if.kind === 'fatal';
+    return fatal ? (unsimulatedIn(e.then) ?? unsimulatedIn(e.else)) : name;
   }
   if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
   if (UNSIMULATED_EFFECTS.has(name)) return name;

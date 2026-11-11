@@ -248,6 +248,9 @@ class Combat {
   private mantleCopies = 0;
   /** #115: Max HP at the start of combat; `hpLost` is measured against it (Feed and healing lower it). */
   private readonly startMaxHp: number;
+  /** #104: gold and potions gained so far this combat (rewards only; no combat effect). */
+  private gold = 0;
+  private potions = 0;
 
   constructor(
     private readonly config: CombatConfig,
@@ -628,7 +631,7 @@ class Combat {
     const self = this.fighter(source);
     /** #108 `lastEffectCount`: cards exhausted by the previous effect of this list (0 for other effects). */
     let lastCount = 0;
-    for (const e of effects) {
+    for (const [index, e] of effects.entries()) {
       let count = 0;
       let died: Side | null = null;
       switch (e.type) {
@@ -706,11 +709,6 @@ class Combat {
           if (e.type === 'heal') this.heal(e.amount);
           else this.changeMaxHp(e.type === 'gainMaxHp' ? e.amount : -e.amount);
           break;
-        case 'conditional':
-          // #115: only Feed's "if Fatal" (#111 adds the rest). Reached here means the hit did not kill.
-          if (e.if.kind !== 'fatal') throw new Error(`Effect "conditional" is not simulated yet (${e.if.kind})`);
-          if (source === 'player' && e.else) died = this.resolveEffects(source, e.else, x, card);
-          break;
         case 'exhaustCards':
           if (source !== 'player') throw new Error('Effect "exhaustCards" is not simulated yet on enemy moves');
           ({ count, died } = this.exhaustCards(e, card));
@@ -725,6 +723,23 @@ class Combat {
           for (let i = 0; i < n && !died; i++) died = this.resolveEffects(source, e.effects, x, card);
           break;
         }
+        case 'gainGold':
+          if (source !== 'player') throw new Error('Enemies do not gain gold');
+          this.gold += e.amount;
+          break;
+        case 'gainPotion':
+          if (source !== 'player') throw new Error('Enemies do not gain potions');
+          this.potions++;
+          break;
+        case 'conditional': {
+          // #104: only "if Fatal". A kill returns early, so a fatal conditional right after the
+          // killing attack is resolved at the return below; if this is reached, nothing was killed.
+          if (source !== 'player' || e.if.kind !== 'fatal')
+            throw new Error('Effect "conditional" is not simulated yet');
+          // Reached here means the enemy is alive, so the condition is false.
+          died = this.resolveEffects(source, e.else ?? [], x, card);
+          break;
+        }
         case 'script':
           if (source === 'player' && e.id === 'fiendFire') died = this.fiendFire(e.values?.[0] ?? 0);
           else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
@@ -734,14 +749,14 @@ class Combat {
           // #105: declared in the contract, implemented by later mechanic cards.
           throw new Error(`Effect "${e.type}" is not simulated yet`);
       }
-      if (died === 'enemy' && e.type === 'attack' && source === 'player') {
-        // #115 Feed: a killing hit still triggers the "if Fatal" effects that follow it.
-        const rest = effects.slice(effects.indexOf(e) + 1);
-        for (const f of rest) {
-          if (f.type === 'conditional' && f.if.kind === 'fatal') this.resolveEffects(source, f.then, x, card);
+      if (died) {
+        // #104: the killing attack was followed by a fatal conditional: its `then` still resolves.
+        const next = effects[index + 1];
+        if (died === 'enemy' && source === 'player' && next?.type === 'conditional' && next.if.kind === 'fatal') {
+          this.resolveEffects(source, next.then, x, card);
         }
+        return died;
       }
-      if (died) return died;
       lastCount = count;
     }
     return null;
@@ -1118,6 +1133,7 @@ class Combat {
       hpLost,
       enemyHpRemaining: Math.max(enemy.hp, 0),
     };
+    if (this.gold > 0 || this.potions > 0) result.rewards = { gold: this.gold, potions: this.potions };
     if (log) {
       log.push({ t: 'combatEnd', outcome, turns: this.state.turn, hpLost });
       result.log = log;
