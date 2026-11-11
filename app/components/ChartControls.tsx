@@ -1,5 +1,5 @@
 import { useId, type CSSProperties } from 'react';
-import { COLOR_HEX } from '../lib/colors';
+import type { StrategyColor } from '../../engine/types';
 import {
   BANDWIDTH_FACTOR,
   bandwidthFactorLabel,
@@ -89,10 +89,12 @@ export function ChartLegend({
   rows,
   hidden,
   onChange,
+  palette,
 }: {
   rows: readonly ResultRow[];
   hidden: ReadonlySet<string>;
   onChange: (hidden: ReadonlySet<string>) => void;
+  palette: Record<StrategyColor, string>;
 }) {
   return (
     <ul className="legend" aria-label="Strategies (click to show or hide)">
@@ -107,7 +109,7 @@ export function ChartLegend({
               title={visible ? `Hide ${r.name}` : `Show ${r.name}`}
               onClick={() => onChange(toggleHidden(hidden, r.strategyId))}
             >
-              <span className="legend-swatch" style={{ background: COLOR_HEX[r.color] }} aria-hidden />
+              <span className="legend-swatch" style={{ background: palette[r.color] }} aria-hidden />
               <span className="legend-name" data-text={r.name}>
                 {r.name}
               </span>
@@ -116,6 +118,16 @@ export function ChartLegend({
         );
       })}
     </ul>
+  );
+}
+
+/** "Color-blind palette" toggle: Okabe-Ito colors plus a distinct dash pattern per strategy line. */
+export function ColorBlindToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="pct-toggle small">
+      <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
+      Color-blind palette
+    </label>
   );
 }
 
