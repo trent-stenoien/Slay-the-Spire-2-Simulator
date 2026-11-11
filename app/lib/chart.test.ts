@@ -14,15 +14,14 @@ import {
   hpLostPercentile,
   strategyPercentileMarkers,
   percentileMarkerSets,
-  MAX_MARKED_STRATEGIES,
+  mergeMarkers,
   aboveCurvePath,
-  groupedLabelRows,
   bandwidthTicks,
   smoothedCurve,
   bandwidthTickValues,
   BAND_OPACITY,
   CURVE_FILL_OPACITY,
-  staggerLabels,
+  spreadLabels,
   areaPath,
   curvesMaxY,
   linePath,
@@ -311,48 +310,69 @@ describe('strategyPercentileMarkers', () => {
   });
 });
 
-describe('staggerLabels', () => {
-  it('keeps well-separated labels on one row', () => {
+describe('spreadLabels', () => {
+  it('leaves well-separated labels where they are', () => {
     expect(
-      staggerLabels(
+      spreadLabels(
         [
           { x: 50, width: 20 },
           { x: 100, width: 20 },
         ],
         [0, 200],
       ),
-    ).toEqual([
-      { x: 50, row: 0 },
-      { x: 100, row: 0 },
-    ]);
+    ).toEqual([50, 100]);
   });
 
-  it('moves colliding labels to the next free row and reuses rows', () => {
-    const out = staggerLabels(
+  it('pushes crowded labels apart sideways, keeping the gap', () => {
+    const out = spreadLabels(
       [
         { x: 50, width: 40 },
         { x: 60, width: 40 },
         { x: 70, width: 40 },
-        { x: 150, width: 40 },
       ],
       [0, 300],
     );
-    expect(out.map((o) => o.row)).toEqual([0, 1, 2, 0]);
+    expect(out[1]! - out[0]!).toBeGreaterThanOrEqual(44);
+    expect(out[2]! - out[1]!).toBeGreaterThanOrEqual(44);
   });
 
-  it('clamps labels inside the bounds', () => {
+  it('clamps labels inside the bounds, pulling a crowded group back from the right edge', () => {
     expect(
-      staggerLabels(
+      spreadLabels(
         [
           { x: 2, width: 20 },
           { x: 199, width: 20 },
         ],
         [0, 200],
       ),
-    ).toEqual([
-      { x: 10, row: 0 },
-      { x: 190, row: 0 },
-    ]);
+    ).toEqual([10, 190]);
+    const out = spreadLabels(
+      [
+        { x: 195, width: 40 },
+        { x: 198, width: 40 },
+      ],
+      [0, 200],
+    );
+    expect(out[1]).toBe(180);
+    expect(out[0]).toBe(136);
+  });
+
+  it('handles no labels', () => {
+    expect(spreadLabels([], [0, 200])).toEqual([]);
+  });
+});
+
+describe('mergeMarkers', () => {
+  const m = (p: number, value: number) => ({ p, value, label: '' });
+  it('keeps distinct values as they are', () => {
+    expect(mergeMarkers([m(5, 1), m(25, 2)]).map((g) => g.label)).toEqual(['P5 = 1', 'P25 = 2']);
+  });
+  it('merges equal values into one label', () => {
+    const out = mergeMarkers([m(5, 3), m(25, 8), m(50, 8), m(75, 9), m(95, 9)]);
+    expect(out.map((g) => g.label)).toEqual(['P5 = 3', 'P25–50 = 8', 'P75–95 = 9']);
+  });
+  it('merges all five when every value is equal', () => {
+    expect(mergeMarkers([5, 25, 50, 75, 95].map((p) => m(p, 4))).map((g) => g.label)).toEqual(['P5–95 = 4']);
   });
 });
 
@@ -389,8 +409,7 @@ describe('percentileMarkerSets', () => {
   const b = row('b', [0, 0, 0, 2, 1]);
   const c = row('c', [1, 1, 1]);
 
-  it('marks one or two visible strategies, in row order', () => {
-    expect(MAX_MARKED_STRATEGIES).toBe(2);
+  it('marks every visible strategy, in row order', () => {
     const one = percentileMarkerSets([a, b, c], new Set(['b', 'c']));
     expect(one.map((s) => s.row.strategyId)).toEqual(['a']);
     expect(one[0]!.markers.map((m) => m.label)).toEqual(['P5 = 0', 'P25 = 2', 'P50 = 4', 'P75 = 7', 'P95 = 9']);
@@ -399,8 +418,8 @@ describe('percentileMarkerSets', () => {
     expect(two[1]!.markers.map((m) => m.value)).toEqual([3, 3, 3, 4, 4]);
   });
 
-  it('hides marks with zero or three or more visible strategies', () => {
-    expect(percentileMarkerSets([a, b, c], new Set())).toEqual([]);
+  it('has no cap on strategies, and no marks with none visible', () => {
+    expect(percentileMarkerSets([a, b, c], new Set()).map((s) => s.row.strategyId)).toEqual(['a', 'b', 'c']);
     expect(percentileMarkerSets([a, b, c], new Set(['a', 'b', 'c']))).toEqual([]);
     expect(percentileMarkerSets([], new Set())).toEqual([]);
   });
@@ -443,49 +462,3 @@ describe('aboveCurvePath', () => {
   });
 });
 
-describe('groupedLabelRows', () => {
-  it('gives each strategy its own block of label rows', () => {
-    const out = groupedLabelRows(
-      [
-        [
-          { x: 50, width: 20 },
-          { x: 100, width: 20 },
-        ],
-        [
-          { x: 50, width: 20 },
-          { x: 100, width: 20 },
-        ],
-      ],
-      [0, 200],
-    );
-    expect(out).toEqual([
-      [
-        { x: 50, row: 0 },
-        { x: 100, row: 0 },
-      ],
-      [
-        { x: 50, row: 1 },
-        { x: 100, row: 1 },
-      ],
-    ]);
-  });
-
-  it('staggers collisions inside a strategy and shifts the next strategy below them', () => {
-    const out = groupedLabelRows(
-      [
-        [
-          { x: 50, width: 40 },
-          { x: 60, width: 40 },
-        ],
-        [{ x: 150, width: 20 }],
-      ],
-      [0, 200],
-    );
-    expect(out[0]!.map((l) => l.row)).toEqual([0, 1]);
-    expect(out[1]!.map((l) => l.row)).toEqual([2]);
-  });
-
-  it('handles no groups', () => {
-    expect(groupedLabelRows([], [0, 200])).toEqual([]);
-  });
-});

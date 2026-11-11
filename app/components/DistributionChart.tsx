@@ -9,20 +9,21 @@ import {
   CURVE_FILL_OPACITY,
   curveRange,
   curvesMaxYInRange,
-  groupedLabelRows,
   linePath,
   linearScale,
   niceMax,
   niceTicks,
+  mergeMarkers,
   percentileMarkerSets,
   percentLabel,
   smoothedCurve,
+  spreadLabels,
   visibleHpLostRange,
   type CurveShape,
   type PercentileMarker,
 } from '../lib/chart';
 import type { ResultRow } from '../lib/results';
-import { BandwidthSlider, ChartLegend, ModePicker, type ChartMode } from './ChartControls';
+import { BandwidthSlider, ChartLegend, ModePicker, PercentileToggle, type ChartMode } from './ChartControls';
 
 const W = 640;
 const H = 320;
@@ -35,7 +36,8 @@ const MARK_CHAR_W = 6.4;
 
 type Scale = (v: number) => number;
 type MarkerSet = { row: ResultRow; markers: PercentileMarker[] };
-type LabelPos = { x: number; row: number };
+/** A merged marker label, its true x (for the line) and the x its text is centered on (shifted if crowded). */
+type MarkLabel = { x: number; labelX: number; text: string; value: number };
 
 const Y_LABELS: Record<ChartMode, string> = {
   kde: '% of combats (per HP)',
@@ -65,9 +67,9 @@ const labelY = (row: number) => M.top + MARK_FONT - 2 + row * MARK_ROW;
  * Overlaid HP-lost distributions, one line + light fill per strategy. The legend sits
  * above the chart, aligned with the plot area; clicking an entry hides or shows that
  * strategy's line (hidden entries stay in the legend, dimmed). The KDE view has a smoothing
- * (bandwidth) slider with ticks from its min to its max. With one or two strategies visible, each one's
- * P5/P25/P50/P75/P95 are marked in its color (one label row block per strategy), with a light
- * P25-P75 band drawn only above its curve. With three or more visible, no marks are drawn.
+ * (bandwidth) slider with ticks from its min to its max. Each visible strategy's one's
+ * P5/P25/P50/P75/P95 are marked in its color (one label row per strategy; crowded labels shift sideways, equal values merge), with a light
+ * P25-P75 band drawn only above its curve. The "Show Percentiles" toggle hides them all.
  */
 export function DistributionChart({
   rows,
@@ -94,6 +96,7 @@ export function DistributionChart({
     if (hiddenProp === undefined) setOwnHidden(next);
     onHiddenChange?.(next);
   };
+  const [showPercentiles, setShowPercentiles] = useState(true);
   const [bandwidthFactor, setBandwidthFactor] = useState<number>(BANDWIDTH_FACTOR.default);
   const clipId = useId();
 
@@ -122,13 +125,18 @@ export function DistributionChart({
           1,
         );
   const sx = linearScale(range, [M.left, W - M.right]);
-  const markerSets = percentileMarkerSets(rows, hidden);
-  const markerLabels = groupedLabelRows(
-    markerSets.map((set) => set.markers.map((m) => ({ x: sx(m.value), width: m.label.length * MARK_CHAR_W + 4 }))),
-    [M.left + 2, W - M.right - 2],
-  );
+  const markerSets = showPercentiles ? percentileMarkerSets(rows, hidden) : [];
+  // One label row per strategy; crowded labels shift left/right, equal values share a label.
+  const markerLabels: MarkLabel[][] = markerSets.map((set) => {
+    const merged = mergeMarkers(set.markers);
+    const xs = spreadLabels(
+      merged.map((m) => ({ x: sx(m.value), width: m.label.length * MARK_CHAR_W + 4 })),
+      [M.left + 2, W - M.right - 2],
+    );
+    return merged.map((m, i) => ({ x: sx(m.value), labelX: xs[i]!, text: m.label, value: m.value }));
+  });
   // Marker labels get their own strip above the plot, so they never sit on the curves.
-  const labelRows = markerLabels.flat().reduce((n, l) => Math.max(n, l.row + 1), 0);
+  const labelRows = markerSets.length;
   const top = M.top + (labelRows > 0 ? labelRows * MARK_ROW + 2 : 0);
   const sy = linearScale([0, yMax], [PLOT_BOTTOM, top]);
   const shape: CurveShape = mode === 'raw' ? 'step' : 'smooth';
@@ -140,7 +148,10 @@ export function DistributionChart({
       <div className="chart-controls" style={{ paddingLeft: `${(M.left / W) * 100}%` }}>
         <ModePicker mode={mode} onChange={setMode} />
         {mode === 'kde' && <BandwidthSlider factor={bandwidthFactor} onChange={setBandwidthFactor} />}
-        <ChartLegend rows={rows} hidden={hidden} onChange={setHidden} />
+        <div className="legend-row">
+          <ChartLegend rows={rows} hidden={hidden} onChange={setHidden} />
+          <PercentileToggle on={showPercentiles} onChange={setShowPercentiles} />
+        </div>
       </div>
       <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`HP lost distribution, ${mode} view`}>
         <defs>
@@ -200,7 +211,7 @@ export function DistributionChart({
           })}
         </g>
         {markerSets.length > 0 && (
-          <PercentileMarks sets={markerSets} labels={markerLabels} sx={sx} percentileHref={percentileHref} />
+          <PercentileMarks sets={markerSets} labels={markerLabels} percentileHref={percentileHref} />
         )}
       </svg>
     </div>
@@ -277,58 +288,48 @@ function PercentileBand({ row, markers, sx, top, clipPath }: MarkerSet & { sx: S
 function PercentileMarks({
   sets,
   labels,
-  sx,
   percentileHref,
 }: {
   sets: MarkerSet[];
-  labels: LabelPos[][];
-  sx: Scale;
+  labels: MarkLabel[][];
   percentileHref?: (markedIds: string[], strategyId: string, hpLost: number) => string | undefined;
 }) {
   const markColor = (row: ResultRow) => ({ '--mark-color': COLOR_HEX[row.color] }) as CSSProperties;
   const markedIds = () => sets.map((set) => set.row.strategyId);
   return (
     <g className="pmarks" aria-label="Percentiles of HP lost">
-      {sets.map(({ row, markers }, s) => (
+      {sets.map(({ row }, s) => (
         <g key={row.strategyId} className="pmark-set" style={markColor(row)}>
-          {markers.map((m, i) => (
-            <line
-              key={`l${m.p}`}
-              className="pmark"
-              x1={sx(m.value)}
-              x2={sx(m.value)}
-              y1={labelY(labels[s]![i]!.row) + 3}
-              y2={PLOT_BOTTOM}
-            />
+          {labels[s]!.map((l) => (
+            <line key={`l${l.value}`} className="pmark" x1={l.x} x2={l.x} y1={labelY(s) + 3} y2={PLOT_BOTTOM} />
           ))}
         </g>
       ))}
-      {sets.map(({ row, markers }, s) => (
+      {sets.map(({ row }, s) => (
         <g key={`t-${row.strategyId}`} className="pmark-set" style={markColor(row)}>
-          {markers.map((m, i) => {
-            const pos = labels[s]![i]!;
+          {labels[s]!.map((m) => {
             const label = (
               <text
-                key={`t${m.p}`}
+                key={`t${m.value}`}
                 className="pmark-label"
-                x={pos.x}
-                y={labelY(pos.row)}
+                x={m.labelX}
+                y={labelY(s)}
                 textAnchor="middle"
                 fontSize={MARK_FONT}
               >
-                {m.label}
+                {m.text}
               </text>
             );
             const href = percentileHref?.(markedIds(), row.strategyId, m.value);
             if (!href) return label;
             return (
               <a
-                key={`t${m.p}`}
+                key={`t${m.value}`}
                 className="pmark-link"
                 href={href}
                 target="_blank"
                 rel="noopener"
-                aria-label={`${row.name}: ${m.label} HP lost, open the first combat with that HP lost`}
+                aria-label={`${row.name}: ${m.text} HP lost, open the first combat with that HP lost`}
               >
                 {label}
               </a>

@@ -118,3 +118,13 @@ export function ChartLegend({
     </ul>
   );
 }
+
+/** "Show Percentiles" toggle, at the far right of the legend row. */
+export function PercentileToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="pct-toggle small">
+      <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
+      Show Percentiles
+    </label>
+  );
+}

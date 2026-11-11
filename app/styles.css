@@ -626,6 +626,20 @@ table.stats {
   color: var(--muted);
   font-weight: 600;
 }
+.legend-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.pct-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0 auto;
+  white-space: nowrap;
+  cursor: pointer;
+}
 .legend-swatch {
   display: inline-block;
   width: 10px;

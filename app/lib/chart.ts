@@ -250,11 +250,8 @@ export function curvesMaxYInRange(curves: readonly (readonly Point[])[], range: 
   return curvesMaxY(curves.map((c) => c.filter((p) => p.x >= range[0] && p.x <= range[1])));
 }
 
-/** Percentiles marked on the chart for each visible strategy (when at most MAX_MARKED_STRATEGIES are visible). */
+/** Percentiles marked on the chart for each visible strategy (for every visible strategy). */
 export const MARKER_PERCENTILES = [5, 25, 50, 75, 95] as const;
-
-/** Percentile marks are drawn while one or two strategies are visible, and hidden with three or more. */
-export const MAX_MARKED_STRATEGIES = 2;
 
 export interface PercentileMarker {
   p: number;
@@ -275,17 +272,37 @@ export function strategyPercentileMarkers(hpLostCounts: readonly number[]): Perc
 
 /**
  * Percentile marks per visible strategy, in row order: one entry per visible strategy that has
- * combats. Empty when no strategy, or more than MAX_MARKED_STRATEGIES strategies, are visible.
+ * combats. Empty when no strategy is visible.
  */
 export function percentileMarkerSets<R extends ChartRow>(
   rows: readonly R[],
   hidden: ReadonlySet<string>,
 ): { row: R; markers: PercentileMarker[] }[] {
   const shown = rows.filter((r) => !hidden.has(r.strategyId));
-  if (shown.length === 0 || shown.length > MAX_MARKED_STRATEGIES) return [];
   return shown
     .map((row) => ({ row, markers: strategyPercentileMarkers(row.summary.hpLostCounts) }))
     .filter((s) => s.markers.length > 0);
+}
+
+/** Markers with equal values, which are always adjacent, merged into one label: "P25–P50 = 8". */
+export interface MergedMarker {
+  ps: number[];
+  value: number;
+  label: string;
+}
+
+export function mergeMarkers(markers: readonly PercentileMarker[]): MergedMarker[] {
+  const out: MergedMarker[] = [];
+  for (const m of markers) {
+    const last = out[out.length - 1];
+    if (last && last.value === m.value) last.ps.push(m.p);
+    else out.push({ ps: [m.p], value: m.value, label: '' });
+  }
+  for (const g of out) {
+    const names = g.ps.length === 1 ? `P${g.ps[0]}` : `P${g.ps[0]}–${g.ps[g.ps.length - 1]}`;
+    g.label = `${names} = ${g.value}`;
+  }
+  return out;
 }
 
 /**
@@ -303,45 +320,29 @@ export function aboveCurvePath(
 }
 
 /**
- * Label rows for several strategies' marker labels: each strategy gets its own block of rows
- * (in order), and labels that collide within a strategy are staggered into extra rows of that
- * block (see `staggerLabels`). Returns, per strategy, each label's center x and global row index.
+ * Places one strategy's marker labels on a single row. Each label is centered on its x; labels
+ * that would overlap (closer than `gap`) are pushed left/right, never down, and everything is
+ * kept inside `bounds`. Items must be sorted by x. Returns each label's center x.
  */
-export function groupedLabelRows(
-  groups: readonly (readonly { x: number; width: number }[])[],
-  bounds: [number, number],
-  gap = 4,
-): { x: number; row: number }[][] {
-  let offset = 0;
-  return groups.map((items) => {
-    const placed = staggerLabels(items, bounds, gap);
-    const out = placed.map((l) => ({ x: l.x, row: l.row + offset }));
-    offset += placed.reduce((n, l) => Math.max(n, l.row + 1), 0);
-    return out;
-  });
-}
-
-/**
- * Staggers marker labels into rows so they don't collide. Each label is centered on its
- * x (clamped so it stays inside [minX, maxX]) and goes in the first row where it clears
- * every label already there by `gap`. Returns each label's center x and row index.
- */
-export function staggerLabels(
+export function spreadLabels(
   items: readonly { x: number; width: number }[],
   bounds: [number, number],
   gap = 4,
-): { x: number; row: number }[] {
-  const rows: [number, number][][] = [];
-  return items.map(({ x, width }) => {
-    const half = width / 2;
-    const cx = Math.min(bounds[1] - half, Math.max(bounds[0] + half, x));
-    const span: [number, number] = [cx - half, cx + half];
-    let row = rows.findIndex((spans) => spans.every(([a, b]) => span[1] + gap <= a || span[0] >= b + gap));
-    if (row === -1) {
-      row = rows.length;
-      rows.push([]);
-    }
-    rows[row]!.push(span);
-    return { x: cx, row };
-  });
+): number[] {
+  const cx = items.map((it) => it.x);
+  // Left to right: push each label right of the previous one.
+  for (let i = 0; i < items.length; i++) {
+    const half = items[i]!.width / 2;
+    let min = bounds[0] + half;
+    if (i > 0) min = Math.max(min, cx[i - 1]! + items[i - 1]!.width / 2 + gap + half);
+    cx[i] = Math.max(min, cx[i]!);
+  }
+  // Right to left: pull back anything pushed past the right bound (and its neighbours).
+  for (let i = items.length - 1; i >= 0; i--) {
+    const half = items[i]!.width / 2;
+    let max = bounds[1] - half;
+    if (i < items.length - 1) max = Math.min(max, cx[i + 1]! - items[i + 1]!.width / 2 - gap - half);
+    cx[i] = Math.min(max, cx[i]!);
+  }
+  return cx;
 }
