@@ -108,6 +108,13 @@ export type Effect =
   | { type: 'gainEnergy'; amount: number }
   /** Regent's Stars resource. Recorded only; not simulated yet. */
   | { type: 'gainStars'; amount: number }
+  /**
+   * #4 (enemy moves only): Shrink the player: their attacks deal `amount`% less damage
+   * (Shrinker Beetle: 30). Applied after every other damage modifier, then rounded down.
+   * Does not stack (a second Shrink keeps the larger percent); removed when the enemy
+   * that applied it dies (in single-enemy v1 that ends the combat, so it lasts all fight).
+   */
+  | { type: 'applyShrink'; amount: number }
   // ----- #105 additions below: declared, not simulated yet. -----
   /** #106: the player loses `amount` HP (ignores Block). Whether it counts toward hpLost or can kill is open (#106). */
   | { type: 'loseHp'; amount: number }
@@ -628,9 +635,26 @@ export interface CyclePattern {
   order: string[];
   /** "first" starts at order[0]; "random" picks a seeded random start. */
   start: 'first' | 'random';
+  /** #4: move ids played once, in this order, before the cycle starts (Shrinker Beetle: Shrinker). */
+  opener?: string[];
 }
 
-export type MovePattern = CyclePattern;
+/**
+ * #4: each turn the enemy picks one of `moves` at random (seeded Rng, equally likely).
+ * The pick is made as soon as the previous move ends (at combat start for the first one),
+ * so the player sees it as the intent.
+ */
+export interface RandomPattern {
+  type: 'random';
+  /** Move ids to pick from. */
+  moves: string[];
+  /** true: never the same move twice in a row. The last opener move counts as the previous move. */
+  noRepeat: boolean;
+  /** Move ids played once, in this order, before random picks start (Sludge Spinner: Oil Spray). */
+  opener?: string[];
+}
+
+export type MovePattern = CyclePattern | RandomPattern;
 
 /**
  * Overrides for one Ascension level. Levels are cumulative: at A9 the engine
@@ -741,6 +765,8 @@ export interface PlayerState {
   counters?: CombatCounters;
   /** #110: effects waiting for a later turn (Outmaneuver, Relax, Toric Toughness, The Bomb, Bolas). */
   scheduled?: ScheduledEffect[];
+  /** #4: Shrink percent: the player's attacks deal this much % less damage. Absent or 0 means none. */
+  shrink?: number;
 }
 
 export interface EnemyState {
@@ -753,8 +779,12 @@ export interface EnemyState {
   debuffs: Debuffs;
   /** Poison stacks. Not a tick-down debuff: it drops by 1 only after dealing its damage. */
   poison: number;
-  /** Index into the resolved pattern's `order`. */
+  /** Index into the resolved cycle pattern's `order` (opener moves don't advance it; 0 for random patterns). */
   patternIndex: number;
+  /** #4: moves the enemy has made so far (opener moves come first). Absent means 0. */
+  movesMade?: number;
+  /** #4: the move id the enemy makes on its next turn (its intent). Set by the engine for every pattern. */
+  nextMoveId?: string;
   /** #110/#115: enemy powers (temporary Strength loss, Stun), id → amount. Absent means none. */
   powers?: Partial<Record<EnemyPowerId, number>>;
 }
@@ -901,6 +931,8 @@ export type GameEvent =
   | { t: 'debuffTick'; side: Side; kind: DebuffKind; total: number }
   /** Poison applied to the enemy. */
   | { t: 'poison'; amount: number; total: number }
+  /** #4: the player is Shrunk: attacks deal `percent`% less damage (`percent` after the no-stack rule). */
+  | { t: 'shrink'; percent: number }
   /** Poison HP loss at the start of the enemy's turn; Poison is then amount − 1. */
   | { t: 'poisonDamage'; amount: number; hpAfter: number }
   /** #108: 'effect' = exhausted by a card effect (Burning Pact, Havoc); 'power' = by a power (Corruption). */
