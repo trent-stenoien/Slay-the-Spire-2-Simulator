@@ -400,23 +400,69 @@ export function activeDeck(state: StrategyView['state']): Card[] {
   return [...p.hand, ...p.drawPile, ...p.discardPile];
 }
 
+/** #147: a "draw until" estimate needs at least this chance (4:1) that the next card keeps the draw going. */
+export const DRAW_UNTIL_MIN_CHANCE = 0.8;
+
+/** #147: the most cards a hand holds; a "draw until" estimate never draws past it. */
+export const MAX_HAND_SIZE = 10;
+
+/** #147: true when drawing `card` does not stop a "draw until" with this `stopOn` (an Attack for Pillage). */
+function keepsDrawing(card: Card, stopOn: DeepReadonly<CardFilter> | undefined): boolean {
+  if (!stopOn) return true;
+  if (stopOn.types && stopOn.types.includes(card.type)) return false;
+  if (stopOn.notTypes && !stopOn.notTypes.includes(card.type)) return false;
+  return true;
+}
+
+/**
+ * #147 (Trent, option C): the estimated draw of a "draw until a card matches `stopOn`" (Pillage),
+ * with `pile` standing in for the draw pile. It draws at least 1. Step through the pile one card at
+ * a time: while the chance that the next card keeps the draw going is at least 80%, add 1; stop at
+ * the first step below. Capped at 10 − `handAfter` (the hand size after the card is played).
+ * 4 Strikes + 1 Defend: 4/5 = 80% (+1), then 3/4 = 75% (stop) → 2.
+ */
+export function drawUntilEstimate(
+  pile: readonly Card[],
+  stopOn: DeepReadonly<CardFilter> | undefined,
+  handAfter: number,
+): number {
+  let going = pile.filter((c) => keepsDrawing(c, stopOn)).length;
+  let left = pile.length;
+  let n = 1;
+  while (left > 0 && going / left >= DRAW_UNTIL_MIN_CHANCE) {
+    n++;
+    going--;
+    left--;
+  }
+  return Math.max(0, Math.min(n, MAX_HAND_SIZE - handAfter));
+}
+
 /**
  * #141: the extra cards a card draws when played, from its effects (nested ones counted once):
- * `draw` N counts N; `drawUntil` counts DRAW_UNTIL_FULL_EXTRA when it fills the hand (Scrawl), else
- * 1 (it draws at least one: Pillage). Pommel Strike = 1, Burning Pact = 2, Battle Trance = 3.
+ * `draw` N counts N; `drawUntil` counts DRAW_UNTIL_FULL_EXTRA when it fills the hand, else the
+ * drawUntilEstimate (Pillage, #147) with the rest of `deck` as the draw pile and a hand of 4 after
+ * it (the 5-card draw, minus the card). #147: a card that exhausts (Scrawl) adds nothing: it draws
+ * once and is gone. Pommel Strike = 1, Burning Pact = 2, Battle Trance = 3.
  */
-export function extraDraw(card: Card): number {
+export function extraDraw(card: Card, deck: readonly Card[] = []): number {
+  if (card.keywords.includes('exhaust')) return 0;
   let n = 0;
   for (const e of allEffects(card)) {
     if (e.type === 'draw') n += e.amount;
-    else if (e.type === 'drawUntil') n += e.handFull ? DRAW_UNTIL_FULL_EXTRA : 1;
+    else if (e.type === 'drawUntil') {
+      if (e.handFull) n += DRAW_UNTIL_FULL_EXTRA;
+      else {
+        const pile = deck.filter((c) => c.uid !== card.uid);
+        n += drawUntilEstimate(pile, e.stopOn, MIN_ACTIVE_DECK - 1);
+      }
+    }
   }
   return n;
 }
 
 /** #141 (Trent, 2026-11-09): the deck floor, the most cards drawn in a turn: 5 + the extra draw of every card in the deck. */
 export function deckFloor(deck: readonly Card[]): number {
-  return deck.reduce((sum, c) => sum + extraDraw(c), MIN_ACTIVE_DECK);
+  return deck.reduce((sum, c) => sum + extraDraw(c, deck), MIN_ACTIVE_DECK);
 }
 
 /** #141: damaging cards an active deck of this size needs: max(2, ceil(size / 5)). */
@@ -871,14 +917,37 @@ function sameRank(a: readonly number[], b: readonly number[]): boolean {
 const notXCost = (c: Card): number => (c.xCost ? 0 : 1);
 
 /**
- * Best attack to play: X-cost attacks only once no other attack is playable
- * (so they spend the leftover energy; never at 0 energy), then Vulnerable-appliers
- * first, then highest total base damage (damage × hits), then cards that draw (#107),
- * ties → lowest uid.
+ * #147: an attack's base damage per energy for play order: an X-cost attack counts its damage for
+ * X = 1, a 0-cost attack is Infinity (it is free), others total base damage / cost.
+ */
+function attackDamagePerEnergy(card: Card): number {
+  if (card.xCost) return totalBaseDamage(card, 1);
+  const cost = card.cost ?? 0;
+  return cost <= 0 ? Infinity : totalBaseDamage(card, 0) / cost;
+}
+
+/**
+ * Best attack to play: Vulnerable-appliers first, then highest total base damage
+ * (damage × hits), then cards that draw (#107), ties → lowest uid. X-cost attacks (never at 0
+ * energy; they spend all of it) are compared with the best other attack by damage per energy
+ * (#147, single enemy): the X-cost attack goes first only when it applies Vulnerable and the other
+ * doesn't, or (same Vulnerable) its damage for 1 energy is higher than the other's damage per
+ * energy. At 3 energy: Whirlwind (5) after Strike (6), Whirlwind+ (8) before Strike.
  */
 export function pickAttack(playable: readonly Card[], energy = 0): Card | undefined {
   const attacks = playable.filter((c) => isAttackCard(c) && xCostPlayable(c, energy));
-  return best(attacks, (c) => [notXCost(c), appliesVulnerable(c) ? 1 : 0, totalBaseDamage(c, energy), draws(c)]);
+  const vuln = (c: Card) => (appliesVulnerable(c) ? 1 : 0);
+  const other = best(
+    attacks.filter((c) => !c.xCost),
+    (c) => [vuln(c), totalBaseDamage(c, energy), draws(c)],
+  );
+  const x = best(
+    attacks.filter((c) => c.xCost),
+    (c) => [vuln(c), totalBaseDamage(c, 1), draws(c)],
+  );
+  if (!x || !other) return x ?? other;
+  if (vuln(x) !== vuln(other)) return vuln(x) > vuln(other) ? x : other;
+  return attackDamagePerEnergy(x) > attackDamagePerEnergy(other) ? x : other;
 }
 
 /**
