@@ -62,15 +62,25 @@ describe('deck encoding', () => {
   });
 
   it('rejects more copies than a card allows, counting Standard and Upgraded together (#137)', () => {
-    const rb = data.cards.rolling_boulder!;
-    const cm = data.cards.crimson_mantle!;
-    expect(decodeDeck(data, 'ironclad', `${rb.code}1`).ok).toBe(true);
-    expect(decodeDeck(data, 'ironclad', `${cm.code}+1`).ok).toBe(true);
+    // No real card is limited right now (#135): limit copies of two cards in a clone.
+    const limited = structuredClone(data);
+    const rb = limited.cards.rolling_boulder!;
+    const cm = limited.cards.crimson_mantle!;
+    rb.maxCopies = 1;
+    cm.maxCopies = 1;
+    expect(decodeDeck(limited, 'ironclad', `${rb.code}1`).ok).toBe(true);
+    expect(decodeDeck(limited, 'ironclad', `${cm.code}+1`).ok).toBe(true);
     for (const text of [`${rb.code}2`, `${rb.code}1${rb.code}+1`, `${cm.code}+2`, `${cm.code}1${cm.code}+1`]) {
-      const r = decodeDeck(data, 'ironclad', text);
+      const r = decodeDeck(limited, 'ironclad', text);
       expect(r.ok).toBe(false);
       if (!r.ok) expect(r.error).toMatch(/limited to 1 copy/);
     }
+  });
+
+  it('allows many copies of Rolling Boulder and Crimson Mantle (#135)', () => {
+    const rb = data.cards.rolling_boulder!;
+    const cm = data.cards.crimson_mantle!;
+    expect(decodeDeck(data, 'ironclad', `${rb.code}2${cm.code}1${cm.code}+2`).ok).toBe(true);
   });
 
   it('is case-sensitive on codes', () => {

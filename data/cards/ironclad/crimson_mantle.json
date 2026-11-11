@@ -29,6 +29,5 @@
   "upgradedDescription": "At the start of your turn, lose 1 HP and gain 10 Block.",
   "simulated": true,
   "multiplayerOnly": false,
-  "maxCopies": 1,
   "lastUpdateVersion": "v0.107.1"
 }

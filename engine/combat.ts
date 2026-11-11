@@ -220,7 +220,7 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
 /** #109 Rolling Boulder: its damage grows by this much after each hit ("increase this damage by 5"). */
 export const ROLLING_BOULDER_GROWTH = 5;
 
-/** #109 Crimson Mantle: HP lost at the start of each turn, however many copies were played (contract). */
+/** #109/#135 Crimson Mantle: HP lost at the start of each turn per copy played. */
 export const CRIMSON_MANTLE_HP_LOSS = 1;
 
 /** #109 Fasten (Trent, #109 Q1): it adds Block to every card with this in its name (Defend, Ultimate Defend). */
@@ -237,6 +237,10 @@ class Combat {
   private readonly order: readonly string[];
   /** #109: Vigor added to every hit of the Attack card being played (0 otherwise). */
   private activeVigor = 0;
+  /** #135: each Rolling Boulder played is its own instance with its own damage (the sum is in powers). */
+  private boulders: number[] = [];
+  /** #135: Crimson Mantle copies played; each loses 1 HP a turn and adds its own Block. */
+  private mantleCopies = 0;
 
   constructor(
     private readonly config: CombatConfig,
@@ -366,12 +370,23 @@ class Combat {
           this.applyPower('vigor', amount);
           break;
         case 'crimsonMantle':
-          if (this.loseHp(CRIMSON_MANTLE_HP_LOSS)) return 'loss';
+          if (this.loseHp(CRIMSON_MANTLE_HP_LOSS * this.mantleCopies)) return 'loss';
           this.gainPowerBlock(amount);
           break;
         case 'rollingBoulder':
-          if (this.powerDamage(amount)) return 'win';
-          this.applyPower('rollingBoulder', ROLLING_BOULDER_GROWTH);
+          // #135: every instance hits and grows on its own.
+          for (let i = 0; i < this.boulders.length; i++) {
+            if (this.powerDamage(this.boulders[i]!)) return 'win';
+            this.boulders[i]! += ROLLING_BOULDER_GROWTH;
+            player.powers!.rollingBoulder = (player.powers!.rollingBoulder ?? 0) + ROLLING_BOULDER_GROWTH;
+            log?.push({
+              t: 'powerApplied',
+              side: 'player',
+              power: 'rollingBoulder',
+              amount: ROLLING_BOULDER_GROWTH,
+              total: this.boulders[i]!,
+            });
+          }
           break;
         default:
           break;
@@ -794,6 +809,8 @@ class Combat {
       return;
     }
     powers[power] = total;
+    if (power === 'rollingBoulder') this.boulders.push(amount);
+    if (power === 'crimsonMantle') this.mantleCopies++;
     this.log?.push({ t: 'powerApplied', side: 'player', power, amount, total });
     if (power === 'corruption' || power === 'powersCostLess') this.applyCostPower(power, amount);
   }

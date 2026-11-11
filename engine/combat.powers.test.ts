@@ -316,13 +316,29 @@ describe('#109 start-of-turn powers', () => {
     expect(events(playerTurn(r.log, 1), 'loseHp')).toEqual([]);
   });
 
-  it('Crimson Mantle: two copies add their Block but still lose 1 HP a turn (contract)', () => {
+  it('Crimson Mantle: two copies each add their Block and their 1 HP loss (#135)', () => {
     const r = run(data(), [['mantle', 2]], (t) => (t === 1 ? ['mantle', 'mantle'] : []));
     const t2 = playerTurn(r.log, 2).filter((e) => e.t === 'loseHp' || e.t === 'block');
     expect(t2).toEqual([
-      { t: 'loseHp', side: 'player', amount: 1, hpAfter: 79 },
+      { t: 'loseHp', side: 'player', amount: 2, hpAfter: 78 },
       { t: 'block', side: 'player', amount: 14, total: 14 },
     ]);
+  });
+
+  it('Rolling Boulder: two copies are separate instances that each grow +5 a turn (#135)', () => {
+    const r = run(data(), [['boulder', 2]], (t) => (t === 1 ? ['boulder', 'boulder'] : []));
+    const dmg = (turn: number) => events(playerTurn(r.log, turn), 'damage').map((e) => e.amount);
+    expect(dmg(2)).toEqual([5, 5]);
+    expect(dmg(3)).toEqual([10, 10]);
+    expect(dmg(4)).toEqual([15, 15]);
+  });
+
+  it('Rolling Boulder: a copy played later starts at 5 while the older one keeps growing (#135)', () => {
+    const r = run(data(), [['boulder', 2]], (t) => (t === 1 ? ['boulder'] : t === 2 ? ['boulder'] : []));
+    const dmg = (turn: number) => events(playerTurn(r.log, turn), 'damage').map((e) => e.amount);
+    expect(dmg(2)).toEqual([5]);
+    expect(dmg(3)).toEqual([10, 5]);
+    expect(dmg(4)).toEqual([15, 10]);
   });
 
   it("Crimson Mantle's HP loss counts as an HP loss and can lose the combat", () => {
@@ -555,6 +571,21 @@ describe('#109 Dexterity (Prowess, Expertise) and Fasten', () => {
     );
     // floor((8 + 1 + 4) × 0.75) = 9
     expect(events(playerTurn(r.log, 2), 'block')).toEqual([{ t: 'block', side: 'player', amount: 9, total: 9 }]);
+  });
+});
+
+describe('#135 Fasten and Frail', () => {
+  it('Fasten is added before Frail x0.75, rounded down once: floor((5 + 4) x 0.75) = 6', () => {
+    const frailer = makeEnemy('frailer', 999, { f: { name: 'F', effects: [{ type: 'applyFrail', amount: 5 }] } });
+    const d = withEnemy(data(), frailer);
+    const r = simulateCombat(
+      d,
+      cfg({ enemyId: 'frailer', deck: deckOf(['fasten', 1], ['defend0', 1]) }),
+      scripted((t) => (t === 1 ? ['fasten'] : ['defend0'])),
+      { log: true },
+    );
+    // Rounding separately would give 9 or floor(5 x 0.75) + 4 = 7; the wiki rule gives 6.
+    expect(events(playerTurn(r.log, 2), 'block')).toEqual([{ t: 'block', side: 'player', amount: 6, total: 6 }]);
   });
 });
 

@@ -264,9 +264,9 @@ describe('validateGameData on broken fixtures', () => {
     }
   });
 
-  it('limits Rolling Boulder and Crimson Mantle to one copy (#137)', () => {
-    expect(gameData.cards.rolling_boulder?.maxCopies).toBe(1);
-    expect(gameData.cards.crimson_mantle?.maxCopies).toBe(1);
+  it('does not limit Rolling Boulder or Crimson Mantle copies (#135)', () => {
+    expect(gameData.cards.rolling_boulder?.maxCopies).toBeUndefined();
+    expect(gameData.cards.crimson_mantle?.maxCopies).toBeUndefined();
   });
 
   it('beta-only cards are removed and their codes reserved (#59)', () => {
