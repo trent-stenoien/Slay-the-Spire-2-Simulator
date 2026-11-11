@@ -11,13 +11,18 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "script",
+      "id": "prolong"
+    }
+  ],
   "upgraded": {
     "keywords": []
   },
   "description": "Next turn, gain Block equal to your current Block. / Exhaust.",
   "upgradedDescription": "Next turn, gain Block equal to your current Block.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

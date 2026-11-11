@@ -15,6 +15,11 @@
     {
       "type": "gainBlock",
       "amount": 30
+    },
+    {
+      "type": "applyPower",
+      "power": "noBlockFromCards",
+      "amount": 2
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
       {
         "type": "gainBlock",
         "amount": 40
+      },
+      {
+        "type": "applyPower",
+        "power": "noBlockFromCards",
+        "amount": 2
       }
     ]
   },
   "description": "Gain 30 Block. / You cannot gain Block from cards for 2 turns. / Exhaust.",
   "upgradedDescription": "Gain 40 Block. / You cannot gain Block from cards for 2 turns. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

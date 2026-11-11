@@ -7,6 +7,7 @@ import {
   SIMULATED_POWERS,
   SIMULATED_FILTER_FIELDS,
   SIMULATED_REPEAT_COUNTERS,
+  SIMULATED_COST_COUNTERS,
   SIMULATED_ENEMY_POWERS,
   SIMULATED_SCRIPTS,
   SIMULATED_TRIGGERS,
@@ -69,6 +70,7 @@ function unsimulatedIn(list: unknown): string | undefined {
 function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'applyPower') return SIMULATED_POWERS.has(String(e.power)) ? undefined : name;
   if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
+  if (name === 'schedule') return unsimulatedIn(e.effects);
   if (name === 'applyEnemyPower') return SIMULATED_ENEMY_POWERS.has(String(e.power)) ? undefined : name;
   // #104: only "if Fatal" (the previous attack killed the enemy) is simulated, with simulated branches.
   if (name === 'conditional') {
@@ -126,6 +128,7 @@ function checkSimulatable(r: Reporter, c: Obj): void {
       unsupported(field);
     }
   }
+  if (isObj(c.costLessPer) && !SIMULATED_COST_COUNTERS.has(String(c.costLessPer.per))) unsupported('costLessPer');
   if (c.starCost !== null) r.add('simulated', 'is true but the card has a Star cost');
   if (c.xStarCost === true) r.add('simulated', 'is true but X-Star cards are not simulated');
   if (c.xCost === true) {

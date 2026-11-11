@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 12,
       "hits": 1
+    },
+    {
+      "type": "applyPower",
+      "power": "choking",
+      "amount": 6
     }
   ],
   "upgraded": {
@@ -23,7 +28,7 @@
   },
   "description": "Deal 12 damage. / Whenever you play a card this turn, the enemy loses 6 HP.",
   "upgradedDescription": "Innate. / Deal 12 damage. / Whenever you play a card this turn, the enemy loses 6 HP.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
