@@ -14,6 +14,7 @@ import type {
   StrategyView,
 } from './types';
 import { attackDamage, attackHits } from './rules';
+import { chooseGenerated } from './generate';
 
 type Card = DeepReadonly<CardInstance>;
 
@@ -1483,7 +1484,9 @@ export function createStrategy(config: StrategyConfig): Strategy {
       return d;
     },
     choose: (view, request) =>
-      chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined),
+      request.purpose === 'generate'
+        ? chooseGenerated(request, c.order)
+        : chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined),
   };
 }
 

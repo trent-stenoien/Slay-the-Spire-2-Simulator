@@ -13,6 +13,18 @@
     {
       "type": "gainBlock",
       "amount": 8
+    },
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "random",
+        "pool": {
+          "character": "own"
+        }
+      },
+      "count": 1,
+      "to": "hand",
+      "freeThisTurn": true
     }
   ],
   "upgraded": {
@@ -22,7 +34,7 @@
   },
   "description": "Gain 8 Block. / Add a random card into your Hand. It's free to play this turn.",
   "upgradedDescription": "Innate. / Gain 8 Block. / Add a random card into your Hand. It's free to play this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

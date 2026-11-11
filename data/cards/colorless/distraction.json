@@ -11,13 +11,29 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "random",
+        "pool": {
+          "character": "own",
+          "types": [
+            "skill"
+          ]
+        }
+      },
+      "count": 1,
+      "to": "hand",
+      "freeThisTurn": true
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Add a random Skill into your Hand. It's free to play this turn. / Exhaust.",
   "upgradedDescription": "Add a random Skill into your Hand. It's free to play this turn. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

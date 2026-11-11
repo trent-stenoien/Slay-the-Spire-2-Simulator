@@ -58,7 +58,7 @@ export const CONTRACT_EFFECTS = [
 
 /**
  * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
- * #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion.  `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
+ * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion.  `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
  * are checked by field in data/validate/cards.ts.
  */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
@@ -66,6 +66,8 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'draw',
   'drawUntil',
   'exhaustCards',
+  'addCards',
+  'transformCards',
   'heal',
   'gainMaxHp',
   'loseMaxHp',
@@ -83,7 +85,7 @@ export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun']);
 export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount', 'handSize']);
 
 /** #108: `script` ids the engine runs (Fiend Fire, Thrash); other scripts are not simulated yet. */
-export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash']);
+export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus']);
 
 /** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand); turnEndInExhaust waits for #114. */
 export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'drawn', 'turnEndInHand']);
@@ -114,6 +116,9 @@ export const SIMULATED_POWERS = new Set<string>([
   'powersCostLess',
   'upgradeAtCombatEnd',
   'corruption',
+  'calamity',
+  'helloWorld',
+  'entropy',
   'intangible',
   'gambit',
 ]);
