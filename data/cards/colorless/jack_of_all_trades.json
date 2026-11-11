@@ -11,11 +11,37 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "random",
+        "pool": {
+          "character": "colorless"
+        }
+      },
+      "count": 1,
+      "to": "hand"
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "random",
+          "pool": {
+            "character": "colorless"
+          }
+        },
+        "count": 2,
+        "to": "hand"
+      }
+    ]
+  },
   "description": "Add 1 random Colorless card into your Hand. / Exhaust.",
   "upgradedDescription": "Add 2 random Colorless cards into your Hand. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

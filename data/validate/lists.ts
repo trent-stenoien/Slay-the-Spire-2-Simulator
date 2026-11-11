@@ -55,7 +55,14 @@ export const CONTRACT_EFFECTS = [
 ] as const;
 
 /** Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards. */
-export const SIMULATED_CONTRACT_EFFECTS = new Set<string>(['loseHp', 'draw', 'drawUntil', 'exhaustCards']);
+export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
+  'loseHp',
+  'draw',
+  'drawUntil',
+  'exhaustCards',
+  'addCards',
+  'transformCards',
+]);
 
 /**
  * #108: `repeat` stays unsimulated in general (#111), but a simulated card may repeat "for each
@@ -64,7 +71,7 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>(['loseHp', 'draw', 'dr
 export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount']);
 
 /** #108: `script` ids the engine runs (Fiend Fire, Thrash); other scripts are not simulated yet. */
-export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash']);
+export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus']);
 
 /** #108: card triggers the engine runs (Drum of Battle); the others wait for #114 / #115. */
 export const SIMULATED_TRIGGERS = new Set<string>(['exhausted']);
@@ -95,6 +102,9 @@ export const SIMULATED_POWERS = new Set<string>([
   'powersCostLess',
   'upgradeAtCombatEnd',
   'corruption',
+  'calamity',
+  'helloWorld',
+  'entropy',
 ]);
 
 /** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */

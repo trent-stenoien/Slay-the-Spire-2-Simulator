@@ -59,6 +59,12 @@ function unsimulatedIn(list: unknown): string | undefined {
   return undefined;
 }
 
+/** #116: a random pool is simulated except Splash's `otherCharacters`. */
+function unsimulatedPool(source: unknown): string | undefined {
+  const pool = isObj(source) ? source.pool : undefined;
+  return isObj(pool) && pool.character === 'otherCharacters' ? 'cardPool.otherCharacters' : undefined;
+}
+
 /**
  * The name to report when a simulated card's effect is not simulated, or undefined when it is.
  * `applyPower` is simulated only for SIMULATED_POWERS; `drawUntil.stopOn` and `exhaustCards.filter`
@@ -69,6 +75,18 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'applyPower') return SIMULATED_POWERS.has(String(e.power)) ? undefined : name;
   if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
   if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
+  if (name === 'addCards') {
+    const kind = isObj(e.source) ? String(e.source.kind) : '';
+    if (kind !== 'random' && kind !== 'card') return 'addCards.source.' + kind;
+    return unsimulatedPool(e.source);
+  }
+  if (name === 'transformCards') {
+    const kind = isObj(e.into) ? String(e.into.kind) : '';
+    if (kind !== 'random' && kind !== 'card') return 'transformCards.into.' + kind;
+    if (e.mode === 'choose') return 'transformCards.mode.choose';
+    if (e.from === 'exhaust') return 'transformCards.from.exhaust';
+    return unsimulatedPool(e.into) ?? unsimulatedFilter(e.filter, 'transformCards.filter');
+  }
   if (UNSIMULATED_EFFECTS.has(name)) return name;
   // #4: Shrink is simulated on enemy moves only (it Shrinks the player).
   if (name === 'applyShrink') return name;
