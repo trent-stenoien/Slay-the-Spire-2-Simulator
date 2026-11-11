@@ -1,0 +1,49 @@
+{
+  "id": "sludge_spinner",
+  "code": "SS",
+  "name": "Sludge Spinner",
+  "act": 1,
+  "zone": "underdocks",
+  "difficulty": "easy",
+  "hp": { "min": 37, "max": 39 },
+  "moves": {
+    "oilSpray": {
+      "name": "Oil Spray",
+      "effects": [
+        { "type": "attack", "damage": 8, "hits": 1 },
+        { "type": "applyWeak", "amount": 1 }
+      ]
+    },
+    "rage": {
+      "name": "Rage",
+      "effects": [
+        { "type": "attack", "damage": 6, "hits": 1 },
+        { "type": "gainStrength", "amount": 3 }
+      ]
+    },
+    "slam": { "name": "Slam", "effects": [{ "type": "attack", "damage": 11, "hits": 1 }] }
+  },
+  "pattern": { "type": "random", "opener": ["oilSpray"], "moves": ["oilSpray", "rage", "slam"], "noRepeat": true },
+  "ascension": {
+    "8": { "hp": { "min": 41, "max": 42 } },
+    "9": {
+      "moves": {
+        "oilSpray": {
+          "effects": [
+            { "type": "attack", "damage": 9, "hits": 1 },
+            { "type": "applyWeak", "amount": 1 }
+          ]
+        },
+        "rage": {
+          "effects": [
+            { "type": "attack", "damage": 7, "hits": 1 },
+            { "type": "gainStrength", "amount": 3 }
+          ]
+        },
+        "slam": { "effects": [{ "type": "attack", "damage": 12, "hits": 1 }] }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

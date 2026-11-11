@@ -2,8 +2,8 @@
 
 Source: `data/raw/enemies.txt` and `data/raw/intents.txt` (Cargo export, v0.107.1).
 Move orders and HP ranges below were then read from each enemy's wiki page.
-**Imported:** Fuzzy Wurm Crawler (FW) and Seapunk (Sp). **Blocked:** Shrinker Beetle (opener +
-Shrink debuff) and Sludge Spinner (random, no repeats) need contract changes.
+**Imported:** Fuzzy Wurm Crawler (FW), Seapunk (Sp), Shrinker Beetle (SB) and Sludge Spinner (SS)
+(#4: opener + random no-repeat patterns and the Shrink effect).
 Intent syntax: `(base;asc L)` = base value, changed value from Ascension L on.
 
 ## Single-enemy encounters (fit the v1 single-target engine)
@@ -12,9 +12,9 @@ Intent syntax: `(base;asc L)` = base value, changed value from Ascension L on.
 |---|---|---|---|
 | Nibbit (done, code Nb) | Overgrowth | 42 / 44 | Butt 12 (13 A9); Hesitant Slice 6 (7 A9) + 5 Block (6 A8); Hiss +2 Str (3 A9) |
 | Fuzzy Wurm Crawler ✅ | Overgrowth | 55–57 / 58–59 | Cycle: Acid Goop 4 (6 A9), Inhale +7 Str, Acid Goop |
-| Shrinker Beetle | Overgrowth | 38–40 / 40–42 | Opens Shrinker (Shrink: -30% attack damage), then Chomp 7 (8 A9) / Stomp 13 (14 A9) alternating |
+| Shrinker Beetle ✅ | Overgrowth | 38–40 / 40–42 | Opens Shrinker (Shrink: -30% attack damage), then Chomp 7 (8 A9) / Stomp 13 (14 A9) alternating |
 | Seapunk ✅ | Underdocks | 44–46 / 47–49 | Cycle: Sea Kick 11 (13 A9), Spinning Kick 2×4, Bubble Burp 7 Block (8 A8) + 1 Str (2 A9) |
-| Sludge Spinner | Underdocks | 37–39 / 41–42 | Oil Spray 8 (9 A9) + 1 Weak first, then random with no repeats: Oil Spray / Rage 6 (7 A9) + 3 Str / Slam 11 (12 A9) |
+| Sludge Spinner ✅ | Underdocks | 37–39 / 41–42 | Oil Spray 8 (9 A9) + 1 Weak first, then random with no repeats: Oil Spray / Rage 6 (7 A9) + 3 Str / Slam 11 (12 A9) |
 
 ## Multi-enemy encounters (need multi-target support first)
 
