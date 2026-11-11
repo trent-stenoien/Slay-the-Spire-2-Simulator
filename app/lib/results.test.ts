@@ -8,6 +8,8 @@ import {
   relicNote,
   fmtNumber,
   fmtRate,
+  fmtRewards,
+  hasRewards,
   parseSeedInput,
   randomSeed,
   resultRows,
@@ -23,6 +25,8 @@ function fakeSummary(strategyId: string, over: Partial<StrategySummary> = {}): S
     avgHpLost: 10.25,
     avgTurnsToKill: 5.5,
     avgTurns: 6,
+    avgGold: 0,
+    potionRate: 0,
     deathRate: 0.25,
     turnCapRate: 0,
     hpLostCounts: [0, 0, 1, 0, 2, 1],
@@ -139,5 +143,21 @@ describe('relicNote', () => {
     expect(resolveRunSeed('', () => 0)).toBe(0);
     expect(resolveRunSeed('abc')).toBeUndefined();
     expect(resolveRunSeed('4294967296')).toBeUndefined();
+  });
+});
+
+describe('#104 rewards formatting', () => {
+  it('shows the Rewards column only when some strategy gained something', () => {
+    expect(hasRewards([fakeSummary('a'), fakeSummary('b')])).toBe(false);
+    expect(hasRewards([fakeSummary('a'), fakeSummary('b', { avgGold: 0.1 })])).toBe(true);
+    expect(hasRewards([fakeSummary('a', { potionRate: 0.5 })])).toBe(true);
+  });
+
+  it('formats gold and potion share', () => {
+    expect(fmtRewards(fakeSummary('a', { avgGold: 14.2, potionRate: 0.63 }))).toBe('+14.2 gold avg · Random Potion 63%');
+    expect(fmtRewards(fakeSummary('a', { avgGold: 20 }))).toBe('+20.0 gold avg');
+    expect(fmtRewards(fakeSummary('a', { potionRate: 1 }))).toBe('Random Potion 100%');
+    expect(fmtRewards(fakeSummary('a', { potionRate: 0.001 }))).toBe('Random Potion <1%');
+    expect(fmtRewards(fakeSummary('a'))).toBe('—');
   });
 });

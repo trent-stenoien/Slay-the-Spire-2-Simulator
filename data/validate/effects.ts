@@ -149,6 +149,8 @@ const CONTRACT_CHECKS: Record<ContractEffect, EffectCheck> = {
   heal: amountOnly,
   gainMaxHp: amountOnly,
   loseMaxHp: amountOnly,
+  gainGold: amountOnly,
+  gainPotion: () => {},
   drawUntil: (r, e, p) => {
     optBool(r, e, 'handFull', p);
     optFilter(r, e, 'stopOn', p);

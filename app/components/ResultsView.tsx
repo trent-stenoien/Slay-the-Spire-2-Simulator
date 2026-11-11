@@ -3,7 +3,16 @@ import { deriveSeed } from '../../engine/rng';
 import type { GameData, RunResult, StrategyColor } from '../../engine/types';
 import { chartPalette, COLOR_HEX } from '../lib/colors';
 import { Swatch } from './ChartControls';
-import { describeRun, fmtHpLostRange, fmtNumber, fmtRate, sortedResultRows, type ResultRow } from '../lib/results';
+import {
+  describeRun,
+  fmtHpLostRange,
+  fmtNumber,
+  fmtRate,
+  fmtRewards,
+  hasRewards,
+  sortedResultRows,
+  type ResultRow,
+} from '../lib/results';
 import { DistributionChart } from './DistributionChart';
 import { toggleHidden } from '../lib/chart';
 import { logHref } from '../lib/links';
@@ -60,6 +69,7 @@ function StatsTable({
   colorBlind: boolean;
   palette: Record<StrategyColor, string>;
 }) {
+  const showRewards = hasRewards(rows.map((r) => r.summary));
   return (
     <div className="table-wrap">
       <table className="stats">
@@ -70,6 +80,7 @@ function StatsTable({
             <th scope="col">HP lost, P25-P75</th>
             <th scope="col">Avg combat turn length</th>
             <th scope="col">Death rate</th>
+            {showRewards && <th scope="col">Rewards</th>}
           </tr>
         </thead>
         <tbody>
@@ -83,6 +94,7 @@ function StatsTable({
               <td>{fmtHpLostRange(r.summary.hpLostCounts)}</td>
               <td>{fmtNumber(r.summary.avgTurns)}</td>
               <td>{fmtRate(r.summary.deathRate)}</td>
+              {showRewards && <td>{fmtRewards(r.summary)}</td>}
             </tr>
           ))}
         </tbody>

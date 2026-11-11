@@ -110,6 +110,19 @@ describe('summarize', () => {
     ).toEqual(seen);
   });
 
+  it('averages gold over all combats and counts the share of combats with a potion (#104)', () => {
+    const s = summarize('x', [
+      { ...result('win', 3, 0), rewards: { gold: 20, potions: 1 } },
+      { ...result('win', 3, 0), rewards: { gold: 0, potions: 2 } },
+      result('win', 3, 0),
+      result('loss', 3, 9),
+    ]);
+    expect(s.avgGold).toBe(5);
+    expect(s.potionRate).toBe(0.5);
+    const none = summarize('y', [result('win', 3, 0)]);
+    expect([none.avgGold, none.potionRate]).toEqual([0, 0]);
+  });
+
   it('computes averages, rates (as fractions) and the histogram', () => {
     const s = summarize('x', [
       result('win', 3, 0),
@@ -154,6 +167,8 @@ describe('summarize', () => {
       avgHpLost: 0,
       avgTurnsToKill: null,
       avgTurns: 0,
+      avgGold: 0,
+      potionRate: 0,
       deathRate: 0,
       turnCapRate: 0,
       hpLostCounts: [0],

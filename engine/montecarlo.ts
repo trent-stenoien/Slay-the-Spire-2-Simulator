@@ -45,6 +45,7 @@ export function runCombatRange(
  * - avgTurnsToKill: mean turns over wins only; null if there were no wins.
  * - avgTurns: mean turns over ALL combats (wins, losses, and turn-cap fights at
  *   their full length); 0 for an empty list.
+ * - avgGold: mean gold gained per combat; potionRate: fraction of combats that gained a potion (#104).
  * - deathRate, turnCapRate: FRACTIONS in [0, 1] (not percentages).
  * - hpLostCounts[n]: combats that lost exactly n HP; length = max hpLost + 1
  *   (at least 1, so an empty run gives [0]).
@@ -62,9 +63,13 @@ export function summarize(strategyId: string, results: readonly CombatResult[]):
   let caps = 0;
   let maxHp = 0;
   let turnSum = 0;
+  let goldSum = 0;
+  let potionCombats = 0;
   for (const r of results) {
     hpSum += r.hpLost;
     turnSum += r.turns;
+    goldSum += r.rewards?.gold ?? 0;
+    if ((r.rewards?.potions ?? 0) > 0) potionCombats++;
     if (r.hpLost > maxHp) maxHp = r.hpLost;
     if (r.outcome === 'win') {
       wins++;
@@ -87,6 +92,8 @@ export function summarize(strategyId: string, results: readonly CombatResult[]):
     avgHpLost: n > 0 ? hpSum / n : 0,
     avgTurnsToKill: wins > 0 ? winTurns / wins : null,
     avgTurns: n > 0 ? turnSum / n : 0,
+    avgGold: n > 0 ? goldSum / n : 0,
+    potionRate: n > 0 ? potionCombats / n : 0,
     deathRate: n > 0 ? losses / n : 0,
     turnCapRate: n > 0 ? caps / n : 0,
     hpLostCounts,

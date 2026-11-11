@@ -54,6 +54,8 @@
  *                     `transformCards`; CardInstance.freeThisTurn / generated;
  *                     GameEvent `generated`, `transformed`; PowerId calamity,
  *                     helloWorld, entropy.
+ * #104 Rewards       — Effect `gainGold`, `gainPotion`; CombatResult.rewards;
+ *                     StrategySummary.avgGold / potionRate (Hand of Greed, Alchemize).
  * ---------------------------------------------------------------------------
  */
 
@@ -253,6 +255,10 @@ export type Effect =
   | { type: 'gainMaxHp'; amount: number }
   /** #115: Max HP drops by `amount` (Brightest Flame); HP is capped at the new Max HP. */
   | { type: 'loseMaxHp'; amount: number }
+  /** #104: the player gains `amount` gold (Hand of Greed, inside a `fatal` conditional). Reward only; no combat effect. */
+  | { type: 'gainGold'; amount: number }
+  /** #104: the player gains one Random Potion (Alchemize). Reward only; the potion has no combat effect. */
+  | { type: 'gainPotion' }
   /**
    * One-off card logic the typed effects can't express (Fiend Fire, Thrash,
    * Perfected Strike, Prolong). `id` names a handler in the engine; `values`
@@ -992,6 +998,8 @@ export interface CombatResult {
   hpLost: number;
   /** Enemy HP at the end (0 on a win); useful for turn-cap analysis. */
   enemyHpRemaining: number;
+  /** #104: gold and potions gained during the combat; omitted when nothing was gained. */
+  rewards?: { gold: number; potions: number };
   /** Present only when requested (log viewer); omitted in bulk runs. */
   log?: GameEvent[];
 }
@@ -1017,6 +1025,10 @@ export interface StrategySummary {
   avgTurnsToKill: number | null;
   /** Mean combat length in turns over ALL combats (wins, losses, turn-cap fights at full length); 0 for none. */
   avgTurns: number;
+  /** #104: mean gold gained per combat (over all combats). */
+  avgGold: number;
+  /** #104: fraction of combats in which at least one potion was gained, in [0, 1]. */
+  potionRate: number;
   deathRate: number;
   turnCapRate: number;
   /** hpLostCounts[n] = number of combats that lost exactly n HP. */

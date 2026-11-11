@@ -27,7 +27,7 @@
   },
   "description": "Deal 8 damage. / Damage ALL other enemies equal to the damage dealt.",
   "upgradedDescription": "Deal 11 damage. / Damage ALL other enemies equal to the damage dealt.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

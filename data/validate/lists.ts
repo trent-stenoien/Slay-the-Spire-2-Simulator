@@ -51,11 +51,20 @@ export const CONTRACT_EFFECTS = [
   'heal',
   'gainMaxHp',
   'loseMaxHp',
+  'gainGold',
+  'gainPotion',
   'script',
 ] as const;
 
-/** Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards. */
-export const SIMULATED_CONTRACT_EFFECTS = new Set<string>(['loseHp', 'draw', 'drawUntil', 'exhaustCards']);
+/** Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards, #104 gainGold / gainPotion. */
+export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
+  'loseHp',
+  'draw',
+  'drawUntil',
+  'exhaustCards',
+  'gainGold',
+  'gainPotion',
+]);
 
 /**
  * #108: `repeat` stays unsimulated in general (#111), but a simulated card may repeat "for each
