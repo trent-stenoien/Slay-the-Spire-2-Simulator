@@ -231,7 +231,7 @@ describe('validateGameData on broken fixtures', () => {
       ],
     });
     // Bloodletting and Offering became simulated with #106/#107 (see data.mechanics.test.ts).
-    for (const id of ['brightest_flame', 'cascade']) expect(c[id]?.simulated).toBe(false);
+    for (const id of ['brightest_flame']) expect(c[id]?.simulated).toBe(false);
     expect(c.tremble).toMatchObject({ simulated: true, effects: [{ type: 'applyVulnerable', amount: 3 }] });
   });
 

@@ -9,11 +9,33 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "addReplay",
+      "amount": 2,
+      "from": "draw",
+      "mode": "random",
+      "filter": {
+        "noReplay": true
+      }
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "addReplay",
+        "amount": 3,
+        "from": "draw",
+        "mode": "random",
+        "filter": {
+          "noReplay": true
+        }
+      }
+    ]
+  },
   "description": "A random card in your Draw Pile without Replay gains Replay 2.",
   "upgradedDescription": "A random card in your Draw Pile without Replay gains Replay 3.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -276,14 +276,14 @@ describe('#108 Drum of Battle (when exhausted)', () => {
 
   it('a deck card with a trigger the engine does not run yet throws', () => {
     const d = data();
-    d.cards.howl = { ...cards.strike!, id: 'howl', triggers: [{ when: 'turnEndInExhaust', effects: [] }] };
+    d.cards.howl = { ...cards.strike!, id: 'howl', triggers: [{ when: 'drawn', effects: [] }] };
     expect(() =>
       simulateCombat(
         d,
         cfg({ deck: deckOf(['howl', 1]) }),
         scripted(() => []),
       ),
-    ).toThrow(/trigger "turnEndInExhaust" is not simulated yet/);
+    ).toThrow(/trigger "drawn" is not simulated yet/);
   });
 });
 

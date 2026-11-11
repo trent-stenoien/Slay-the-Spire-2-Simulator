@@ -56,7 +56,10 @@ export const CONTRACT_EFFECTS = [
   'script',
 ] as const;
 
-/** Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards, #104 gainGold / gainPotion. */
+/**
+ * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
+ * #104 gainGold / gainPotion, #114 playCards and addReplay (addCards only per source, see cards.ts).
+ */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseHp',
   'draw',
@@ -64,6 +67,8 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'exhaustCards',
   'gainGold',
   'gainPotion',
+  'playCards',
+  'addReplay',
 ]);
 
 /**
@@ -72,11 +77,17 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
  */
 export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount']);
 
-/** #108: `script` ids the engine runs (Fiend Fire, Thrash); other scripts are not simulated yet. */
-export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash']);
+/** `script` ids the engine runs (#108 Fiend Fire, Thrash; #114 Howl from Beyond's playSelf); other scripts are not simulated yet. */
+export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'playSelf']);
 
-/** #108: card triggers the engine runs (Drum of Battle); the others wait for #114 / #115. */
-export const SIMULATED_TRIGGERS = new Set<string>(['exhausted']);
+/** Card triggers the engine runs (#108 Drum of Battle; #114 Howl from Beyond); the others wait for #115. */
+export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'turnEndInExhaust']);
+
+/** #114: `addCards` sources the engine runs (Anger, Dual Wield); 'card' and 'random' wait for #116. */
+export const SIMULATED_CARD_SOURCES = new Set<string>(['self', 'copyOf']);
+
+/** #114: `addCards` fields the engine does not run yet (#116 sets them on the cards it creates). */
+export const UNSIMULATED_ADD_CARDS_FIELDS = ['options', 'upgraded', 'freeThisTurn', 'costThisCombat'] as const;
 
 export const UNSIMULATED_EFFECTS = new Set<string>(
   ['gainStars', ...CONTRACT_EFFECTS].filter((t) => !SIMULATED_CONTRACT_EFFECTS.has(t)),
@@ -106,8 +117,8 @@ export const SIMULATED_POWERS = new Set<string>([
   'corruption',
 ]);
 
-/** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */
-export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded']);
+/** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters, #114 noReplay); others are not simulated yet. */
+export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded', 'noReplay']);
 
 /** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS). */
 export const UNSIMULATED_CARD_FIELDS = ['playableIf', 'costLessPer'] as const;

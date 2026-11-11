@@ -58,7 +58,8 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
   Block absorbs hits in order.
 - Turn order: player block resets → energy refills → draw 5 (reshuffle discard into
   draw pile mid-draw if needed) → strategy plays → end of player turn: Ethereal
-  cards in hand exhaust, rest of hand discarded, debuffs on the PLAYER tick down
+  cards in hand exhaust, rest of hand discarded, cards in the Exhaust pile with
+  `turnEndInExhaust` play themselves (Howl from Beyond), debuffs on the PLAYER tick down
   by 1 → enemy block resets → Poison: enemy loses HP equal to its Poison (ignores
   Block and modifiers; a kill wins before the move), then Poison −1 → enemy move →
   pattern advances → end of enemy turn:

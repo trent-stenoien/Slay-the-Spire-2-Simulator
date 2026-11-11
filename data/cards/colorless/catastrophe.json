@@ -9,11 +9,27 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "playCards",
+      "from": "draw",
+      "mode": "random",
+      "count": 2
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "playCards",
+        "from": "draw",
+        "mode": "random",
+        "count": 3
+      }
+    ]
+  },
   "description": "Play 2 random cards from your Draw Pile.",
   "upgradedDescription": "Play 3 random cards from your Draw Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

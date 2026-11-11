@@ -5,8 +5,8 @@ import { fixture, errorsOf } from './dataTestHelpers';
 import { SIMULATED_POWERS } from './validate/lists';
 import { SIMULATED_POWER_IDS } from '../engine/combat';
 
-/** Contract effects the engine simulates now (#106, #107, #108); a simulated card may use them. */
-const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards'];
+/** Contract effects the engine simulates now (#106, #107, #108, #114); a simulated card may use them. */
+const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards', 'playCards', 'addReplay'];
 const UNSIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => !SIMULATED.includes(e.type));
 const SIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => SIMULATED.includes(e.type));
 
@@ -110,6 +110,39 @@ describe('#105 contract shapes', () => {
     d.cards.strike.effects.pop();
     d.cards.strike.effects.push({ type: 'script', id: 'perfectedStrike' });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"script"/)]);
+  });
+
+  it('#114: addCards is simulated for self / copyOf sources, not for random / card sources or the #116 fields', () => {
+    const d = fixture();
+    const self = { type: 'addCards', source: { kind: 'self' }, count: 1, to: 'discard' };
+    const copy = { type: 'addCards', source: { kind: 'copyOf', from: 'hand', mode: 'choose' }, count: 2, to: 'hand' };
+    d.cards.strike.effects.push(structuredClone(self), structuredClone(copy));
+    expect(errorsOf(d)).toEqual([]);
+    for (const bad of [
+      { ...self, source: { kind: 'card', cardId: 'shiv' } },
+      { ...self, source: { kind: 'random', pool: {} } },
+      { ...self, upgraded: true },
+      { ...self, freeThisTurn: true },
+      { ...copy, options: 3 },
+    ]) {
+      const e = fixture();
+      e.cards.strike.effects.push(structuredClone(bad));
+      expect(errorsOf(e)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"addCards"/)]);
+    }
+  });
+
+  it('#114: playCards and addReplay are simulated except from the exhaust pile or with an unmatched filter field', () => {
+    const d = fixture();
+    d.cards.strike.effects.push(
+      { type: 'playCards', from: 'discard', mode: 'random', count: 3, filter: { types: ['attack'] } },
+      { type: 'addReplay', amount: 2, from: 'draw', mode: 'random', filter: { noReplay: true } },
+    );
+    expect(errorsOf(d)).toEqual([]);
+    d.cards.strike.effects.at(-2).from = 'exhaust';
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"playCards\.from\.exhaust"/)]);
+    d.cards.strike.effects.at(-2).from = 'draw';
+    d.cards.strike.effects.at(-1).filter = { rarity: ['rare'] };
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"addReplay\.filter\.rarity"/)]);
   });
 
   it('#108: rejects exhaustCards from the exhaust pile or with an unmatched filter field on a simulated card', () => {

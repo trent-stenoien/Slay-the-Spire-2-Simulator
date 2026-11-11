@@ -14,6 +14,14 @@
       "type": "attack",
       "damage": 6,
       "hits": 1
+    },
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "self"
+      },
+      "count": 1,
+      "to": "discard"
     }
   ],
   "upgraded": {
@@ -22,12 +30,20 @@
         "type": "attack",
         "damage": 8,
         "hits": 1
+      },
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "self"
+        },
+        "count": 1,
+        "to": "discard"
       }
     ]
   },
   "description": "Deal 6 damage. / Add a copy of this card into your Discard Pile.",
   "upgradedDescription": "Deal 8 damage. / Add a copy of this card into your Discard Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -8,6 +8,8 @@ import {
   SIMULATED_FILTER_FIELDS,
   SIMULATED_REPEAT_COUNTERS,
   SIMULATED_SCRIPTS,
+  SIMULATED_CARD_SOURCES,
+  UNSIMULATED_ADD_CARDS_FIELDS,
   SIMULATED_TRIGGERS,
   UNSIMULATED_EFFECTS,
   UNSIMULATED_CARD_FIELDS,
@@ -74,6 +76,18 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
     return fatal ? (unsimulatedIn(e.then) ?? unsimulatedIn(e.else)) : name;
   }
   if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
+  // #114: addCards from the card itself or a copy of a picked card, without the #116 fields.
+  if (name === 'addCards') {
+    const kind = isObj(e.source) ? String(e.source.kind) : '';
+    const field = UNSIMULATED_ADD_CARDS_FIELDS.find((f) => has(e, f));
+    return SIMULATED_CARD_SOURCES.has(kind) && field === undefined
+      ? unsimulatedFilter(isObj(e.source) ? e.source.filter : undefined, 'addCards.source.filter')
+      : name;
+  }
+  if (name === 'playCards' || name === 'addReplay') {
+    if (e.from === 'exhaust') return `${name}.from.exhaust`;
+    return unsimulatedFilter(e.filter, `${name}.filter`);
+  }
   if (UNSIMULATED_EFFECTS.has(name)) return name;
   // #4: Shrink is simulated on enemy moves only (it Shrinks the player).
   if (name === 'applyShrink') return name;
