@@ -6,7 +6,7 @@ import { SIMULATED_POWERS } from './validate/lists';
 import { SIMULATED_POWER_IDS } from '../engine/combat';
 
 /** Contract effects the engine simulates now (#106, #107, #108); a simulated card may use them. */
-const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards'];
+const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards', 'heal', 'gainMaxHp', 'loseMaxHp'];
 const UNSIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => !SIMULATED.includes(e.type));
 const SIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => SIMULATED.includes(e.type));
 
@@ -92,8 +92,10 @@ describe('#105 contract shapes', () => {
     d.cards.strike.triggers = [{ when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 2 }] }];
     d.cards.strike.upgraded.triggers = [{ when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 3 }] }];
     expect(errorsOf(d)).toEqual([]);
-    d.cards.strike.upgraded.triggers = [{ when: 'exhausted', effects: [{ type: 'heal', amount: 3 }] }];
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"heal"/)]);
+    d.cards.strike.upgraded.triggers = [
+      { when: 'exhausted', effects: [{ type: 'applyPower', power: 'rupture', amount: 3 }] },
+    ];
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"applyPower"/)]);
   });
 
   it('#108: repeat only per lastEffectCount with simulated inner effects; script only fiendFire / thrash', () => {
@@ -105,8 +107,15 @@ describe('#105 contract shapes', () => {
       { type: 'script', id: 'thrash' },
     );
     expect(errorsOf(d)).toEqual([]);
-    d.cards.strike.effects.push({ type: 'repeat', per: 'lastEffectCount', effects: [{ type: 'heal', amount: 1 }] });
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"heal"/)]);
+    d.cards.strike.effects.push({
+      type: 'repeat',
+      per: 'lastEffectCount',
+      effects: [
+        { type: 'draw', amount: 1 },
+        { type: 'dealDamage', amount: 1 },
+      ],
+    });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"dealDamage"/)]);
     d.cards.strike.effects.pop();
     d.cards.strike.effects.push({ type: 'script', id: 'perfectedStrike' });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"script"/)]);

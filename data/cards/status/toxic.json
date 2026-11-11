@@ -15,7 +15,19 @@
   "upgraded": null,
   "description": "At the end of your turn, if this is in your Hand, take 5 damage. / Exhaust.",
   "upgradedDescription": null,
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
-  "lastUpdateVersion": "v0.107.1"
+  "lastUpdateVersion": "v0.107.1",
+  "triggers": [
+    {
+      "when": "turnEndInHand",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 5,
+          "hits": 1
+        }
+      ]
+    }
+  ]
 }

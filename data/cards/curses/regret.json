@@ -15,7 +15,24 @@
   "upgraded": null,
   "description": "Unplayable. / At the end of your turn, if this is in your Hand, lose 1 HP for each card in your Hand.",
   "upgradedDescription": null,
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
-  "lastUpdateVersion": "v0.107.1"
+  "lastUpdateVersion": "v0.107.1",
+  "triggers": [
+    {
+      "when": "turnEndInHand",
+      "effects": [
+        {
+          "type": "repeat",
+          "per": "handSize",
+          "effects": [
+            {
+              "type": "loseHp",
+              "amount": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

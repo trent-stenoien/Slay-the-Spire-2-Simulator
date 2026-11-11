@@ -7,6 +7,8 @@ import {
   SIMULATED_POWERS,
   SIMULATED_FILTER_FIELDS,
   SIMULATED_REPEAT_COUNTERS,
+  SIMULATED_ENEMY_POWERS,
+  SIMULATED_CONDITIONS,
   SIMULATED_SCRIPTS,
   SIMULATED_TRIGGERS,
   UNSIMULATED_EFFECTS,
@@ -68,6 +70,11 @@ function unsimulatedIn(list: unknown): string | undefined {
 function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'applyPower') return SIMULATED_POWERS.has(String(e.power)) ? undefined : name;
   if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
+  if (name === 'applyEnemyPower') return SIMULATED_ENEMY_POWERS.has(String(e.power)) ? undefined : name;
+  if (name === 'conditional') {
+    const kind = isObj(e.if) ? String(e.if.kind) : '';
+    return SIMULATED_CONDITIONS.has(kind) ? (unsimulatedIn(e.then) ?? unsimulatedIn(e.else)) : name;
+  }
   if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
   if (UNSIMULATED_EFFECTS.has(name)) return name;
   // #4: Shrink is simulated on enemy moves only (it Shrinks the player).

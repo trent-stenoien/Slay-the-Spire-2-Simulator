@@ -41,7 +41,7 @@
   },
   "description": "Gain [E][E]. / Draw 2 cards. / Lose 2 Max HP.",
   "upgradedDescription": "Gain [E][E][E]. / Draw 3 cards. / Lose 2 Max HP.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

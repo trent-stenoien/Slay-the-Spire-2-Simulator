@@ -54,20 +54,38 @@ export const CONTRACT_EFFECTS = [
   'script',
 ] as const;
 
-/** Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards. */
-export const SIMULATED_CONTRACT_EFFECTS = new Set<string>(['loseHp', 'draw', 'drawUntil', 'exhaustCards']);
+/**
+ * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
+ * #115 heal, gainMaxHp, loseMaxHp. `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
+ * are checked by field in data/validate/cards.ts.
+ */
+export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
+  'loseHp',
+  'draw',
+  'drawUntil',
+  'exhaustCards',
+  'heal',
+  'gainMaxHp',
+  'loseMaxHp',
+]);
+
+/** #115: enemy powers the engine simulates (Whistle's Stun); strengthLossThisTurn waits for #110. */
+export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun']);
+
+/** #115: `conditional` conditions the engine evaluates (Feed's "if Fatal"); the rest wait for #111. */
+export const SIMULATED_CONDITIONS = new Set<string>(['fatal']);
 
 /**
  * #108: `repeat` stays unsimulated in general (#111), but a simulated card may repeat "for each
  * card Exhausted" (Second Wind) with these counters.
  */
-export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount']);
+export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount', 'handSize']);
 
 /** #108: `script` ids the engine runs (Fiend Fire, Thrash); other scripts are not simulated yet. */
 export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash']);
 
-/** #108: card triggers the engine runs (Drum of Battle); the others wait for #114 / #115. */
-export const SIMULATED_TRIGGERS = new Set<string>(['exhausted']);
+/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand); turnEndInExhaust waits for #114. */
+export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'drawn', 'turnEndInHand']);
 
 export const UNSIMULATED_EFFECTS = new Set<string>(
   ['gainStars', ...CONTRACT_EFFECTS].filter((t) => !SIMULATED_CONTRACT_EFFECTS.has(t)),
@@ -95,6 +113,8 @@ export const SIMULATED_POWERS = new Set<string>([
   'powersCostLess',
   'upgradeAtCombatEnd',
   'corruption',
+  'intangible',
+  'gambit',
 ]);
 
 /** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */
