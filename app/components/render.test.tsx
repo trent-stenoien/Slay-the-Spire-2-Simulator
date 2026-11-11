@@ -235,6 +235,19 @@ describe('views render', () => {
     expect(table).toContain('<td>3\u20134</td>'); // Greedy Damage [0,0,2,3,5]
   });
 
+  it('adds a Rewards column only when some strategy gained a reward (#104)', () => {
+    const heads = (html: string) => [...html.matchAll(/<th scope="col">([^<]*)<\/th>/g)].map((m) => m[1]);
+    expect(heads(renderResults())).not.toContain('Rewards');
+    const withRewards: RunResult = {
+      ...result,
+      summaries: result.summaries.map((s, i) => (i === 0 ? { ...s, avgGold: 14.2, potionRate: 0.63 } : s)),
+    };
+    const html = renderToStaticMarkup(<ResultsView data={gameData} result={withRewards} />);
+    expect(heads(html).at(-1)).toBe('Rewards');
+    expect(html).toContain('<td>+14.2 gold avg · Random Potion 63%</td>');
+    expect(html).toContain('<td>—</td>'); // the strategy with no rewards
+  });
+
   it('puts the legend above the chart, as toggle buttons, with the KDE smoothing slider', () => {
     const html = renderChart();
     expect(html.indexOf('class="legend"')).toBeGreaterThan(-1);

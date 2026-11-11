@@ -244,6 +244,9 @@ class Combat {
   private boulders: number[] = [];
   /** #135: Crimson Mantle copies played; each loses 1 HP a turn and adds its own Block. */
   private mantleCopies = 0;
+  /** #104: gold and potions gained so far this combat (rewards only; no combat effect). */
+  private gold = 0;
+  private potions = 0;
 
   constructor(
     private readonly config: CombatConfig,
@@ -593,7 +596,7 @@ class Combat {
     const self = this.fighter(source);
     /** #108 `lastEffectCount`: cards exhausted by the previous effect of this list (0 for other effects). */
     let lastCount = 0;
-    for (const e of effects) {
+    for (const [index, e] of effects.entries()) {
       let count = 0;
       let died: Side | null = null;
       switch (e.type) {
@@ -671,6 +674,22 @@ class Combat {
           for (let i = 0; i < n && !died; i++) died = this.resolveEffects(source, e.effects, x, card);
           break;
         }
+        case 'gainGold':
+          if (source !== 'player') throw new Error('Enemies do not gain gold');
+          this.gold += e.amount;
+          break;
+        case 'gainPotion':
+          if (source !== 'player') throw new Error('Enemies do not gain potions');
+          this.potions++;
+          break;
+        case 'conditional': {
+          // #104: only "if Fatal". A kill returns early, so a fatal conditional right after the
+          // killing attack is resolved at the return below; if this is reached, nothing was killed.
+          if (source !== 'player' || e.if.kind !== 'fatal') throw new Error('Effect "conditional" is not simulated yet');
+          // Reached here means the enemy is alive, so the condition is false.
+          died = this.resolveEffects(source, e.else ?? [], x, card);
+          break;
+        }
         case 'script':
           if (source === 'player' && e.id === 'fiendFire') died = this.fiendFire(e.values?.[0] ?? 0);
           else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
@@ -680,7 +699,14 @@ class Combat {
           // #105: declared in the contract, implemented by later mechanic cards.
           throw new Error(`Effect "${e.type}" is not simulated yet`);
       }
-      if (died) return died;
+      if (died) {
+        // #104: the killing attack was followed by a fatal conditional: its `then` still resolves.
+        const next = effects[index + 1];
+        if (died === 'enemy' && source === 'player' && next?.type === 'conditional' && next.if.kind === 'fatal') {
+          this.resolveEffects(source, next.then, x, card);
+        }
+        return died;
+      }
       lastCount = count;
     }
     return null;
@@ -980,6 +1006,7 @@ class Combat {
       hpLost,
       enemyHpRemaining: Math.max(enemy.hp, 0),
     };
+    if (this.gold > 0 || this.potions > 0) result.rewards = { gold: this.gold, potions: this.potions };
     if (log) {
       log.push({ t: 'combatEnd', outcome, turns: this.state.turn, hpLost });
       result.log = log;

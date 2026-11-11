@@ -11,13 +11,17 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "gainPotion"
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Procure a random potion. / Exhaust.",
   "upgradedDescription": "Procure a random potion. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
