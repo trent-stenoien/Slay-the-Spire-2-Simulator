@@ -358,6 +358,11 @@ describe('#132 draw rule', () => {
       expect(playTurn(roomy, [card(D), card(D), card('scry'), card(S)], 20)[0]).toBe(D);
     });
 
+    it('#127: a net-energy card (Fuel) is played before the pure draw card, which then follows', () => {
+      const plays = playTurn(scared, [card(D), card(D), card('scry'), card('fuel')], 20);
+      expect(plays.slice(0, 2)).toEqual(['fuel', 'scry']);
+    });
+
     it('Block first: enough block cards to reach the target means the draw card waits', () => {
       // Three Defends (15) cover 15 incoming with 3 energy.
       const hand = [card(D), card(D), card(D), card('scry')];

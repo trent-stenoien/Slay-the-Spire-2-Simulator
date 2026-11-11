@@ -1140,8 +1140,9 @@ function pickZeroCostDraw(view: StrategyView): Card | undefined {
 /**
  * Plays made before the groups, in this order: a 0-cost draw card (#132); Tremble when Attack
  * ranks first (it is first within the Attack group, and Attack is the top priority); a Brand /
- * Burning Pact / Purity worth playing (#108); a pure draw card when the hand can't fill the top
- * group (#132); a card that nets energy (#22), as long as some other card in hand could use it.
+ * Burning Pact / Purity worth playing (#108); a card that nets energy (#22), as long as some other
+ * card in hand could use it (#127: before any pure draw card); then a pure draw card when the
+ * hand can't fill the top group (#132).
  * Other pure draw cards wait until the groups are done (decide); attack and block draw cards are
  * ranked within their group.
  */
@@ -1154,12 +1155,12 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   }
   const enabler = pickExhaustEnabler(view, config);
   if (enabler) return enabler;
+  const energy = best(view.playable.filter(isNetEnergyCard), (c) => [netEnergy(c)]);
+  if (energy && view.state.player.hand.some((c) => c.uid !== energy.uid && wantsEnergy(c))) return energy;
   if (cannotFillTopGroup(view, config)) {
     const pure = pickPureDraw(view);
     if (pure) return pure;
   }
-  const energy = best(view.playable.filter(isNetEnergyCard), (c) => [netEnergy(c)]);
-  if (energy && view.state.player.hand.some((c) => c.uid !== energy.uid && wantsEnergy(c))) return energy;
   return undefined;
 }
 
