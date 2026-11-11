@@ -1,6 +1,6 @@
 import { useId, useState, type CSSProperties } from 'react';
 import { cumulativeCurve, rawCurve, type CurvePoint } from '../../engine/stats';
-import { COLOR_HEX } from '../lib/colors';
+import { chartPalette, DASH_BY_COLOR } from '../lib/colors';
 import {
   aboveCurvePath,
   areaPath,
@@ -22,8 +22,16 @@ import {
   type CurveShape,
   type PercentileMarker,
 } from '../lib/chart';
+import type { StrategyColor } from '../../engine/types';
 import type { ResultRow } from '../lib/results';
-import { BandwidthSlider, ChartLegend, ModePicker, PercentileToggle, type ChartMode } from './ChartControls';
+import {
+  BandwidthSlider,
+  ChartLegend,
+  ColorBlindToggle,
+  ModePicker,
+  PercentileToggle,
+  type ChartMode,
+} from './ChartControls';
 
 const W = 640;
 const H = 320;
@@ -76,6 +84,8 @@ export function DistributionChart({
   initialMode = 'kde',
   hidden: hiddenProp,
   onHiddenChange,
+  colorBlind: colorBlindProp,
+  onColorBlindChange,
   percentileHref,
 }: {
   rows: ResultRow[];
@@ -83,6 +93,9 @@ export function DistributionChart({
   /** Optional controlled legend state (ids of hidden strategies); the parent can then react to it. */
   hidden?: ReadonlySet<string>;
   onHiddenChange?: (hidden: ReadonlySet<string>) => void;
+  /** Optional controlled color-blind palette state, shared with the rest of the results panel. */
+  colorBlind?: boolean;
+  onColorBlindChange?: (on: boolean) => void;
   /**
    * Optional link for a percentile label: given the ids of every strategy showing percentiles
    * (chart order), the label's strategy and its HP value. Labels without an href stay plain text.
@@ -97,6 +110,13 @@ export function DistributionChart({
     onHiddenChange?.(next);
   };
   const [showPercentiles, setShowPercentiles] = useState(true);
+  const [ownColorBlind, setOwnColorBlind] = useState(false);
+  const colorBlind = colorBlindProp ?? ownColorBlind;
+  const setColorBlind = (on: boolean) => {
+    if (colorBlindProp === undefined) setOwnColorBlind(on);
+    onColorBlindChange?.(on);
+  };
+  const palette = chartPalette(colorBlind);
   const [bandwidthFactor, setBandwidthFactor] = useState<number>(BANDWIDTH_FACTOR.default);
   const clipId = useId();
 
@@ -149,7 +169,8 @@ export function DistributionChart({
         <ModePicker mode={mode} onChange={setMode} />
         {mode === 'kde' && <BandwidthSlider factor={bandwidthFactor} onChange={setBandwidthFactor} />}
         <div className="legend-row">
-          <ChartLegend rows={rows} hidden={hidden} onChange={setHidden} />
+          <ChartLegend rows={rows} hidden={hidden} onChange={setHidden} palette={palette} colorBlind={colorBlind} />
+          <ColorBlindToggle on={colorBlind} onChange={setColorBlind} />
           <PercentileToggle on={showPercentiles} onChange={setShowPercentiles} />
         </div>
       </div>
@@ -184,12 +205,14 @@ export function DistributionChart({
               markers={markers}
               sx={sx}
               top={top}
+              color={palette[row.color]}
               clipPath={`url(#${clipId}-above-${curveIndex(row)})`}
             />
           ))}
           {curves.map((pts, i) => {
             if (!visible[i]) return null;
-            const color = COLOR_HEX[rows[i]!.color];
+            const color = palette[rows[i]!.color];
+            const dash = colorBlind ? DASH_BY_COLOR[rows[i]!.color] : undefined;
             return (
               <g key={rows[i]!.strategyId}>
                 <path
@@ -205,13 +228,14 @@ export function DistributionChart({
                   stroke={color}
                   strokeWidth={2}
                   strokeLinejoin="round"
+                  strokeDasharray={dash}
                 />
               </g>
             );
           })}
         </g>
         {markerSets.length > 0 && (
-          <PercentileMarks sets={markerSets} labels={markerLabels} percentileHref={percentileHref} />
+          <PercentileMarks sets={markerSets} labels={markerLabels} palette={palette} percentileHref={percentileHref} />
         )}
       </svg>
     </div>
@@ -267,7 +291,13 @@ function Axes({
   );
 }
 
-function PercentileBand({ row, markers, sx, top, clipPath }: MarkerSet & { sx: Scale; top: number; clipPath: string }) {
+function PercentileBand({
+  markers,
+  sx,
+  top,
+  color,
+  clipPath,
+}: MarkerSet & { sx: Scale; top: number; color: string; clipPath: string }) {
   const p25 = markers.find((m) => m.p === 25)!.value;
   const p75 = markers.find((m) => m.p === 75)!.value;
   return (
@@ -277,7 +307,7 @@ function PercentileBand({ row, markers, sx, top, clipPath }: MarkerSet & { sx: S
       y={top}
       width={Math.max(0, sx(p75) - sx(p25))}
       height={PLOT_BOTTOM - top}
-      fill={COLOR_HEX[row.color]}
+      fill={color}
       fillOpacity={BAND_OPACITY}
       clipPath={clipPath}
     />
@@ -288,13 +318,15 @@ function PercentileBand({ row, markers, sx, top, clipPath }: MarkerSet & { sx: S
 function PercentileMarks({
   sets,
   labels,
+  palette,
   percentileHref,
 }: {
   sets: MarkerSet[];
   labels: MarkLabel[][];
+  palette: Record<StrategyColor, string>;
   percentileHref?: (markedIds: string[], strategyId: string, hpLost: number) => string | undefined;
 }) {
-  const markColor = (row: ResultRow) => ({ '--mark-color': COLOR_HEX[row.color] }) as CSSProperties;
+  const markColor = (row: ResultRow) => ({ '--mark-color': palette[row.color] }) as CSSProperties;
   const markedIds = () => sets.map((set) => set.row.strategyId);
   return (
     <g className="pmarks" aria-label="Percentiles of HP lost">

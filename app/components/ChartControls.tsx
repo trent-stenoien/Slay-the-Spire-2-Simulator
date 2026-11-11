@@ -1,5 +1,5 @@
 import { useId, type CSSProperties } from 'react';
-import { COLOR_HEX } from '../lib/colors';
+import type { StrategyColor } from '../../engine/types';
 import {
   BANDWIDTH_FACTOR,
   bandwidthFactorLabel,
@@ -7,6 +7,7 @@ import {
   clampBandwidthFactor,
   toggleHidden,
 } from '../lib/chart';
+import { DASH_BY_COLOR } from '../lib/colors';
 import type { ResultRow } from '../lib/results';
 import { InfoPopover } from './InfoPopover';
 
@@ -84,15 +85,48 @@ export function BandwidthSlider({ factor, onChange }: { factor: number; onChange
   );
 }
 
+/**
+ * A strategy's color key. Normally a filled square; in color-blind mode a short line in the same
+ * color with the strategy's dash pattern, so the key matches the chart line.
+ */
+export function Swatch({
+  color,
+  colorBlind,
+  strategyColor,
+}: {
+  color: string;
+  colorBlind: boolean;
+  strategyColor: StrategyColor;
+}) {
+  if (!colorBlind) return <span className="legend-swatch" style={{ background: color }} aria-hidden />;
+  return (
+    <svg className="legend-swatch-line" viewBox="0 0 18 10" aria-hidden>
+      <line
+        x1="0"
+        x2="18"
+        y1="5"
+        y2="5"
+        stroke={color}
+        strokeWidth="3"
+        strokeDasharray={DASH_BY_COLOR[strategyColor]}
+      />
+    </svg>
+  );
+}
+
 /** Legend: clicking an entry hides or shows that strategy (hidden entries stay, dimmed). */
 export function ChartLegend({
   rows,
   hidden,
   onChange,
+  palette,
+  colorBlind,
 }: {
   rows: readonly ResultRow[];
   hidden: ReadonlySet<string>;
   onChange: (hidden: ReadonlySet<string>) => void;
+  palette: Record<StrategyColor, string>;
+  colorBlind: boolean;
 }) {
   return (
     <ul className="legend" aria-label="Strategies (click to show or hide)">
@@ -107,7 +141,7 @@ export function ChartLegend({
               title={visible ? `Hide ${r.name}` : `Show ${r.name}`}
               onClick={() => onChange(toggleHidden(hidden, r.strategyId))}
             >
-              <span className="legend-swatch" style={{ background: COLOR_HEX[r.color] }} aria-hidden />
+              <Swatch color={palette[r.color]} colorBlind={colorBlind} strategyColor={r.color} />
               <span className="legend-name" data-text={r.name}>
                 {r.name}
               </span>
@@ -116,6 +150,16 @@ export function ChartLegend({
         );
       })}
     </ul>
+  );
+}
+
+/** "Color-blind palette" toggle: Okabe-Ito colors plus a distinct dash pattern per strategy line. */
+export function ColorBlindToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <label className="pct-toggle small">
+      <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
+      Color-blind palette
+    </label>
   );
 }
 
