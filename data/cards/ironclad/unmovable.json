@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "unmovable",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 1
   },
   "description": "The first time you gain Block from a card each turn, double the amount gained.",
   "upgradedDescription": "The first time you gain Block from a card each turn, double the amount gained.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

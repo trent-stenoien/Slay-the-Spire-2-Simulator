@@ -9,7 +9,13 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "juggling",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "keywords": [
       "innate"
@@ -17,7 +23,7 @@
   },
   "description": "Add a copy of the third Attack you play each turn into your Hand.",
   "upgradedDescription": "Innate. / Add a copy of the third Attack you play each turn into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -158,6 +158,38 @@ function powerText(power: PowerId, n: number): string {
       return 'At the end of combat, Upgrade a random card';
     case 'corruption':
       return 'Skills cost 0 Energy. Whenever you play a Skill, Exhaust it';
+    case 'darkEmbrace':
+      return `Whenever a card is Exhausted, draw ${n} card${n === 1 ? '' : 's'}`;
+    case 'feelNoPain':
+      return `Whenever a card is Exhausted, gain ${n} Block`;
+    case 'rupture':
+      return `Whenever you lose HP on your turn, gain ${n} Strength`;
+    case 'inferno':
+      return `At the start of your turn, lose 1 HP. Whenever you lose HP on your turn, deal ${n} damage to ALL enemies`;
+    case 'juggernaut':
+      return `Whenever you gain Block, deal ${n} damage to a random enemy`;
+    case 'unmovable':
+      return 'The first time you gain Block from a card each turn, double the amount gained';
+    case 'vicious':
+      return `Whenever you apply Vulnerable, draw ${n} card${n === 1 ? '' : 's'}`;
+    case 'panache':
+      return `Every time you play 5 cards in a single turn, deal ${n} damage to ALL enemies`;
+    case 'automation':
+      return `Every 10 cards you draw, gain ${n} Energy`;
+    case 'juggling':
+      return 'Add a copy of the third Attack you play each turn into your Hand';
+    case 'aggression':
+      return 'At the start of your turn, put a random Attack from your Discard Pile into your Hand and Upgrade it';
+    case 'hellraiser':
+      return 'Whenever you draw a card containing "Strike", it is played against a random enemy';
+    case 'stampede':
+      return 'At the end of your turn, 1 random Attack in your Hand is played against a random enemy';
+    case 'mayhem':
+      return 'At the start of your turn, play the top card of your Draw Pile';
+    case 'nostalgia':
+      return 'The first Attack or Skill you play each turn is placed on top of your Draw Pile';
+    case 'stratagem':
+      return 'Whenever you shuffle your Draw Pile, choose a card from it to put into your Hand';
     default:
       return `Gain ${n} ${cap(power)}`;
   }

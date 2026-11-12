@@ -168,15 +168,7 @@ describe('#109 played Power cards', () => {
     expect(seen[1]).toMatchObject({ turn: 2, powers: { thorns: 6 } });
   });
 
-  it('an unsimulated power still throws', () => {
-    const d = data();
-    d.cards.rup = power('rup', 'Rp', [apply('rupture', 1)]);
-    expect(() => run(d, [['rup', 1]], (t) => (t === 1 ? ['rup'] : []))).toThrow(
-      /Effect "applyPower" is not simulated yet \(power "rupture"\)/,
-    );
-  });
-
-  it('the engine simulates exactly noDraw, the simple powers, #115, #116 generation powers and the 10 #110 powers', () => {
+  it('the engine simulates every PowerId: noDraw, the simple powers, #110, #113, #115 and #116 powers', () => {
     expect([...SIMULATED_POWER_IDS].sort()).toEqual(
       [
         'noDraw',
@@ -211,6 +203,23 @@ describe('#109 played Power cards', () => {
         'doubleAttack',
         'nextCardToDrawTop',
         'choking',
+        // #113
+        'darkEmbrace',
+        'feelNoPain',
+        'rupture',
+        'inferno',
+        'juggernaut',
+        'unmovable',
+        'vicious',
+        'panache',
+        'automation',
+        'juggling',
+        'aggression',
+        'hellraiser',
+        'stampede',
+        'mayhem',
+        'nostalgia',
+        'stratagem',
       ].sort(),
     );
   });

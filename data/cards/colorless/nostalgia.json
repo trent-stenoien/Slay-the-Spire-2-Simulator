@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "nostalgia",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "The first Attack or Skill you play each turn is placed on top of your Draw Pile.",
   "upgradedDescription": "The first Attack or Skill you play each turn is placed on top of your Draw Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

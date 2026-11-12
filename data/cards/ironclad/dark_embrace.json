@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "darkEmbrace",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 1
   },
   "description": "Whenever a card is Exhausted, / draw 1 card.",
   "upgradedDescription": "Whenever a card is Exhausted, / draw 1 card.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

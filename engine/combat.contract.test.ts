@@ -17,6 +17,7 @@ const SIMULATED = [
   'drawUntil',
   'exhaustCards',
   'heal',
+  'applyPower',
   'gainMaxHp',
   'loseMaxHp',
   'addCards',
@@ -72,22 +73,6 @@ describe('#105 contract effects are not simulated yet', () => {
     const data = withEnemy(makeGameData(), e);
     expect(() => simulateCombat(data, cfg({ enemyId: 'healer', deck: [] }), passive)).toThrow(
       /"heal" is not simulated yet/,
-    );
-  });
-
-  it('applyPower throws for every power but noDraw (#107)', () => {
-    const data = makeGameData();
-    data.cards.probe = {
-      ...cards.strike!,
-      id: 'probe',
-      code: 'Pr',
-      cost: 0,
-      effects: [{ type: 'applyPower', power: 'rupture', amount: 1 }],
-      upgraded: null,
-    };
-    const strat = scripted((turn) => (turn === 1 ? ['probe'] : []));
-    expect(() => simulateCombat(data, cfg({ deck: deckOf(['probe', 5]) }), strat)).toThrow(
-      /Effect "applyPower" is not simulated yet \(power "rupture"\)/,
     );
   });
 

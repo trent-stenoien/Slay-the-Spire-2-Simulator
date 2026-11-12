@@ -472,10 +472,10 @@ describe('#111 conditions', () => {
     expect(strengthAfter({ kind: 'lostHpThisTurn' })).toBe(1);
   });
 
-  it('a counter the engine does not track throws', () => {
-    expect(() => strengthAfter({ kind: 'counter', counter: 'cardsPlayedThisTurn', min: 1 })).toThrow(
-      /not simulated yet/,
-    );
+  it('counter: the cards-played tallies count the card that reads them (#113)', () => {
+    // setup is played first, then the conditional card: 2 cards played this turn.
+    expect(strengthAfter({ kind: 'counter', counter: 'cardsPlayedThisTurn', min: 2, max: 2 })).toBe(5);
+    expect(strengthAfter({ kind: 'counter', counter: 'cardsPlayedThisTurn', min: 3 })).toBe(1);
   });
 
   it('repeat: N = counter × times, read once before the first repeat', () => {

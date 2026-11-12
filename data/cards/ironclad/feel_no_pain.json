@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "feelNoPain",
+      "amount": 3
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "feelNoPain",
+        "amount": 4
+      }
+    ]
+  },
   "description": "Whenever a card is Exhausted, gain 3 Block.",
   "upgradedDescription": "Whenever a card is Exhausted, gain 4 Block.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

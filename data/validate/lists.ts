@@ -95,7 +95,7 @@ export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun', 'strengthLossThis
 
 /**
  * #108/#111: counters the engine reads for `repeat`, `conditional`, `attackFrom` and `gainBlockFrom`
- * (engine/combat.ts SIMULATED_COUNTERS). The cards-played tallies wait for the trigger cards (#113).
+ * (engine/combat.ts SIMULATED_COUNTERS). Every counter is simulated; playCard keeps the cards-played tallies (#113).
  */
 export const SIMULATED_COUNTERS = new Set<string>([
   'playerBlock',
@@ -107,6 +107,9 @@ export const SIMULATED_COUNTERS = new Set<string>([
   'discardPileSize',
   'exhaustPileSize',
   'hpLossesThisCombat',
+  'cardsPlayedThisTurn',
+  'cardsPlayedThisCombat',
+  'attacksPlayedThisTurn',
   'cardsExhaustedThisTurn',
   'cardsExhaustedThisCombat',
   'lastEffectCount',
@@ -138,8 +141,8 @@ export const UNSIMULATED_EFFECTS = new Set<string>(
 
 /**
  * Powers the engine simulates (engine/combat.ts SIMULATED_POWER_IDS); a simulated card may apply
- * only these: #107 noDraw (Battle Trance), the #109 simple powers and the #110 temporary powers.
- * Trigger powers (#113, #116) are not simulated yet.
+ * only these: #107 noDraw (Battle Trance), the #109 simple powers, the #110 temporary powers and
+ * the #113 trigger powers.
  */
 export const SIMULATED_POWERS = new Set<string>([
   'noDraw',
@@ -174,9 +177,26 @@ export const SIMULATED_POWERS = new Set<string>([
   'doubleAttack',
   'nextCardToDrawTop',
   'choking',
+  // #113 trigger powers
+  'darkEmbrace',
+  'feelNoPain',
+  'rupture',
+  'inferno',
+  'juggernaut',
+  'unmovable',
+  'vicious',
+  'panache',
+  'automation',
+  'juggling',
+  'aggression',
+  'hellraiser',
+  'stampede',
+  'mayhem',
+  'nostalgia',
+  'stratagem',
 ]);
 
-/** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters, #114 noReplay); others are not simulated yet. */
+/** CardFilter fields the engine matches on (every field of CardFilter since #113 enabled `nameIncludes`). */
 export const SIMULATED_FILTER_FIELDS = new Set<string>([
   'types',
   'notTypes',
@@ -184,6 +204,7 @@ export const SIMULATED_FILTER_FIELDS = new Set<string>([
   'cardId',
   'upgraded',
   'noReplay',
+  'nameIncludes',
 ]);
 
 /** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS; `costLessPer`: see SIMULATED_COST_COUNTERS; `playableIf` is simulated, #111). */

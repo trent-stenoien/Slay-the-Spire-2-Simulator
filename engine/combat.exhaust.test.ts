@@ -321,18 +321,19 @@ describe('#108 Second Wind', () => {
     expect(t1.filter((e) => e.t === 'block')).toHaveLength(0);
   });
 
-  it('repeat with a counter other than lastEffectCount and handSize is not simulated yet', () => {
+  it('repeat per cardsPlayedThisTurn repeats once per card played, the card itself included (#113)', () => {
     const d = data();
     d.cards.probe = skill('probe', 'Pr', [
       { type: 'repeat', per: 'cardsPlayedThisTurn', effects: [{ type: 'gainBlock', amount: 1 }] },
     ]);
-    expect(() =>
-      simulateCombat(
-        d,
-        cfg({ deck: deckOf(['probe', 5]) }),
-        scripted((t) => (t === 1 ? ['probe'] : [])),
-      ),
-    ).toThrow(/Effect "repeat" is not simulated yet \(counter "cardsPlayedThisTurn"\)/);
+    const r = simulateCombat(
+      d,
+      cfg({ deck: deckOf(['probe', 5]) }),
+      scripted((t) => (t === 1 ? ['probe', 'probe'] : [])),
+      { log: true },
+    );
+    // 1 card played → 1 gain; 2 cards played → 2 more.
+    expect(events(r.log, 'block').filter((b) => b.side === 'player')).toHaveLength(3);
   });
 });
 

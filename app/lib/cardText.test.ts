@@ -119,7 +119,10 @@ describe('#105 fallback text for contract effects', () => {
     [{ type: 'draw', amount: 1 } as const, 'Draw 1 card'],
     [{ type: 'draw', amount: 3 } as const, 'Draw 3 cards'],
     [{ type: 'heal', amount: 10 } as const, 'Heal 10 HP'],
-    [{ type: 'applyPower', power: 'rupture', amount: 1 } as const, 'Gain 1 Rupture'],
+    [
+      { type: 'applyPower', power: 'rupture', amount: 2 } as const,
+      'Whenever you lose HP on your turn, gain 2 Strength',
+    ],
     [{ type: 'exhaustCards', count: 3, mode: 'choose', upTo: true } as const, 'Exhaust up to 3 cards'],
   ])('%o → %s', (e, text) => {
     expect(effectText(e)).toBe(text);

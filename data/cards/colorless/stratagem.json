@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "stratagem",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Whenever you shuffle your Draw Pile, choose a card from it to put into your Hand.",
   "upgradedDescription": "Whenever you shuffle your Draw Pile, choose a card from it to put into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
