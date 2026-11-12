@@ -11,7 +11,19 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "moveCards",
+      "from": "draw",
+      "to": "hand",
+      "mode": "all",
+      "filter": {
+        "rarity": [
+          "rare"
+        ]
+      }
+    }
+  ],
   "upgraded": {
     "keywords": [
       "retain",
@@ -20,7 +32,7 @@
   },
   "description": "Put every Rare card from your Draw Pile into your Hand. / Exhaust.",
   "upgradedDescription": "Retain. / Put every Rare card from your Draw Pile into your Hand. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

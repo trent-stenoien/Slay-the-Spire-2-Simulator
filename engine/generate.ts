@@ -76,40 +76,51 @@ function blockOf(card: Card): number {
 /** Default group order when a strategy has no `choose` of its own. */
 const DEFAULT_ORDER: readonly StrategyGroup[] = ['attack', 'powers', 'block'];
 
+/** The strategy-priority rank of a card: the index of the first group in `order` it belongs to; after all of them for other cards, after those for curses and statuses. */
+function groupRank(card: Card, order: readonly StrategyGroup[]): number {
+  for (let i = 0; i < order.length; i++) {
+    const group = order[i];
+    if (
+      group === 'attack'
+        ? card.type === 'attack'
+        : group === 'block'
+          ? card.type === 'skill' && blockOf(card) > 0
+          : card.type === 'power'
+    ) {
+      return i;
+    }
+  }
+  return card.type === 'curse' || card.type === 'status' ? order.length + 1 : order.length;
+}
+
+/** Within a group: Attacks by most damage, Block cards by most Block, anything else equal. */
+function groupScore(card: Card): number {
+  return card.type === 'attack' ? damageOf(card) : blockOf(card);
+}
+
 /**
- * Pick which generated card to keep: the first group in the strategy's priority order that has
- * a card (Attack: most damage; Block: most Block; Powers: the first), else the first option.
- * Ties go to the earlier option. The cards are free or cheap, so cost is ignored.
+ * #116/#112: answer a "pick cards by the strategy's priorities" request (Discovery, Abundance,
+ * Headbutt, Armaments, Seeker Strike...). Cards are ranked by the first group of the strategy's
+ * order they belong to (Attack: most damage; Block: most Block; Powers: equal), then the other
+ * cards, then curses and statuses; ties go to the earlier option. The best `max` are taken; an
+ * "up to" request (min below max) never takes a curse or status. The cards are free or cheap, so
+ * cost is ignored. One exception: cards put from the hand back on top of the draw pile
+ * (Thinking Ahead) are the worst ranked, so the best cards stay playable this turn.
  */
 export function chooseGenerated(
   request: ChoiceRequest,
   order: readonly StrategyGroup[] = DEFAULT_ORDER,
 ): ChoiceResponse {
-  const options = request.options;
-  const pick = (cards: readonly Card[], score: (c: Card) => number): Card | undefined => {
-    let best: Card | undefined;
-    for (const c of cards) if (best === undefined || score(c) > score(best)) best = c;
-    return best;
-  };
-  let chosen: Card | undefined;
-  for (const group of order) {
-    if (group === 'attack')
-      chosen = pick(
-        options.filter((c) => c.type === 'attack'),
-        damageOf,
-      );
-    else if (group === 'block')
-      chosen = pick(
-        options.filter((c) => c.type === 'skill' && blockOf(c) > 0),
-        blockOf,
-      );
-    else
-      chosen = pick(
-        options.filter((c) => c.type === 'power'),
-        () => 0,
-      );
-    if (chosen) break;
+  const ranked = request.options
+    .map((c, i) => ({ c, i, rank: groupRank(c, order), score: groupScore(c) }))
+    .sort((a, b) => a.rank - b.rank || b.score - a.score || a.i - b.i);
+  if (request.purpose === 'move' && request.from === 'hand' && request.to?.startsWith('draw')) ranked.reverse();
+  const junk = order.length + 1;
+  const wanted = request.min < request.max ? ranked.filter((x) => x.rank < junk) : ranked;
+  const picked = wanted.slice(0, request.max);
+  for (const x of ranked) {
+    if (picked.length >= request.min) break;
+    if (!picked.includes(x)) picked.push(x);
   }
-  chosen ??= options[0];
-  return { uids: chosen && request.max > 0 ? [chosen.uid] : [] };
+  return { uids: picked.map((x) => x.c.uid) };
 }

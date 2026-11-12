@@ -29,6 +29,9 @@ const SIMULATED = [
   'setCost',
   'playCards',
   'addReplay',
+  'moveCards',
+  'moveSelf',
+  'upgradeCards',
 ];
 
 describe('#105 contract effects are not simulated yet', () => {
@@ -110,6 +113,7 @@ describe('#105 contract effects are not simulated yet', () => {
       'effects',
       'keywords',
       'name',
+      'rarity',
       'type',
       'uid',
       'upgraded',

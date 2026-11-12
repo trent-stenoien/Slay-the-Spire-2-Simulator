@@ -13,12 +13,34 @@
     {
       "type": "gainBlock",
       "amount": 5
+    },
+    {
+      "type": "upgradeCards",
+      "piles": [
+        "hand"
+      ],
+      "count": 1,
+      "mode": "choose"
     }
   ],
-  "upgraded": {},
+  "upgraded": {
+    "effects": [
+      {
+        "type": "gainBlock",
+        "amount": 5
+      },
+      {
+        "type": "upgradeCards",
+        "piles": [
+          "hand"
+        ],
+        "mode": "all"
+      }
+    ]
+  },
   "description": "Gain 5 Block. / Upgrade a card in your Hand.",
   "upgradedDescription": "Gain 5 Block. / Upgrade ALL cards in your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

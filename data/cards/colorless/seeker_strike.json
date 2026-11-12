@@ -14,6 +14,14 @@
       "type": "attack",
       "damage": 9,
       "hits": 1
+    },
+    {
+      "type": "moveCards",
+      "from": "draw",
+      "to": "hand",
+      "count": 1,
+      "mode": "choose",
+      "options": 3
     }
   ],
   "upgraded": {
@@ -22,12 +30,20 @@
         "type": "attack",
         "damage": 12,
         "hits": 1
+      },
+      {
+        "type": "moveCards",
+        "from": "draw",
+        "to": "hand",
+        "count": 1,
+        "mode": "choose",
+        "options": 3
       }
     ]
   },
   "description": "Deal 9 damage. / Choose 1 of 3 cards in your Draw Pile to add into your Hand.",
   "upgradedDescription": "Deal 12 damage. / Choose 1 of 3 cards in your Draw Pile to add into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

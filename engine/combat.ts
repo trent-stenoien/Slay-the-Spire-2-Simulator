@@ -92,6 +92,7 @@ export function makeCardInstance(def: CardDef, upgraded: boolean, uid: number): 
     cost,
     keywords,
     effects,
+    rarity: def.rarity,
   };
   if (def.xCost) {
     inst.cost = cost === null ? null : 0;
@@ -187,13 +188,12 @@ function emptyCounters(): CombatCounters {
 
 /**
  * True when `card` matches every present field of `filter` (#107: Pillage's non-Attack stop rule).
- * Fields whose rules are still open (rarity, nameIncludes) throw until their cards land.
- * #114 noReplay: only cards with no Replay.
+ * Fields whose rules are still open (nameIncludes) throw until their cards land.
+ * #114 noReplay: only cards with no Replay. #112 rarity: the card's rarity is one of the listed ones.
  */
 export function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
-  for (const field of ['rarity', 'nameIncludes'] as const) {
-    if (filter[field] !== undefined) throw new Error(`Card filter "${field}" is not simulated yet`);
-  }
+  if (filter.nameIncludes !== undefined) throw new Error('Card filter "nameIncludes" is not simulated yet');
+  if (filter.rarity && (card.rarity === undefined || !filter.rarity.includes(card.rarity))) return false;
   if (filter.noReplay && (card.replay ?? 0) > 0) return false;
   if (filter.types && !filter.types.includes(card.type)) return false;
   if (filter.notTypes?.includes(card.type)) return false;
@@ -293,6 +293,8 @@ class Combat {
   private nextUid: number;
   /** #116: pools already computed, keyed by pool + upgraded. */
   private readonly pools = new Map<string, CardDef[]>();
+  /** #112: cards played with `moveSelf` (nextTurnStart) that come back at the start of the next turn. */
+  private returning: { uid: number; to: CardDestination }[] = [];
   /** #116: cost a card had before it became free this turn (restored at the end of the turn). */
   private readonly freeBackup = new Map<number, number | null>();
   /** #115: Max HP at the start of combat; `hpLost` is measured against it (Feed and healing lower it). */
@@ -400,6 +402,7 @@ class Combat {
       log?.push({ t: 'blockReset', side: 'player' });
     }
     player.energy = this.character.energyPerTurn;
+    this.returnCards();
     for (let i = 0; i < this.character.drawPerTurn; i++) {
       if (!this.drawOne()) break;
       if (player.hp <= 0) return 'loss';
@@ -988,6 +991,20 @@ class Combat {
           if (source !== 'player') throw new Error('Enemies do not transform cards');
           count = this.transformCards(e);
           break;
+        case 'moveCards':
+          if (source !== 'player') throw new Error('Enemies do not move cards');
+          count = this.moveCards(e, card);
+          break;
+        case 'moveSelf':
+          if (source !== 'player' || e.when !== 'nextTurnStart') {
+            throw new Error(`Effect "moveSelf" is not simulated yet (when "${e.when}")`);
+          }
+          if (card) this.returning.push({ uid: card.uid, to: e.to });
+          break;
+        case 'upgradeCards':
+          if (source !== 'player') throw new Error('Enemies do not upgrade cards');
+          count = this.upgradeCards(e, card);
+          break;
         case 'gainGold':
           if (source !== 'player') throw new Error('Enemies do not gain gold');
           this.gold += e.amount;
@@ -1036,6 +1053,11 @@ class Combat {
       lastCount = count;
     }
     return null;
+  }
+
+  /** #112: like `pile`, but the exhaust pile too (cards can be moved out of it or upgraded in it). */
+  private anyPile(name: PileName): CardInstance[] {
+    return name === 'exhaust' ? this.player.exhaustPile : this.pile(name);
   }
 
   /** #108: the cards of a pile (the live array). */
@@ -1134,7 +1156,8 @@ class Combat {
   /** #108: ask the strategy to pick cards (the shared exhaust order if it has no `choose`) and check the answer. */
   private choose(request: ChoiceRequest, options: readonly CardInstance[]): CardInstance[] {
     const view = this.view();
-    const fallback = () => (request.purpose === 'generate' ? chooseGenerated(request) : chooseExhaust(view, request));
+    const byPriority = request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade';
+    const fallback = () => (byPriority ? chooseGenerated(request) : chooseExhaust(view, request));
     const { uids } = this.strategy.choose ? this.strategy.choose(view, request) : fallback();
     const picked = uids.map((uid) => options.find((c) => c.uid === uid));
     if (
@@ -1172,6 +1195,137 @@ class Combat {
     const { died } = this.exhaustAll('hand', [target]);
     if (card) card.damageBonus = (card.damageBonus ?? 0) + bonus;
     return died;
+  }
+
+  /**
+   * #112: pick cards from `candidates` for a move or an upgrade by `e.mode`: every one, at random
+   * (seeded Rng), the top ones, or by Strategy.choose. `options` shows only that many random
+   * qualifying cards (Seeker Strike: 1 of 3). No choice is asked when nothing needs deciding.
+   */
+  private pickCards(
+    purpose: 'move' | 'upgrade',
+    candidates: CardInstance[],
+    e: { mode: SelectMode; count?: number; upTo?: boolean; options?: number },
+    ask: { from?: PileName; to?: CardDestination },
+    card: CardInstance | undefined,
+  ): CardInstance[] {
+    const n = Math.min(e.count ?? candidates.length, candidates.length);
+    switch (e.mode) {
+      case 'all':
+        return candidates;
+      case 'top':
+        return candidates.slice(candidates.length - n).reverse();
+      case 'random': {
+        const rest = [...candidates];
+        const picked: CardInstance[] = [];
+        for (let i = 0; i < n; i++) picked.push(rest.splice(this.rng.int(0, rest.length - 1), 1)[0]!);
+        return picked;
+      }
+      case 'choose': {
+        let shown = candidates;
+        if (e.options !== undefined && e.options < shown.length) {
+          const rest = [...shown];
+          shown = [];
+          for (let i = 0; i < e.options; i++) shown.push(rest.splice(this.rng.int(0, rest.length - 1), 1)[0]!);
+        }
+        const max = Math.min(e.count ?? shown.length, shown.length);
+        // Nothing to pick, or every shown card must be picked: no choice to make.
+        if (max === 0 || (!e.upTo && max === shown.length)) return shown.slice(0, max);
+        const request: ChoiceRequest = { purpose, options: shown, min: e.upTo ? 0 : max, max, ...ask };
+        if (card) {
+          request.sourceUid = card.uid;
+          request.sourceCardId = card.cardId;
+        }
+        return this.choose(request, shown);
+      }
+    }
+  }
+
+  /**
+   * #112 `moveCards`: pick qualifying cards of the `from` pile and put them in `to` (a full hand
+   * sends them to the discard pile). Returns how many moved.
+   */
+  private moveCards(e: Extract<Effect, { type: 'moveCards' }>, card: CardInstance | undefined): number {
+    if (e.to === 'exhaust' || e.upgrade)
+      throw new Error('Effect "moveCards" is not simulated yet (exhaust or upgrade)');
+    const pile = this.anyPile(e.from);
+    const candidates = pile.filter((c) => !e.filter || matchesFilter(c, e.filter));
+    const picked = this.pickCards('move', candidates, e, { from: e.from, to: e.to }, card);
+    let count = 0;
+    for (const c of picked) {
+      const i = pile.indexOf(c);
+      if (i < 0) continue;
+      pile.splice(i, 1);
+      const to = this.placeCard(c, e.to);
+      this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: e.from, to });
+      count++;
+    }
+    return count;
+  }
+
+  /**
+   * #112 `moveSelf` (nextTurnStart): at the start of the next player turn, before the draw, the
+   * card goes from the discard or draw pile to `to`. A card that was exhausted since stays gone.
+   */
+  private returnCards(): void {
+    for (const { uid, to } of this.returning) {
+      for (const from of ['discard', 'draw'] as const) {
+        const pile = this.anyPile(from);
+        const i = pile.findIndex((c) => c.uid === uid);
+        if (i < 0) continue;
+        const c = pile.splice(i, 1)[0]!;
+        const dest = this.placeCard(c, to);
+        this.log?.push({ t: 'moved', uid, cardId: c.cardId, from, to: dest });
+        break;
+      }
+    }
+    this.returning = [];
+  }
+
+  /** True when the card can still be upgraded: it has an upgrade and is not upgraded yet. */
+  private canUpgrade(c: CardInstance): boolean {
+    return !c.upgraded && !!this.data.cards[c.cardId]?.upgraded;
+  }
+
+  /**
+   * #112 `upgradeCards`: upgrade cards in the named piles for the rest of combat. Only cards that
+   * have an upgrade and are not upgraded yet qualify. Returns how many were upgraded.
+   */
+  private upgradeCards(e: Extract<Effect, { type: 'upgradeCards' }>, card: CardInstance | undefined): number {
+    const places = e.piles.flatMap((name) =>
+      this.anyPile(name)
+        .filter((c) => this.canUpgrade(c))
+        .map((c) => ({ c, pile: this.anyPile(name) })),
+    );
+    const ask = e.piles.length === 1 ? { from: e.piles[0]! } : {};
+    const picked = this.pickCards(
+      'upgrade',
+      places.map((x) => x.c),
+      e,
+      ask,
+      card,
+    );
+    for (const c of picked) this.upgradeInstance(c, places.find((x) => x.c === c)!.pile);
+    return picked.length;
+  }
+
+  /** #112: the card keeps its uid and place but becomes its upgraded version, keeping what it gained in combat. */
+  private upgradeInstance(c: CardInstance, pile: CardInstance[]): void {
+    const def = this.data.cards[c.cardId]!;
+    const next = makeCardInstance(def, true, c.uid);
+    if (c.generated) next.generated = true;
+    if (c.damageBonus !== undefined) next.damageBonus = c.damageBonus;
+    if (c.replay !== undefined) next.replay = c.replay;
+    this.applyCostPowersTo(next);
+    if (c.costThisCombat !== undefined) next.costThisCombat = c.costThisCombat;
+    if (c.costThisTurn !== undefined) next.costThisTurn = c.costThisTurn;
+    if (c.freeThisTurn) {
+      this.freeBackup.set(c.uid, next.cost);
+      next.cost = 0;
+      next.freeThisTurn = true;
+    }
+    pile[pile.indexOf(c)] = next;
+    this.log?.push({ t: 'upgraded', uid: c.uid, cardId: c.cardId });
   }
 
   /** #110: the enemy loses HP directly (ignores Block and modifiers). Returns true if it died. */

@@ -14,6 +14,13 @@
       "type": "attack",
       "damage": 9,
       "hits": 1
+    },
+    {
+      "type": "moveCards",
+      "from": "discard",
+      "to": "drawTop",
+      "count": 1,
+      "mode": "choose"
     }
   ],
   "upgraded": {
@@ -22,12 +29,19 @@
         "type": "attack",
         "damage": 12,
         "hits": 1
+      },
+      {
+        "type": "moveCards",
+        "from": "discard",
+        "to": "drawTop",
+        "count": 1,
+        "mode": "choose"
       }
     ]
   },
   "description": "Deal 9 damage. / Put a card from your Discard Pile on top of your Draw Pile.",
   "upgradedDescription": "Deal 12 damage. / Put a card from your Discard Pile on top of your Draw Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
