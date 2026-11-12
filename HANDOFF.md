@@ -25,7 +25,7 @@ Read CLAUDE.md first. No agents running. Phase: Trent will say when to build. Th
 - Trent's preferences: minimal progress updates; link every PR/card; cheapest model that can do the job.
 - Parallel agents each get their own `git worktree` under /home/claude/wt. Expect conflicts in engine/combat.ts, engine/strategies.ts, data/validate/*.
 - Merge only after the PR's CI check finishes green; sub-agents run `npm run format` before handing back.
-- The wiki (slaythespire.wiki.gg) is not fetchable from the sandbox, and its card tables track the beta branch. Use main patch notes or Trent's game for values.
+- The wiki (slaythespire.wiki.gg) is fetchable with WebFetch (not from the shell). Card tables may show beta values: apply the version rule in the `sts2-wiki-import` skill.
 
 ## Sandbox notes
 - GitHub: REST only (GraphQL blocked). Create issues and PRs with `gh api repos/.../issues|pulls`.

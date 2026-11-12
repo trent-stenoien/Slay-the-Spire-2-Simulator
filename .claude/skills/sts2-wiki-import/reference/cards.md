@@ -1,9 +1,5 @@
----
-name: sts2-card-import
-description: Fill in effects, keywords and the simulated flag for Slay the Spire 2 card JSON files in data/cards/, from the wiki card text. Use when importing or updating STS2 cards in this repo.
----
+# STS2 card import (read `../SKILL.md` first)
 
-# STS2 card import
 
 You are completing card files that a script already generated from the wiki export
 (`data/raw/cards.txt`, built by `tools/build-card-skeletons.mjs`). Every file already has
@@ -17,13 +13,10 @@ The contract is `engine/types.ts` (`CardDef`, `Effect`). Read it once before sta
 
 ## Main-release data only
 
-Import only main-release data (the game version in `data/manifest.json`), never beta-branch
-data. The wiki marks beta content with a "Beta Content Warning" banner or "(Beta only
-currently)"; skip those cards, and use the main-release numbers where a page shows both.
-If a card already in `data/cards/` turns out to be beta-only, don't delete it yourself: add a
-question instead. Beta-only cards that were removed (Soulbound, Underworld, Cacophony) are
-listed in `data/reserved-codes.json`; their codes stay reserved (codes are permanent), the
-skeleton script skips them, and the validator rejects any card that uses a reserved code.
+The version rule is in `SKILL.md`. Card specifics: if a card already in `data/cards/` turns out to be
+beta-only, don't delete it yourself: add a question instead. Beta-only cards that were removed
+(Soulbound, Underworld, Cacophony) are listed in `data/reserved-codes.json`; the skeleton script
+skips them and the validator rejects any card that uses a reserved code.
 
 ## Reading the card text
 
