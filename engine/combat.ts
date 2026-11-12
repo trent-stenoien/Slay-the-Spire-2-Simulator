@@ -233,7 +233,7 @@ export function perHitBaseDamage(card: CardInstance): number {
   return 0;
 }
 
-/** #111: counters the engine reads; the cards-played tallies wait for the trigger cards (#113). */
+/** #111/#113: counters the engine reads (every Counter in the contract; playCard keeps the cards-played tallies). */
 export const SIMULATED_COUNTERS: readonly Counter[] = [
   'playerBlock',
   'playerStrength',
@@ -244,6 +244,9 @@ export const SIMULATED_COUNTERS: readonly Counter[] = [
   'discardPileSize',
   'exhaustPileSize',
   'hpLossesThisCombat',
+  'cardsPlayedThisTurn',
+  'cardsPlayedThisCombat',
+  'attacksPlayedThisTurn',
   'cardsExhaustedThisTurn',
   'cardsExhaustedThisCombat',
   'lastEffectCount',
@@ -255,7 +258,7 @@ const MAX_DRAW_UNTIL = 1000;
 
 /**
  * #107/#109: player powers the engine simulates. `applyPower` with any other PowerId throws
- * "not simulated yet" (temporary powers #110, trigger powers #113, #115, #116).
+ * "not simulated yet" (every PowerId is simulated now).
  */
 export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'noDraw',
@@ -290,6 +293,23 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'doubleAttack',
   'nextCardToDrawTop',
   'choking',
+  // #113 trigger powers
+  'darkEmbrace',
+  'feelNoPain',
+  'rupture',
+  'inferno',
+  'juggernaut',
+  'unmovable',
+  'vicious',
+  'panache',
+  'automation',
+  'juggling',
+  'aggression',
+  'hellraiser',
+  'stampede',
+  'mayhem',
+  'nostalgia',
+  'stratagem',
 ];
 
 /** #116 Hello World: a random Common card from the player's character. */
@@ -306,6 +326,18 @@ export const ROLLING_BOULDER_GROWTH = 5;
 
 /** #109/#135 Crimson Mantle: HP lost at the start of each turn per copy played. */
 export const CRIMSON_MANTLE_HP_LOSS = 1;
+
+/** #113 Inferno: HP lost at the start of each turn per copy played (like Crimson Mantle). */
+export const INFERNO_HP_LOSS = 1;
+
+/** #113 Panache: every this many cards played in a turn (counted while the power is on). */
+export const PANACHE_CARDS = 5;
+
+/** #113 Automation: every this many cards drawn (counted while the power is on). */
+export const AUTOMATION_CARDS = 10;
+
+/** #113 Juggling: the Attack played this many times in a turn (the 3rd) is copied into the hand. */
+export const JUGGLING_ATTACK = 3;
 
 /** #109 Fasten (Trent, #109 Q1): it adds Block to every card with this in its name (Defend, Ultimate Defend). */
 export const FASTEN_NAME = 'Defend';
@@ -341,6 +373,16 @@ class Combat {
   private potions = 0;
   /** #111: damage the last attack hit dealt to Block and HP together, overkill included (Fisticuffs). */
   private lastAttackDamage = 0;
+  /** #113 Inferno copies played; each loses 1 HP a turn (the sum of their damage is in powers). */
+  private infernoCopies = 0;
+  /** #113: cards played this turn while Panache was on (reset each turn). */
+  private panacheCount = 0;
+  /** #113: cards drawn while Automation was on (kept across turns). */
+  private automationCount = 0;
+  /** #113 Unmovable: the turn's first Block gain from a card has been doubled. */
+  private unmovableUsed = false;
+  /** #113 Rupture, Inferno: true from the start of the player's turn to the start of the enemy's. */
+  private playerTurn = false;
 
   constructor(
     private readonly data: GameData,
@@ -432,10 +474,15 @@ class Combat {
   private startPlayerTurn(): Outcome | null {
     const { player, log, counters } = this;
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'player' });
+    this.playerTurn = true;
     counters.hpLostThisTurn = 0;
     counters.cardsDrawnThisTurn = 0;
     counters.cardsExhaustedThisTurn = 0;
+    counters.cardsPlayedThisTurn = 0;
     counters.attacksPlayedThisTurn = 0;
+    counters.skillsPlayedThisTurn = 0;
+    this.panacheCount = 0;
+    this.unmovableUsed = false;
     if (!this.power('barricade')) {
       player.block = 0;
       log?.push({ t: 'blockReset', side: 'player' });
@@ -445,6 +492,7 @@ class Combat {
     for (let i = 0; i < this.character.drawPerTurn; i++) {
       if (!this.drawOne()) break;
       if (player.hp <= 0) return 'loss';
+      if (this.enemy.hp <= 0) return 'win';
     }
     // #110: effects scheduled for this turn's start (Outmaneuver, Relax, Toric Toughness, Prolong), after the draw.
     const scheduled = this.runScheduled('turnStart');
@@ -491,6 +539,8 @@ class Combat {
     const { player, log } = this;
     if (!player.powers) return null;
     for (const id of Object.keys(player.powers) as PowerId[]) {
+      // #113: an earlier power (Rolling Boulder, Inferno, Mayhem's card) may have won the combat.
+      if (this.enemy.hp <= 0) return 'win';
       const amount = this.power(id);
       if (amount <= 0) continue;
       switch (id) {
@@ -527,6 +577,19 @@ class Combat {
             });
           }
           break;
+        case 'inferno':
+          // #113: lose 1 HP per copy played (one loss), which Rupture and Inferno itself react to.
+          if (this.loseHp(INFERNO_HP_LOSS * this.infernoCopies)) return 'loss';
+          break;
+        case 'aggression':
+          for (let i = 0; i < amount; i++) this.aggression();
+          break;
+        case 'mayhem': {
+          const died = this.playFromPile({ type: 'playCards', from: 'draw', mode: 'top', count: amount }, 0, 'power');
+          if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
+          if (player.hp <= 0) return 'loss';
+          break;
+        }
         case 'helloWorld':
           this.addCards({
             type: 'addCards',
@@ -548,7 +611,24 @@ class Combat {
           break;
       }
     }
-    return null;
+    return this.enemy.hp <= 0 ? 'win' : null;
+  }
+
+  /**
+   * #113 Aggression: a random Attack from the discard pile is upgraded (if it can be) and put into
+   * the hand. A full hand leaves it in the discard pile (upgraded). Nothing happens with no Attack there.
+   */
+  private aggression(): void {
+    const { player } = this;
+    const attacks = player.discardPile.filter((c) => c.type === 'attack');
+    if (attacks.length === 0) return;
+    const picked = attacks[this.rng.int(0, attacks.length - 1)]!;
+    if (this.canUpgrade(picked)) this.upgradeInstance(picked, player.discardPile);
+    const c = player.discardPile.find((x) => x.uid === picked.uid)!;
+    if (player.hand.length >= HAND_LIMIT) return;
+    player.discardPile.splice(player.discardPile.indexOf(c), 1);
+    const to = this.placeCard(c, 'hand');
+    this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: 'discard', to });
   }
 
   /** #109: Block from a power (Plating, Crimson Mantle): not a card, so Dexterity and Frail don't apply. */
@@ -556,6 +636,17 @@ class Combat {
     const { player } = this;
     player.block += amount;
     this.log?.push({ t: 'block', side: 'player', amount, total: player.block });
+    this.blockGained(amount);
+  }
+
+  /**
+   * #113 Juggernaut: whenever the player gains Block (from a card, a power or a scheduled effect),
+   * the enemy takes its damage (a power's damage: Block absorbs it, nothing else changes it).
+   * Gaining 0 Block is not a gain. The caller sees a kill through `enemy.hp`.
+   */
+  private blockGained(amount: number): void {
+    const juggernaut = this.power('juggernaut');
+    if (amount > 0 && juggernaut > 0) this.powerDamage(juggernaut);
   }
 
   /**
@@ -581,7 +672,13 @@ class Combat {
     // #110 Panic Button: no Block from cards while the power lasts.
     if (this.power('noBlockFromCards') > 0) return 0;
     const fasten = card.name.includes(FASTEN_NAME) ? this.power('fasten') : 0;
-    return blockGain(amount + this.power('dexterity') + fasten, this.player.debuffs.frail);
+    const raw = amount + this.power('dexterity') + fasten;
+    // #113 Unmovable: the first Block gain from a card each turn is doubled; Frail and the doubling
+    // are multipliers, so they are applied together and floored once (raw × 0.75 × 2).
+    const double = raw > 0 && this.power('unmovable') > 0 && !this.unmovableUsed;
+    if (double) this.unmovableUsed = true;
+    const frail = this.player.debuffs.frail > 0 ? 0.75 : 1;
+    return Math.max(0, Math.floor(raw * frail * (double ? 2 : 1)));
   }
 
   /**
@@ -635,9 +732,9 @@ class Combat {
    * played by an effect or trigger rather than the strategy; `exhaust` sends it to the Exhaust pile
    * (Havoc). Returns the side that died, if one did.
    */
-  private playCard(card: CardInstance, x: number, by?: 'effect' | 'trigger', exhaust = false): Side | null {
-    const { player, enemy, log } = this;
-    const logPlay = (how?: 'effect' | 'replay' | 'trigger') => {
+  private playCard(card: CardInstance, x: number, by?: 'effect' | 'trigger' | 'power', exhaust = false): Side | null {
+    const { player, enemy, log, counters } = this;
+    const logPlay = (how?: 'effect' | 'replay' | 'trigger' | 'power') => {
       if (!log) return;
       const ev: GameEvent = { t: 'play', uid: card.uid, cardId: card.cardId, energyLeft: player.energy };
       if (card.xCost) ev.x = x;
@@ -645,18 +742,35 @@ class Combat {
       log.push(ev);
     };
     logPlay(by);
-    if (card.type === 'attack') this.counters.attacksPlayedThisTurn++;
+    // #113: the one place cards played are counted (any way a card is played, once; Replay is not a new play).
+    // Nostalgia's "first Attack or Skill this turn" is read before this card is counted.
+    const firstAttackOrSkill =
+      (card.type === 'attack' || card.type === 'skill') &&
+      counters.attacksPlayedThisTurn + counters.skillsPlayedThisTurn === 0;
+    counters.cardsPlayedThisTurn++;
+    counters.cardsPlayedThisCombat++;
+    if (card.type === 'attack') counters.attacksPlayedThisTurn++;
+    if (card.type === 'skill') counters.skillsPlayedThisTurn++;
+    // #113 Panache counts only cards played after it was on (not the Panache card itself).
+    const panacheOn = this.power('panache') > 0;
     // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
     const vigor = card.type === 'attack' ? this.power('vigor') : 0;
     this.activeVigor = vigor;
     // #110 powers that react to this play, read before its own effects can add to them.
     const choking = this.power('choking');
     const toDrawTop = this.power('nextCardToDrawTop') > 0;
+    // #113 Nostalgia: the first Attack or Skill each turn goes on top of the draw pile (like Rebound).
+    const nostalgia = firstAttackOrSkill && this.power('nostalgia') > 0;
     const again = card.type === 'attack' && this.power('doubleAttack') > 0;
     if (again) this.applyPower('doubleAttack', -1);
     if (toDrawTop) this.applyPower('nextCardToDrawTop', -1);
     // Rage: Block from the power, not the card (no Dexterity or Frail).
     if (card.type === 'attack' && this.power('rage') > 0) this.gainPowerBlock(this.power('rage'));
+    if (enemy.hp <= 0) {
+      // Juggernaut, triggered by Rage's Block.
+      this.activeVigor = 0;
+      return 'enemy';
+    }
     // Choking: the enemy loses HP whenever a card is played (cards played after it, not itself).
     if (choking > 0 && this.enemyLoseHp(choking)) {
       this.activeVigor = 0;
@@ -683,14 +797,31 @@ class Combat {
     } else if (card.type === 'skill' && this.power('corruption')) {
       // #109 Corruption: a played Skill is exhausted (Drum of Battle still gains its energy).
       died = this.exhaustCard(card, 'power') ?? died;
-    } else if (toDrawTop) {
-      // #110 Rebound: the card goes on top of the draw pile (its end).
+    } else if (toDrawTop || nostalgia) {
+      // #110 Rebound, #113 Nostalgia: the card goes on top of the draw pile (its end).
       player.drawPile.push(card);
       log?.push({ t: 'moved', uid: card.uid, cardId: card.cardId, from: 'hand', to: 'drawTop' });
     } else {
       player.discardPile.push(card);
     }
+    if (!died && enemy.hp > 0) died = this.afterPlay(card, panacheOn);
     return died ?? (enemy.hp <= 0 ? 'enemy' : null);
+  }
+
+  /**
+   * #113 "after a card is played" powers, once per play (a Replay does not repeat them), after the
+   * card has gone to its pile. Panache: every 5th card played this turn while it was on, its damage.
+   * Juggling: the 3rd Attack played this turn is copied into the hand (one copy per Juggling).
+   */
+  private afterPlay(card: CardInstance, panacheOn: boolean): Side | null {
+    if (panacheOn && this.power('panache') > 0 && ++this.panacheCount % PANACHE_CARDS === 0) {
+      if (this.powerDamage(this.power('panache'))) return 'enemy';
+    }
+    const juggling = this.power('juggling');
+    if (juggling > 0 && card.type === 'attack' && this.counters.attacksPlayedThisTurn === JUGGLING_ATTACK) {
+      this.addCopies({ type: 'addCards', source: { kind: 'self' }, count: juggling, to: 'hand' }, card);
+    }
+    return null;
   }
 
   /** What the strategy sees right now: current hand, energy and the enemy's intent. */
@@ -746,19 +877,35 @@ class Combat {
     // #109 Plating: gain Block equal to it at the end of your turn.
     const plating = this.power('plating');
     if (plating > 0) this.gainPowerBlock(plating);
+    if (this.enemy.hp <= 0) return 'win';
     // #110: The Bomb and other end-of-turn scheduled effects.
     const scheduled = this.runScheduled('turnEnd');
     if (scheduled) return scheduled;
+    // #113 Stampede: random Attacks in the hand are played (for free) before the hand is discarded.
+    const stampede = this.power('stampede');
+    if (stampede > 0) {
+      const died = this.playFromPile(
+        { type: 'playCards', from: 'hand', mode: 'random', count: stampede, filter: { types: ['attack'] } },
+        0,
+        'power',
+      );
+      if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
+    }
     // #115: curses and statuses in hand act (Burn, Bad Luck), before the hand is discarded.
     for (const card of [...player.hand]) {
       if (this.runJunkTriggers(card, 'turnEndInHand')) return 'loss';
+      if (this.enemy.hp <= 0) return 'win';
     }
     // #110 Equilibrium, Salvo: the whole hand is retained this turn (Ethereal cards still exhaust).
     const retainHand = this.power('retainHand') > 0;
     const retained: CardInstance[] = [];
-    for (const card of player.hand) {
+    // #113: cards drawn while exhausting (Dark Embrace) join the new hand and stay in it.
+    const handNow = player.hand;
+    player.hand = retained;
+    for (const card of handNow) {
       if (card.keywords.includes('ethereal')) {
-        this.exhaustCard(card, 'ethereal');
+        const died = this.exhaustCard(card, 'ethereal');
+        if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
       } else if (card.keywords.includes('retain') || retainHand) {
         retained.push(card);
       } else {
@@ -766,7 +913,6 @@ class Combat {
         log?.push({ t: 'discard', uid: card.uid, cardId: card.cardId, reason: 'endOfTurn' });
       }
     }
-    player.hand = retained;
     this.endTurnPowers();
     const died = this.turnEndExhaustTriggers();
     if (died) return died === 'player' || player.hp <= 0 ? 'loss' : 'win';
@@ -824,6 +970,7 @@ class Combat {
   private enemyTurn(): Outcome | null {
     const { player, enemy, log } = this;
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'enemy' });
+    this.playerTurn = false;
     enemy.block = 0;
     log?.push({ t: 'blockReset', side: 'enemy' });
     // Poison: HP loss equal to stacks (ignores Block and modifiers), then -1. A kill ends combat before the move.
@@ -921,6 +1068,7 @@ class Combat {
               : blockGain(e.amount, self.debuffs.frail);
           self.block += amt;
           log?.push({ t: 'block', side: source, amount: amt, total: self.block });
+          if (source === 'player') this.blockGained(amt);
           break;
         }
         case 'gainStrength':
@@ -1045,6 +1193,7 @@ class Combat {
           const amt = e.bonusPer.per === 'playerBlock' ? Math.max(0, raw) : card ? this.cardBlock(raw, card) : 0;
           self.block += amt;
           log?.push({ t: 'block', side: source, amount: amt, total: self.block });
+          this.blockGained(amt);
           break;
         }
         case 'growDamage': {
@@ -1126,6 +1275,8 @@ class Combat {
           // Every contract effect is simulated now; this guards effects added to the contract later.
           throw new Error(`Effect "${(e as Effect).type}" is not simulated yet`);
       }
+      // #113: a trigger (Juggernaut, Vicious's draw, Hellraiser's Strike...) can end combat during any effect.
+      if (!died && source === 'player') died = player.hp <= 0 ? 'player' : enemy.hp <= 0 ? 'enemy' : null;
       if (died) {
         // #104: the killing attack was followed by a fatal conditional: its `then` still resolves.
         const next = effects[index + 1];
@@ -1174,7 +1325,12 @@ class Combat {
       const died = this.resolveEffects('player', t.effects);
       if (died) return died;
     }
-    return null;
+    // #113 Feel No Pain (Block from a power) and Dark Embrace (draw), for every card exhausted.
+    const feelNoPain = this.power('feelNoPain');
+    if (feelNoPain > 0) this.gainPowerBlock(feelNoPain);
+    const darkEmbrace = this.power('darkEmbrace');
+    if (darkEmbrace > 0 && this.enemy.hp > 0) this.drawCards(darkEmbrace);
+    return player.hp <= 0 ? 'player' : this.enemy.hp <= 0 ? 'enemy' : null;
   }
 
   /** #108: take these cards out of `from` and exhaust them one by one, in order. */
@@ -1517,7 +1673,11 @@ class Combat {
    * and doesn't spend it. A card played this way counts as any played card (Replay, Exhaust,
    * Corruption, Powers); `exhaust` sends it to the Exhaust pile instead of the discard pile.
    */
-  private playFromPile(e: Extract<Effect, { type: 'playCards' }>, x: number): Side | null {
+  private playFromPile(
+    e: Extract<Effect, { type: 'playCards' }>,
+    x: number,
+    by: 'effect' | 'power' = 'effect',
+  ): Side | null {
     const { player } = this;
     const total = e.xTimes ? e.count * Math.max(0, x + (e.xBonus ?? 0)) : e.count;
     const matches = (c: CardInstance) => !e.filter || matchesFilter(c, e.filter);
@@ -1555,7 +1715,7 @@ class Combat {
         }
         continue;
       }
-      const died = this.playCard(card, card.xCost ? player.energy : 0, 'effect', e.exhaust);
+      const died = this.playCard(card, card.xCost ? player.energy : 0, by, e.exhaust);
       if (died) return died;
     }
     return null;
@@ -1948,6 +2108,17 @@ class Combat {
     c.hpLostThisTurn += amount;
     c.hpLostThisCombat += amount;
     c.hpLossesThisCombat++;
+    if (!this.playerTurn) return;
+    // #113 "on your turn" = from the start of the player's turn to its end (Crimson Mantle's and
+    // Inferno's own HP loss, Offering, Burn at the end of the turn; not the enemy's attacks).
+    const { player } = this;
+    const rupture = this.power('rupture');
+    if (rupture > 0) {
+      player.strength += rupture;
+      this.log?.push({ t: 'strength', side: 'player', amount: rupture, total: player.strength });
+    }
+    const inferno = this.power('inferno');
+    if (inferno > 0) this.powerDamage(inferno);
   }
 
   /**
@@ -1965,6 +2136,7 @@ class Combat {
     powers[power] = total;
     if (power === 'rollingBoulder') this.boulders.push(amount);
     if (power === 'crimsonMantle') this.mantleCopies++;
+    if (power === 'inferno' && amount > 0) this.infernoCopies++;
     this.log?.push({ t: 'powerApplied', side: 'player', power, amount, total });
     if (power === 'corruption' || power === 'powersCostLess') this.applyCostPower(power, amount);
   }
@@ -1993,7 +2165,7 @@ class Combat {
   /** #107: draw `amount` cards one by one (full hand → discarded, as at turn start). */
   private drawCards(amount: number): void {
     for (let i = 0; i < amount; i++) {
-      if (this.drawBlocked() || !this.drawOne()) return;
+      if (this.drawBlocked() || this.enemy.hp <= 0 || !this.drawOne()) return;
     }
   }
 
@@ -2004,7 +2176,7 @@ class Combat {
    */
   private drawUntil(stopOn: CardFilter | undefined): void {
     for (let i = 0; i < MAX_DRAW_UNTIL; i++) {
-      if (this.drawBlocked() || this.player.hand.length >= HAND_LIMIT) return;
+      if (this.drawBlocked() || this.player.hand.length >= HAND_LIMIT || this.enemy.hp <= 0) return;
       const card = this.drawOne();
       if (!card) return;
       if (stopOn && matchesFilter(card, stopOn)) return;
@@ -2053,6 +2225,9 @@ class Combat {
     const f = this.fighter(side);
     f.debuffs[kind] += amount;
     this.log?.push({ t: 'debuff', side, kind, amount, total: f.debuffs[kind] });
+    // #113 Vicious: applying Vulnerable (to the enemy) draws cards.
+    const vicious = side === 'enemy' && kind === 'vulnerable' && amount > 0 ? this.power('vicious') : 0;
+    if (vicious > 0) this.drawCards(vicious);
   }
 
   /** Shuffle the discard pile into the (empty) draw pile. Returns false when the discard pile is empty. */
@@ -2063,7 +2238,34 @@ class Combat {
     player.discardPile = [];
     this.rng.shuffle(player.drawPile);
     this.log?.push({ t: 'shuffle', reason: 'reshuffle', count: player.drawPile.length });
+    this.stratagem();
     return true;
+  }
+
+  /**
+   * #113 Stratagem: after the draw pile is reshuffled, choose a card from it (one per Stratagem) to
+   * put into the hand. Picks by Strategy.choose (the shared generate order when it has none).
+   * A full hand takes fewer; nothing is picked when the hand is full.
+   */
+  private stratagem(): void {
+    const { player } = this;
+    const n = Math.min(this.power('stratagem'), player.drawPile.length, HAND_LIMIT - player.hand.length);
+    if (n <= 0) return;
+    const options = [...player.drawPile];
+    const request: ChoiceRequest = {
+      purpose: 'move',
+      sourcePower: 'stratagem',
+      from: 'draw',
+      to: 'hand',
+      options,
+      min: n,
+      max: n,
+    };
+    for (const c of options.length === n ? options : this.choose(request, options)) {
+      player.drawPile.splice(player.drawPile.indexOf(c), 1);
+      const to = this.placeCard(c, 'hand');
+      this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: 'draw', to });
+    }
   }
 
   /**
@@ -2073,10 +2275,18 @@ class Combat {
   private drawOne(): CardInstance | null {
     const { player, log } = this;
     if (player.drawPile.length === 0 && !this.reshuffleDiscard()) return null;
+    // #113 Stratagem can take the last card of a fresh draw pile into the hand.
+    if (player.drawPile.length === 0) return null;
     const card = player.drawPile.pop() as CardInstance;
     log?.push({ t: 'draw', uid: card.uid, cardId: card.cardId });
     this.counters.cardsDrawnThisTurn++;
     this.counters.cardsDrawnThisCombat++;
+    // #113 Automation: every 10th card drawn while it is on gains energy.
+    const automation = this.power('automation');
+    if (automation > 0 && ++this.automationCount % AUTOMATION_CARDS === 0) {
+      player.energy += automation;
+      log?.push({ t: 'energy', amount: automation, total: player.energy });
+    }
     if (player.hand.length >= HAND_LIMIT) {
       player.discardPile.push(card);
       log?.push({ t: 'discard', uid: card.uid, cardId: card.cardId, reason: 'handLimit' });
@@ -2084,6 +2294,20 @@ class Combat {
       player.hand.push(card);
       // #115: "when drawn" triggers; a death is seen by the caller through player.hp.
       this.runJunkTriggers(card, 'drawn');
+      // #113 Hellraiser: a drawn card with "Strike" in its name is played for free (if it can be).
+      if (
+        this.power('hellraiser') > 0 &&
+        isStrikeName(card.name) &&
+        this.canPlayFree(card) &&
+        player.hp > 0 &&
+        this.enemy.hp > 0
+      ) {
+        const at = player.hand.indexOf(card);
+        if (at >= 0) {
+          player.hand.splice(at, 1);
+          this.playCard(card, card.xCost ? player.energy : 0, 'power');
+        }
+      }
     }
     return card;
   }

@@ -737,7 +737,7 @@ export interface CardInstance {
   costThisCombat?: number;
   /** #116: costs 0 for the rest of this turn (Infernal Blade, Discovery). Cleared at end of turn. */
   freeThisTurn?: boolean;
-  /** #114: Replay stacks; each play uses 1 and plays the card again (Hidden Gem). Order: open (#114). */
+  /** #114: Replay stacks: the card is played that many extra times each time it is played. It is never used up unless something says so (Trent #114 Q1). */
   replay?: number;
   /** #111: extra damage per hit gained in combat (Rampage, Maul, Thrash). */
   damageBonus?: number;

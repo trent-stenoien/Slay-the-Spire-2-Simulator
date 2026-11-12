@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "panache",
+      "amount": 10
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "panache",
+        "amount": 14
+      }
+    ]
+  },
   "description": "Every time you play 5 cards in a single turn, deal 10 damage to ALL enemies.",
   "upgradedDescription": "Every time you play 5 cards in a single turn, deal 14 damage to ALL enemies.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

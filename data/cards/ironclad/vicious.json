@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "vicious",
+      "amount": 1
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "vicious",
+        "amount": 2
+      }
+    ]
+  },
   "description": "Whenever you apply Vulnerable, draw 1 card.",
   "upgradedDescription": "Whenever you apply Vulnerable, draw 2 cards.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

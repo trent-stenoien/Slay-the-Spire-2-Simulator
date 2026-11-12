@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "hellraiser",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 1
   },
   "description": "Whenever you draw a card containing \"Strike\", it is played against a random enemy.",
   "upgradedDescription": "Whenever you draw a card containing \"Strike\", it is played against a random enemy.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

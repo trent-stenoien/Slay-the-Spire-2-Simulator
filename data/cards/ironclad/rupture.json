@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "rupture",
+      "amount": 1
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "rupture",
+        "amount": 2
+      }
+    ]
+  },
   "description": "Whenever you lose HP on your turn, gain 1 Strength.",
   "upgradedDescription": "Whenever you lose HP on your turn, gain 2 Strength.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

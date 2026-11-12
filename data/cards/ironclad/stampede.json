@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "stampede",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 1
   },
   "description": "At the end of your turn, 1 random Attack in your Hand is played against a random enemy.",
   "upgradedDescription": "At the end of your turn, 1 random Attack in your Hand is played against a random enemy.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -27,7 +27,7 @@
   },
   "description": "Deal damage equal to the number of cards played this combat.",
   "upgradedDescription": "Retain. / Deal damage equal to the number of cards played this combat.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
