@@ -32,7 +32,7 @@ wiki): none changes these relics' text, so the list text is main-release. Indivi
 | Sai | At the start of your turn, gain 7 Block. | yes |  |
 | Iron Club | Every 4 cards you play, draw 1 card. | yes | Counter starts at 0 each combat. |
 | Runic Pyramid | At the end of your turn, you no longer discard your Hand. | yes |  |
-| Bread | At the start of your first turn, lose 2 Energy. At the start of all other turns, gain 1 Energy. | no | Needs `loseEnergy` (#206, not simulated yet). Data entered. |
+| Bread | At the start of your first turn, lose 2 Energy. At the start of all other turns, gain 1 Energy. | yes | Every turn +1, turn 1 also −3 (`loseEnergy`, #206). |
 | Sozu | Gain 1 Energy at the start of each turn. You can no longer obtain Potions. | yes | `noPotions` blocks gainPotion rewards (Alchemize); potion slots are #204's. |
 | Velvet Choker | Gain 1 Energy at the start of each turn. You cannot play more than 6 cards per turn. | yes |  |
 | Belt Buckle | While you have no Potions, you have 2 additional Dexterity. | yes | Reads PlayerState.potions (none until #204 lands → always +2). |

@@ -17,10 +17,9 @@ describe('#205 relic setup', () => {
     expect(setupRelics(gameData, { characterId: 'ironclad', relics: [] })).toEqual([]);
   });
 
-  it('the picker lists only simulated relics (no Bread) for this character', () => {
+  it('the picker lists simulated relics for this character', () => {
     const ids = selectableRelics(gameData, 'ironclad').map((r) => r.id);
     expect(ids).toContain('vajra');
-    expect(ids).not.toContain('bread');
     expect(selectableRelics(gameData, 'silent').map((r) => r.id)).not.toContain('burning_blood');
   });
 
@@ -31,7 +30,7 @@ describe('#205 relic setup', () => {
     expect(decodeRelics(gameData, text)).toEqual({ ok: true, relics });
     expect(decodeRelics(gameData, 'Gy')).toEqual({ ok: true, relics: [{ relicId: 'girya', choice: 1 }] });
     expect(decodeRelics(gameData, '')).toEqual({ ok: true, relics: [] });
-    for (const bad of ['Zz', 'Gy4', 'Vj2', 'Vj,Vj', 'Br']) expect(decodeRelics(gameData, bad).ok).toBe(false);
+    for (const bad of ['Zz', 'Gy4', 'Vj2', 'Vj,Vj']) expect(decodeRelics(gameData, bad).ok).toBe(false);
   });
 
   it('the URL keeps relics only when they differ from the starting relic', () => {

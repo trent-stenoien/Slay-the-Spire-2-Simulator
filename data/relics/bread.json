@@ -26,6 +26,6 @@
     }
   ],
   "description": "At the start of your first turn, lose 2 Energy. At the start of all other turns, gain 1 Energy.",
-  "simulated": false,
+  "simulated": true,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -71,9 +71,13 @@ describe('#205 relic data', () => {
     expect(Object.values(gameData.relics!).find((r) => r.name === name)?.id).toBe('burning_blood');
   });
 
-  it('an unknown relic and an unsimulated relic (Bread) throw', () => {
+  it('an unknown relic and an unsimulated relic throw', () => {
     expect(() => quickWin(relics('nope'))).toThrow(/Unknown relic/);
-    expect(() => quickWin(relics('bread'))).toThrow(/not simulated yet/);
+    const d = world();
+    d.relics!.bread!.simulated = false;
+    expect(() => simulateCombat(d, cfg({ enemyId: 'weak', ...relics('bread') }), play(['strike']))).toThrow(
+      /not simulated yet/,
+    );
   });
 });
 
@@ -335,6 +339,14 @@ describe('#205 turn relics', () => {
         .views.slice(0, 3)
         .map((v) => v.state.player.energy),
     ).toEqual([3, 6, 9]);
+  });
+
+  it('Bread: 2 less energy on turn 1, 1 more on every later turn', () => {
+    expect(
+      turns(['bread'])
+        .views.slice(0, 3)
+        .map((v) => v.state.player.energy),
+    ).toEqual([1, 4, 4]);
   });
 
   it('Sozu and Velvet Choker: +1 energy every turn', () => {
