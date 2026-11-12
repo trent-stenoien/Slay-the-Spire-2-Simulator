@@ -1,6 +1,6 @@
 {
   "combat": "byrdonis-a0-01",
-  "source": "Played by hand in the real game; recorded on issue #201 (Combat 6)",
+  "source": "Played by hand in the real game; recorded on issue #201 (Combat 6). Note: Trent's recorded 30 HP (16 lost) is before the +6 Burning Blood heal; finalHp 36 is after it.",
   "gameVersion": "v0.107.1",
   "character": "ironclad",
   "ascension": 0,
@@ -129,13 +129,7 @@
   "result": {
     "outcome": "win",
     "turns": 3,
-    "finalHp": 30,
-    "hpLost": 16
-  },
-  "knownDiffs": [
-    {
-      "diff": "turn - result: hpLost: expected 16, engine 10",
-      "reason": "Record says 30 HP at the end (16 lost), read before the end-of-combat heal or Burning Blood did not heal in the game; the engine applies Burning Blood (+6) after the win, giving 36 HP and 10 lost. Needs checking against the screenshots/game."
-    }
-  ]
+    "finalHp": 36,
+    "hpLost": 10
+  }
 }
