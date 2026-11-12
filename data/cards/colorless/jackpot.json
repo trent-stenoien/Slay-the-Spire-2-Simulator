@@ -14,6 +14,18 @@
       "type": "attack",
       "damage": 25,
       "hits": 1
+    },
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "random",
+        "pool": {
+          "character": "own",
+          "cost": 0
+        }
+      },
+      "count": 3,
+      "to": "hand"
     }
   ],
   "upgraded": {
@@ -22,12 +34,25 @@
         "type": "attack",
         "damage": 30,
         "hits": 1
+      },
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "random",
+          "pool": {
+            "character": "own",
+            "cost": 0
+          }
+        },
+        "count": 3,
+        "to": "hand",
+        "upgraded": true
       }
     ]
   },
   "description": "Deal 25 damage. / Add 3 random 0 [E] cards into your Hand.",
   "upgradedDescription": "Deal 30 damage. / Add 3 random Upgraded 0 [E] cards into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

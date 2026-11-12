@@ -7,6 +7,7 @@ import {
   SIMULATED_POWERS,
   SIMULATED_FILTER_FIELDS,
   SIMULATED_REPEAT_COUNTERS,
+  SIMULATED_ENEMY_POWERS,
   SIMULATED_SCRIPTS,
   SIMULATED_CARD_SOURCES,
   UNSIMULATED_ADD_CARDS_FIELDS,
@@ -61,6 +62,12 @@ function unsimulatedIn(list: unknown): string | undefined {
   return undefined;
 }
 
+/** #116: a random pool is simulated except Splash's `otherCharacters`. */
+function unsimulatedPool(source: unknown): string | undefined {
+  const pool = isObj(source) ? source.pool : undefined;
+  return isObj(pool) && pool.character === 'otherCharacters' ? 'cardPool.otherCharacters' : undefined;
+}
+
 /**
  * The name to report when a simulated card's effect is not simulated, or undefined when it is.
  * `applyPower` is simulated only for SIMULATED_POWERS; `drawUntil.stopOn` and `exhaustCards.filter`
@@ -70,19 +77,29 @@ function unsimulatedIn(list: unknown): string | undefined {
 function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'applyPower') return SIMULATED_POWERS.has(String(e.power)) ? undefined : name;
   if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
+  if (name === 'applyEnemyPower') return SIMULATED_ENEMY_POWERS.has(String(e.power)) ? undefined : name;
   // #104: only "if Fatal" (the previous attack killed the enemy) is simulated, with simulated branches.
   if (name === 'conditional') {
     const fatal = isObj(e.if) && e.if.kind === 'fatal';
     return fatal ? (unsimulatedIn(e.then) ?? unsimulatedIn(e.else)) : name;
   }
   if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
-  // #114: addCards from the card itself or a copy of a picked card, without the #116 fields.
   if (name === 'addCards') {
     const kind = isObj(e.source) ? String(e.source.kind) : '';
-    const field = UNSIMULATED_ADD_CARDS_FIELDS.find((f) => has(e, f));
-    return SIMULATED_CARD_SOURCES.has(kind) && field === undefined
-      ? unsimulatedFilter(isObj(e.source) ? e.source.filter : undefined, 'addCards.source.filter')
-      : name;
+    // #114: a copy of the card itself or of a picked card, without the #116 fields.
+    if (SIMULATED_CARD_SOURCES.has(kind)) {
+      if (UNSIMULATED_ADD_CARDS_FIELDS.some((f) => has(e, f))) return name;
+      return unsimulatedFilter(isObj(e.source) ? e.source.filter : undefined, 'addCards.source.filter');
+    }
+    if (kind !== 'random' && kind !== 'card') return 'addCards.source.' + kind;
+    return unsimulatedPool(e.source);
+  }
+  if (name === 'transformCards') {
+    const kind = isObj(e.into) ? String(e.into.kind) : '';
+    if (kind !== 'random' && kind !== 'card') return 'transformCards.into.' + kind;
+    if (e.mode === 'choose') return 'transformCards.mode.choose';
+    if (e.from === 'exhaust') return 'transformCards.from.exhaust';
+    return unsimulatedPool(e.into) ?? unsimulatedFilter(e.filter, 'transformCards.filter');
   }
   if (name === 'playCards' || name === 'addReplay') {
     if (e.from === 'exhaust') return `${name}.from.exhaust`;

@@ -85,7 +85,7 @@ describe('#107 Draw cards', () => {
       ],
     });
     expect(c.brightest_flame).toMatchObject({
-      simulated: false,
+      simulated: true,
       effects: [energy(2), draw(2), { type: 'loseMaxHp', amount: 2 }],
       upgraded: { effects: [energy(3), draw(3), { type: 'loseMaxHp', amount: 2 }] },
     });
@@ -232,5 +232,70 @@ describe('#114 Play other cards', () => {
       effects: [atk(18, { allEnemies: true })],
       triggers: [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }],
     });
+  });
+});
+
+describe('#115 Statuses, healing and Max HP', () => {
+  const trig = (...effects: object[]) => [{ when: 'turnEndInHand', effects }];
+  const takes = (damage: number) => atk(damage);
+
+  it('Not Yet heals 10 (13 upgraded)', () => {
+    expect(c.not_yet).toMatchObject({
+      simulated: true,
+      effects: [{ type: 'heal', amount: 10 }],
+      upgraded: { effects: [{ type: 'heal', amount: 13 }] },
+    });
+  });
+
+  it('Feed raises Max HP only if Fatal; Brightest Flame loses 2 Max HP', () => {
+    const fed = (n: number) => ({
+      type: 'conditional',
+      if: { kind: 'fatal' },
+      then: [{ type: 'gainMaxHp', amount: n }],
+    });
+    expect(c.feed).toMatchObject({
+      simulated: true,
+      effects: [atk(10), fed(3)],
+      upgraded: { effects: [atk(12), fed(4)] },
+    });
+    expect(c.brightest_flame).toMatchObject({ simulated: true });
+  });
+
+  it('Apparition, The Gambit and Whistle apply their powers', () => {
+    expect(c.apparition).toMatchObject({
+      simulated: true,
+      effects: [{ type: 'applyPower', power: 'intangible', amount: 1 }],
+    });
+    const gambit = (n: number) => [block(n), { type: 'applyPower', power: 'gambit', amount: 1 }];
+    expect(c.the_gambit).toMatchObject({ simulated: true, effects: gambit(50), upgraded: { effects: gambit(75) } });
+    const stun = { type: 'applyEnemyPower', power: 'stun', amount: 1 };
+    expect(c.whistle).toMatchObject({
+      simulated: true,
+      effects: [atk(33), stun],
+      upgraded: { effects: [atk(44), stun] },
+    });
+  });
+
+  it('"Lose X HP" curses and statuses are unblockable HP loss in a turnEndInHand trigger', () => {
+    expect(c.bad_luck).toMatchObject({ simulated: true, triggers: trig(loseHp(13)) });
+    expect(c.beckon).toMatchObject({ simulated: true, triggers: trig(loseHp(6)) });
+    expect(c.regret).toMatchObject({
+      simulated: true,
+      triggers: trig({ type: 'repeat', per: 'handSize', effects: [loseHp(1)] }),
+    });
+  });
+
+  it('"Take X damage" curses and statuses are blockable damage in a turnEndInHand trigger', () => {
+    for (const [id, n] of [
+      ['burn', 2],
+      ['decay', 2],
+      ['disintegration', 6],
+      ['infection', 3],
+      ['toxic', 5],
+      ['wither', 3],
+    ] as const) {
+      expect(c[id]).toMatchObject({ simulated: true, triggers: trig(takes(n)) });
+    }
+    expect(c.wither!.upgraded).toMatchObject({ triggers: trig(takes(6)) });
   });
 });

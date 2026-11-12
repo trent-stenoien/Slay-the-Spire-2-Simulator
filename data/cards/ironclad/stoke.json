@@ -9,11 +9,58 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "exhaustCards",
+      "mode": "all"
+    },
+    {
+      "type": "repeat",
+      "per": "lastEffectCount",
+      "effects": [
+        {
+          "type": "addCards",
+          "source": {
+            "kind": "random",
+            "pool": {
+              "character": "own"
+            }
+          },
+          "count": 1,
+          "to": "hand"
+        }
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "exhaustCards",
+        "mode": "all"
+      },
+      {
+        "type": "repeat",
+        "per": "lastEffectCount",
+        "effects": [
+          {
+            "type": "addCards",
+            "source": {
+              "kind": "random",
+              "pool": {
+                "character": "own"
+              }
+            },
+            "count": 1,
+            "to": "hand",
+            "upgraded": true
+          }
+        ]
+      }
+    ]
+  },
   "description": "Exhaust your Hand. / Add 1 random card into your Hand for each card Exhausted.",
   "upgradedDescription": "Exhaust your Hand. / Add 1 random Upgraded card into your Hand for each card Exhausted.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

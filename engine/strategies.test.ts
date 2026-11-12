@@ -218,7 +218,18 @@ describe('pick helpers', () => {
   it('Vulnerable-appliers beat higher-damage attacks', () => {
     const us = makeCardInstance(cards.ultimate_strike!, true, 0);
     const bash = makeCardInstance(cards.bash!, false, 1);
-    expect(pickAttack([us, bash])!.cardId).toBe('bash');
+    expect(pickAttack([us, bash], 3)!.cardId).toBe('bash');
+  });
+
+  it('#11: Vulnerable first only with no enemy Vulnerable and energy for it plus another attack', () => {
+    const us = makeCardInstance(cards.ultimate_strike!, true, 0);
+    const bash = makeCardInstance(cards.bash!, false, 1);
+    const strike = makeCardInstance(cards[S]!, false, 2);
+    expect(pickAttack([strike, bash], 3)!.cardId).toBe('bash');
+    expect(pickAttack([strike, bash], 2)!.cardId).toBe('bash');
+    expect(pickAttack([us, bash], 2)!.cardId).toBe(us.cardId);
+    expect(pickAttack([us, bash], 3, 1)!.cardId).toBe(us.cardId);
+    expect(pickAttack([bash], 2)!.cardId).toBe('bash');
   });
 });
 

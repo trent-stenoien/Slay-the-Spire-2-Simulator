@@ -273,18 +273,6 @@ describe('#108 Drum of Battle (when exhausted)', () => {
       { when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 3 }] },
     ]);
   });
-
-  it('a deck card with a trigger the engine does not run yet throws', () => {
-    const d = data();
-    d.cards.howl = { ...cards.strike!, id: 'howl', triggers: [{ when: 'drawn', effects: [] }] };
-    expect(() =>
-      simulateCombat(
-        d,
-        cfg({ deck: deckOf(['howl', 1]) }),
-        scripted(() => []),
-      ),
-    ).toThrow(/trigger "drawn" is not simulated yet/);
-  });
 });
 
 describe('#108 Second Wind', () => {
@@ -333,10 +321,10 @@ describe('#108 Second Wind', () => {
     expect(t1.filter((e) => e.t === 'block')).toHaveLength(0);
   });
 
-  it('repeat with a counter other than lastEffectCount is not simulated yet', () => {
+  it('repeat with a counter other than lastEffectCount and handSize is not simulated yet', () => {
     const d = data();
     d.cards.probe = skill('probe', 'Pr', [
-      { type: 'repeat', per: 'handSize', effects: [{ type: 'gainBlock', amount: 1 }] },
+      { type: 'repeat', per: 'cardsPlayedThisTurn', effects: [{ type: 'gainBlock', amount: 1 }] },
     ]);
     expect(() =>
       simulateCombat(
@@ -344,7 +332,7 @@ describe('#108 Second Wind', () => {
         cfg({ deck: deckOf(['probe', 5]) }),
         scripted((t) => (t === 1 ? ['probe'] : [])),
       ),
-    ).toThrow(/Effect "repeat" is not simulated yet \(counter "handSize"\)/);
+    ).toThrow(/Effect "repeat" is not simulated yet \(counter "cardsPlayedThisTurn"\)/);
   });
 });
 

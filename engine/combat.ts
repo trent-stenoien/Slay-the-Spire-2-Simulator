@@ -1,4 +1,5 @@
 import { createRng } from './rng';
+import { cardPool, chooseGenerated } from './generate';
 import { patternMoveIds, patternPool, resolveEnemy } from './enemy';
 import { attackDamage, attackHits, blockGain, isPlayable } from './rules';
 import { chooseExhaust, createStrategy } from './strategies';
@@ -8,8 +9,8 @@ import {
   type CardDef,
   type CardDestination,
   type CardFilter,
-  type CardSource,
   type CardInstance,
+  type CardPool,
   type CharacterDef,
   type ChoiceRequest,
   type CombatConfig,
@@ -189,8 +190,8 @@ export function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
   return true;
 }
 
-/** Card triggers the engine runs (#108 exhausted, #114 turnEndInExhaust); the others (#115) are not simulated yet. */
-const SIMULATED_TRIGGERS: readonly string[] = ['exhausted', 'turnEndInExhaust'];
+/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */
+const SIMULATED_TRIGGERS: readonly string[] = ['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust'];
 
 /** #108: per-hit damage an Attack adds to Thrash: its first attack effect's base damage plus its own bonus. */
 export function perHitBaseDamage(card: CardInstance): number {
@@ -224,7 +225,21 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'powersCostLess',
   'upgradeAtCombatEnd',
   'corruption',
+  'calamity',
+  'helloWorld',
+  'entropy',
+  'intangible',
+  'gambit',
 ];
+
+/** #116 Hello World: a random Common card from the player's character. */
+const HELLO_WORLD_POOL: CardPool = { character: 'own', rarity: ['common'] };
+
+/** #116 Entropy: a transformed card becomes any random card of the player's character. */
+const ENTROPY_POOL: CardPool = { character: 'own' };
+
+/** #116 Calamity: each Attack played adds a random Attack of the player's character. */
+const CALAMITY_POOL: CardPool = { character: 'own', types: ['attack'] };
 
 /** #109 Rolling Boulder: its damage grows by this much after each hit ("increase this damage by 5"). */
 export const ROLLING_BOULDER_GROWTH = 5;
@@ -249,13 +264,20 @@ class Combat {
   private boulders: number[] = [];
   /** #135: Crimson Mantle copies played; each loses 1 HP a turn and adds its own Block. */
   private mantleCopies = 0;
+  /** #116: uid for the next created card (the deck uses 0..n-1). */
+  private nextUid: number;
+  /** #116: pools already computed, keyed by pool + upgraded. */
+  private readonly pools = new Map<string, CardDef[]>();
+  /** #116: cost a card had before it became free this turn (restored at the end of the turn). */
+  private readonly freeBackup = new Map<number, number | null>();
+  /** #115: Max HP at the start of combat; `hpLost` is measured against it (Feed and healing lower it). */
+  private readonly startMaxHp: number;
   /** #104: gold and potions gained so far this combat (rewards only; no combat effect). */
   private gold = 0;
   private potions = 0;
-  /** #114: the uid of the next card created in combat (deck uids are 0..n-1). */
-  private nextUid = 0;
 
   constructor(
+    private readonly data: GameData,
     private readonly config: CombatConfig,
     private readonly character: CharacterDef,
     private readonly enemyDef: EnemyDef,
@@ -264,6 +286,8 @@ class Combat {
     logging: boolean,
   ) {
     this.log = logging ? [] : null;
+    this.nextUid = deck.length;
+    this.startMaxHp = character.maxHp;
     // RNG use order is fixed: (1) enemy HP, (2) random cycle start or first random pick (when
     // there is no opener), (3) shuffle. Later random picks happen right after each enemy move.
     this.rng = createRng(config.seed);
@@ -272,7 +296,6 @@ class Combat {
     const startIndex =
       pattern.type === 'cycle' && pattern.start === 'random' ? this.rng.int(0, pattern.order.length - 1) : 0;
     const firstMove = pattern.opener?.[0] ?? this.poolMove(startIndex, null);
-    this.nextUid = deck.length;
     this.rng.shuffle(deck);
     this.state = {
       turn: 0,
@@ -353,6 +376,7 @@ class Combat {
     player.energy = this.character.energyPerTurn;
     for (let i = 0; i < this.character.drawPerTurn; i++) {
       if (!this.drawOne()) break;
+      if (player.hp <= 0) return 'loss';
     }
     return this.turnStartPowers();
   }
@@ -407,6 +431,23 @@ class Combat {
               total: this.boulders[i]!,
             });
           }
+          break;
+        case 'helloWorld':
+          this.addCards({
+            type: 'addCards',
+            source: { kind: 'random', pool: HELLO_WORLD_POOL },
+            count: amount,
+            to: 'hand',
+          });
+          break;
+        case 'entropy':
+          this.transformCards({
+            type: 'transformCards',
+            from: 'hand',
+            count: amount,
+            mode: 'random',
+            into: { kind: 'random', pool: ENTROPY_POOL },
+          });
           break;
         default:
           break;
@@ -468,6 +509,16 @@ class Combat {
       const died = this.playCard(card, x);
       if (died === 'player' || player.hp <= 0) return 'loss';
       if (died === 'enemy' || enemy.hp <= 0) return 'win';
+      // #116 Calamity: after an Attack is played, add random Attack(s) to the hand.
+      const calamity = card.type === 'attack' ? this.power('calamity') : 0;
+      if (calamity > 0) {
+        this.addCards({
+          type: 'addCards',
+          source: { kind: 'random', pool: CALAMITY_POOL },
+          count: calamity,
+          to: 'hand',
+        });
+      }
     }
     return null;
   }
@@ -519,13 +570,27 @@ class Combat {
 
   /** What the strategy sees right now: current hand, energy and the enemy's intent. */
   private view(): StrategyView {
-    const { player, enemy } = this;
+    const { player } = this;
     const { id: moveId, move } = this.currentMove();
     return {
       state: this.state,
-      intent: computeIntent(moveId, move, enemy, player),
+      intent: this.intent(moveId, move),
       playable: player.hand.filter((c) => isPlayable(c, player.energy)),
     };
+  }
+
+  /** #115: the intent the player sees: a Stunned enemy does nothing; Intangible makes every hit 1. */
+  private intent(moveId: string, move: EnemyMove): EnemyIntent {
+    const { enemy, player } = this;
+    if (this.enemyStunned()) return { moveId, name: move.name, attacks: [], totalIncoming: 0 };
+    const intent = computeIntent(moveId, move, enemy, player);
+    if (this.power('intangible') <= 0) return intent;
+    const attacks = intent.attacks.map((a) => ({ ...a, damagePerHit: Math.min(a.damagePerHit, 1) }));
+    return { ...intent, attacks, totalIncoming: attacks.reduce((n, a) => n + a.damagePerHit * a.hits, 0) };
+  }
+
+  private enemyStunned(): boolean {
+    return (this.enemy.powers?.stun ?? 0) > 0;
   }
 
   /**
@@ -538,6 +603,10 @@ class Combat {
     // #109 Plating: gain Block equal to it at the end of your turn.
     const plating = this.power('plating');
     if (plating > 0) this.gainPowerBlock(plating);
+    // #115: curses and statuses in hand act (Burn, Bad Luck), before the hand is discarded.
+    for (const card of [...player.hand]) {
+      if (this.runJunkTriggers(card, 'turnEndInHand')) return 'loss';
+    }
     const retained: CardInstance[] = [];
     for (const card of player.hand) {
       if (card.keywords.includes('ethereal')) {
@@ -557,6 +626,7 @@ class Combat {
       delete player.powers.noDraw;
       log?.push({ t: 'powerRemoved', side: 'player', power: 'noDraw' });
     }
+    this.endFreeCosts();
     this.tickDebuffs('player');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'player' });
     return null;
@@ -577,12 +647,21 @@ class Combat {
       if (enemy.hp <= 0) return 'win';
     }
     const { id: moveId, move } = this.currentMove();
-    log?.push({ t: 'enemyMove', moveId, name: move.name });
-    const died = this.resolveEffects('enemy', move.effects);
+    let died: Side | null = null;
+    if (this.enemyStunned()) {
+      // #115 Stun: the move is skipped (no damage) but the pattern still advances (#148 confirms).
+      log?.push({ t: 'enemySkip', reason: 'stun' });
+      this.applyEnemyPower('stun', -1);
+    } else {
+      log?.push({ t: 'enemyMove', moveId, name: move.name });
+      died = this.resolveEffects('enemy', move.effects);
+    }
     this.advancePattern(moveId);
     if (died === 'player' || player.hp <= 0) return 'loss';
     // #109 Thorns can kill the enemy during its own move.
     if (died === 'enemy' || enemy.hp <= 0) return 'win';
+    // #115 Intangible lasts through the enemy's next move, then goes down by 1.
+    if (this.power('intangible') > 0) this.applyPower('intangible', -1);
     // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
     this.tickDebuffs('enemy');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'enemy' });
@@ -702,19 +781,41 @@ class Combat {
           }
           this.applyPower(e.power, e.amount);
           break;
+        case 'applyEnemyPower':
+          if (source !== 'player' || e.power !== 'stun') {
+            throw new Error(`Effect "applyEnemyPower" is not simulated yet (power "${e.power}")`);
+          }
+          this.applyEnemyPower('stun', e.amount);
+          break;
+        case 'heal':
+        case 'gainMaxHp':
+        case 'loseMaxHp':
+          if (source !== 'player') throw new Error(`Effect "${e.type}" is not simulated yet on enemy moves`);
+          if (e.type === 'heal') this.heal(e.amount);
+          else this.changeMaxHp(e.type === 'gainMaxHp' ? e.amount : -e.amount);
+          break;
         case 'exhaustCards':
           if (source !== 'player') throw new Error('Effect "exhaustCards" is not simulated yet on enemy moves');
           ({ count, died } = this.exhaustCards(e, card));
           break;
         case 'repeat': {
           // #108: only "for each card Exhausted" (Second Wind) so far; other counters are #111.
-          if (source !== 'player' || e.per !== 'lastEffectCount') {
+          if (source !== 'player' || (e.per !== 'lastEffectCount' && e.per !== 'handSize')) {
             throw new Error(`Effect "repeat" is not simulated yet (counter "${e.per}")`);
           }
-          const n = lastCount * (e.times ?? 1);
+          // #115: handSize (Regret) counts the cards in hand when the effect starts.
+          const n = (e.per === 'handSize' ? player.hand.length : lastCount) * (e.times ?? 1);
           for (let i = 0; i < n && !died; i++) died = this.resolveEffects(source, e.effects, x, card);
           break;
         }
+        case 'addCards':
+          if (source !== 'player') throw new Error('Enemies do not create cards');
+          count = this.addCards(e, card);
+          break;
+        case 'transformCards':
+          if (source !== 'player') throw new Error('Enemies do not transform cards');
+          count = this.transformCards(e);
+          break;
         case 'gainGold':
           if (source !== 'player') throw new Error('Enemies do not gain gold');
           this.gold += e.amount;
@@ -740,12 +841,9 @@ class Combat {
           if (source !== 'player') throw new Error('Effect "addReplay" is not simulated yet on enemy moves');
           this.addReplay(e);
           break;
-        case 'addCards':
-          if (source !== 'player') throw new Error('Effect "addCards" is not simulated yet on enemy moves');
-          this.addCards(e, card);
-          break;
         case 'script':
           if (source === 'player' && e.id === 'playSelf') died = this.playSelf(card);
+          else if (source === 'player' && e.id === 'primalForcePlus') count = this.primalForcePlus();
           else if (source === 'player' && e.id === 'fiendFire') died = this.fiendFire(e.values?.[0] ?? 0);
           else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
@@ -863,7 +961,8 @@ class Combat {
   /** #108: ask the strategy to pick cards (the shared exhaust order if it has no `choose`) and check the answer. */
   private choose(request: ChoiceRequest, options: readonly CardInstance[]): CardInstance[] {
     const view = this.view();
-    const { uids } = this.strategy.choose ? this.strategy.choose(view, request) : chooseExhaust(view, request);
+    const fallback = () => (request.purpose === 'generate' ? chooseGenerated(request) : chooseExhaust(view, request));
+    const { uids } = this.strategy.choose ? this.strategy.choose(view, request) : fallback();
     const picked = uids.map((uid) => options.find((c) => c.uid === uid));
     if (
       uids.length < request.min ||
@@ -1030,12 +1129,12 @@ class Combat {
   }
 
   /**
-   * #114 `addCards`: put `count` copies of a card in `to`: of the card being played (`self`, Anger)
-   * or of a card picked from a pile (`copyOf`, Dual Wield: one card, `count` copies). A copy keeps
-   * the card's upgrade, damage bonus, Replay and cost for the rest of combat, but not "this turn"
-   * costs. Sources 'card' / 'random' and the other fields wait for #116.
+   * #114 `addCards` for sources `self` and `copyOf`: put `count` copies of a card in `to`: of the
+   * card being played (`self`, Anger) or of a card picked from a pile (`copyOf`, Dual Wield: one
+   * card, `count` copies). A copy keeps the card's upgrade, damage bonus, Replay and cost for the
+   * rest of combat, but not "this turn" costs. Returns how many cards were created.
    */
-  private addCards(e: Extract<Effect, { type: 'addCards' }>, card: CardInstance | undefined): void {
+  private addCopies(e: Extract<Effect, { type: 'addCards' }>, card: CardInstance | undefined): number {
     const { source } = e;
     if (
       (source.kind !== 'self' && source.kind !== 'copyOf') ||
@@ -1059,47 +1158,209 @@ class Combat {
       }
       originals = this.selectCards(candidates, source.mode, 1, request);
     }
+    let made = 0;
     for (const original of originals) {
-      for (let i = 0; i < e.count; i++) this.addCopy(original, e.to, source.kind);
+      for (let i = 0; i < e.count; i++, made++) {
+        const copy: CardInstance = {
+          ...original,
+          uid: this.nextUid++,
+          keywords: [...original.keywords],
+          effects: original.effects.map((fx) => ({ ...fx })),
+          generated: true,
+        };
+        if (original.triggers) {
+          copy.triggers = original.triggers.map((t) => ({ when: t.when, effects: [...t.effects] }));
+        }
+        delete copy.costThisTurn;
+        delete copy.freeThisTurn;
+        const to = this.placeCard(copy, e.to);
+        this.log?.push({ t: 'generated', uid: copy.uid, cardId: copy.cardId, to, source: source.kind });
+      }
     }
+    return made;
   }
 
-  /** #114: a new card (new uid, `generated`) copied from `original`, put in `to`. A full hand sends it to the discard pile. */
-  private addCopy(original: CardInstance, to: CardDestination, kind: CardSource['kind']): void {
-    const { player } = this;
-    const copy: CardInstance = {
-      ...original,
-      uid: this.nextUid++,
-      keywords: [...original.keywords],
-      effects: original.effects.map((fx) => ({ ...fx })),
-      generated: true,
-    };
-    if (original.triggers) copy.triggers = original.triggers.map((t) => ({ when: t.when, effects: [...t.effects] }));
-    delete copy.costThisTurn;
-    delete copy.freeThisTurn;
-    let where = to;
-    if (to === 'hand' && player.hand.length >= HAND_LIMIT) where = 'discard';
-    switch (where) {
+  /** #116: the cards a pool can produce for this character (cached). */
+  private poolCards(pool: CardPool, upgraded: boolean): CardDef[] {
+    const key = `${JSON.stringify(pool)}|${upgraded}`;
+    let cards = this.pools.get(key);
+    if (!cards) {
+      cards = cardPool(this.data.cards, this.character.code, pool, upgraded);
+      this.pools.set(key, cards);
+    }
+    return cards;
+  }
+
+  /** #116: a new card instance with a fresh uid, marked generated, with cost powers applied. */
+  private createCard(def: CardDef, upgraded: boolean): CardInstance {
+    const c = makeCardInstance(def, upgraded, this.nextUid++);
+    c.generated = true;
+    this.applyCostPowersTo(c);
+    return c;
+  }
+
+  /** #109 Corruption and Curious apply to cards made later too. */
+  private applyCostPowersTo(c: CardInstance): void {
+    if (c.cost === null || c.xCost) return;
+    if (c.type === 'skill' && this.power('corruption')) c.cost = 0;
+    if (c.type === 'power') c.cost = Math.max(0, c.cost - this.power('powersCostLess'));
+  }
+
+  /** #116: put a created card in `to`. A full hand sends it to the discard pile. Returns where it went. */
+  private placeCard(c: CardInstance, to: CardDestination): CardDestination {
+    const p = this.player;
+    let dest = to;
+    if (dest === 'hand' && p.hand.length >= HAND_LIMIT) dest = 'discard';
+    switch (dest) {
       case 'hand':
-        player.hand.push(copy);
+        p.hand.push(c);
         break;
       case 'drawTop':
-        player.drawPile.push(copy);
+        p.drawPile.push(c);
         break;
       case 'drawBottom':
-        player.drawPile.unshift(copy);
+        p.drawPile.unshift(c);
         break;
       case 'drawRandom':
-        player.drawPile.splice(this.rng.int(0, player.drawPile.length), 0, copy);
+        p.drawPile.splice(this.rng.int(0, p.drawPile.length), 0, c);
         break;
       case 'discard':
-        player.discardPile.push(copy);
+        p.discardPile.push(c);
         break;
       case 'exhaust':
-        player.exhaustPile.push(copy);
+        p.exhaustPile.push(c);
         break;
     }
-    this.log?.push({ t: 'generated', uid: copy.uid, cardId: copy.cardId, to: where, source: kind });
+    return dest;
+  }
+
+  /** `addCards`: #114 copies (self, copyOf), #116 sources `random` and `card`. Returns how many cards were created. */
+  private addCards(e: Extract<Effect, { type: 'addCards' }>, card?: CardInstance): number {
+    const { source } = e;
+    if (source.kind === 'self' || source.kind === 'copyOf') return this.addCopies(e, card);
+    const upgraded = e.upgraded === true;
+    let made = 0;
+    for (let i = 0; i < e.count; i++) {
+      let def: CardDef | undefined;
+      if (source.kind === 'card') {
+        def = this.data.cards[source.cardId];
+        if (!def) throw new Error(`Unknown card "${source.cardId}"`);
+      } else {
+        const pool = this.poolCards(source.pool, upgraded);
+        if (pool.length === 0) continue;
+        if (e.options !== undefined && e.options > 1) {
+          // Discovery-style: show distinct candidates, the strategy keeps one.
+          const rest = [...pool];
+          const shown: CardInstance[] = [];
+          for (let k = 0; k < e.options && rest.length > 0; k++) {
+            shown.push(this.createCard(rest.splice(this.rng.int(0, rest.length - 1), 1)[0]!, upgraded));
+          }
+          let keep = shown[0]!;
+          if (shown.length > 1) {
+            const request: ChoiceRequest = { purpose: 'generate', to: e.to, options: shown, min: 1, max: 1 };
+            if (card) {
+              request.sourceUid = card.uid;
+              request.sourceCardId = card.cardId;
+            }
+            keep = this.choose(request, shown)[0]!;
+          }
+          this.finishCreated(keep, e);
+          made++;
+          continue;
+        }
+        def = pool[this.rng.int(0, pool.length - 1)]!;
+      }
+      this.finishCreated(this.createCard(def, upgraded), e);
+      made++;
+    }
+    return made;
+  }
+
+  /** #116: apply the effect's cost overrides to a new card, place it and log it. */
+  private finishCreated(c: CardInstance, e: Extract<Effect, { type: 'addCards' }>): void {
+    if (c.cost !== null && !c.xCost) {
+      if (e.costThisCombat !== undefined) {
+        c.cost = e.costThisCombat;
+        c.costThisCombat = e.costThisCombat;
+        this.log?.push({ t: 'costChanged', uid: c.uid, cardId: c.cardId, cost: c.cost, duration: 'combat' });
+      }
+      if (e.freeThisTurn) {
+        this.freeBackup.set(c.uid, c.cost);
+        c.cost = 0;
+        c.freeThisTurn = true;
+        this.log?.push({ t: 'costChanged', uid: c.uid, cardId: c.cardId, cost: 0, duration: 'turn' });
+      }
+    }
+    const to = this.placeCard(c, e.to);
+    this.log?.push({ t: 'generated', uid: c.uid, cardId: c.cardId, to, source: e.source.kind });
+  }
+
+  /** #116: cards that were free this turn cost what they did before (Corruption still makes Skills free). */
+  private endFreeCosts(): void {
+    if (this.freeBackup.size === 0) return;
+    const p = this.player;
+    for (const pile of [p.hand, p.drawPile, p.discardPile, p.exhaustPile]) {
+      for (const c of pile) {
+        if (!c.freeThisTurn) continue;
+        delete c.freeThisTurn;
+        const before = this.freeBackup.get(c.uid) ?? null;
+        c.cost = c.type === 'skill' && this.power('corruption') && before !== null ? 0 : before;
+      }
+    }
+    this.freeBackup.clear();
+  }
+
+  /** #116: the card keeps its uid and place but becomes `def` (not upgraded unless asked). */
+  private transformInto(c: CardInstance, pile: CardInstance[], def: CardDef, upgraded: boolean): void {
+    const next = makeCardInstance(def, upgraded, c.uid);
+    if (c.generated) next.generated = true;
+    this.applyCostPowersTo(next);
+    pile[pile.indexOf(c)] = next;
+    this.log?.push({ t: 'transformed', uid: c.uid, fromCardId: c.cardId, toCardId: def.id });
+  }
+
+  /** #116 `transformCards`: modes random / all / top; replacements from a card or a random pool. Returns how many changed. */
+  private transformCards(e: Extract<Effect, { type: 'transformCards' }>): number {
+    if (e.mode === 'choose') throw new Error('Effect "transformCards" is not simulated yet (mode "choose")');
+    if (e.into.kind !== 'random' && e.into.kind !== 'card') {
+      throw new Error(`Effect "transformCards" is not simulated yet (into "${e.into.kind}")`);
+    }
+    const pile = this.pile(e.from);
+    const candidates = pile.filter((c) => !e.filter || matchesFilter(c, e.filter));
+    const n = Math.min(e.count ?? candidates.length, candidates.length);
+    let picked: CardInstance[];
+    if (e.mode === 'all') picked = candidates;
+    else if (e.mode === 'top') picked = candidates.slice(candidates.length - n).reverse();
+    else {
+      const rest = [...candidates];
+      picked = [];
+      for (let i = 0; i < n; i++) picked.push(rest.splice(this.rng.int(0, rest.length - 1), 1)[0]!);
+    }
+    let count = 0;
+    for (const c of picked) {
+      let def: CardDef | undefined;
+      if (e.into.kind === 'card') {
+        def = this.data.cards[e.into.cardId];
+        if (!def) throw new Error(`Unknown card "${e.into.cardId}"`);
+      } else {
+        const pool = this.poolCards(e.into.pool, false);
+        if (pool.length === 0) continue;
+        def = pool[this.rng.int(0, pool.length - 1)]!;
+      }
+      this.transformInto(c, pile, def, false);
+      count++;
+    }
+    return count;
+  }
+
+  /** #116 Primal Force+: every Attack in hand becomes Giant Rock+ (the contract's card source has no "upgraded"). */
+  private primalForcePlus(): number {
+    const rock = this.data.cards['giant_rock'];
+    if (!rock) throw new Error('Unknown card "giant_rock"');
+    const { hand } = this.player;
+    const attacks = hand.filter((c) => c.type === 'attack');
+    for (const c of attacks) this.transformInto(c, hand, rock, true);
+    return attacks.length;
   }
 
   /** #106: the player loses HP directly (ignores Block; not an attack). Returns true if they died. */
@@ -1108,6 +1369,76 @@ class Combat {
     player.hp -= amount;
     this.recordHpLoss(amount);
     this.log?.push({ t: 'loseHp', side: 'player', amount, hpAfter: Math.max(player.hp, 0) });
+    return player.hp <= 0;
+  }
+
+  /** #115: the player heals; only the HP actually restored counts (and lowers `hpLost`). */
+  private heal(amount: number): void {
+    const { player } = this;
+    const healed = Math.max(0, Math.min(amount, player.maxHp - player.hp));
+    if (healed === 0) return;
+    player.hp += healed;
+    this.log?.push({ t: 'heal', amount: healed, hpAfter: player.hp });
+  }
+
+  /**
+   * #115: Max HP changes. A gain (Feed) raises current HP too; a loss (Brightest Flame) only lowers
+   * current HP when it is above the new Max HP. `hpLost` is Start Max HP − final HP, so a gain
+   * reduces it and HP removed by the cap counts as lost.
+   */
+  private changeMaxHp(delta: number): void {
+    const { player } = this;
+    const maxHp = Math.max(1, player.maxHp + delta);
+    const applied = maxHp - player.maxHp;
+    player.maxHp = maxHp;
+    if (applied > 0) player.hp += applied;
+    else player.hp = Math.min(player.hp, maxHp);
+    this.log?.push({ t: 'maxHp', amount: applied, maxHpAfter: maxHp, hpAfter: player.hp });
+  }
+
+  /** #115: change the enemy's Stun (negative to use it up); it is removed at 0. */
+  private applyEnemyPower(power: 'stun', amount: number): void {
+    const { enemy, log } = this;
+    const powers = (enemy.powers ??= {});
+    const total = (powers[power] ?? 0) + amount;
+    if (total <= 0) {
+      delete powers[power];
+      log?.push({ t: 'powerRemoved', side: 'enemy', power });
+      return;
+    }
+    powers[power] = total;
+    log?.push({ t: 'powerApplied', side: 'enemy', power, amount, total });
+  }
+
+  /**
+   * #115: run a curse or status trigger. Its `attack` effects are damage to the player (Burn,
+   * Decay): Block absorbs it, Intangible makes it 1. `loseHp` ignores Block. Returns true if the
+   * player died.
+   */
+  private runJunkTriggers(card: CardInstance, when: 'drawn' | 'turnEndInHand'): boolean {
+    for (const t of card.triggers ?? []) {
+      if (t.when !== when) continue;
+      for (const e of t.effects) {
+        if (e.type === 'attack') {
+          for (let h = 0; h < e.hits; h++) if (this.takeDamage(e.damage)) return true;
+        } else if (this.resolveEffects('player', [e], 0, card) === 'player') {
+          return true;
+        }
+      }
+    }
+    return this.player.hp <= 0;
+  }
+
+  /** #115: non-attack damage to the player (Burn): Intangible → 1, Block absorbs. Returns true if they died. */
+  private takeDamage(damage: number): boolean {
+    const { player } = this;
+    const amount = this.power('intangible') > 0 ? Math.min(damage, 1) : damage;
+    const blocked = Math.min(player.block, amount);
+    player.block -= blocked;
+    const hpLoss = amount - blocked;
+    player.hp -= hpLoss;
+    this.log?.push({ t: 'damage', source: 'player', target: 'player', amount, blocked, hpLoss });
+    this.recordHpLoss(hpLoss);
     return player.hp <= 0;
   }
 
@@ -1193,7 +1524,9 @@ class Combat {
     const cruelty = target === 'enemy' ? this.power('cruelty') : 0;
     // #4 Shrink is on the player only (v1), so only the player's attacks shrink.
     const shrink = source === 'player' ? (this.player.shrink ?? 0) : 0;
-    const perHit = attackDamage(base, a.strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink);
+    let perHit = attackDamage(base, a.strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink);
+    // #115 Intangible: every hit on the player is 1 (a 0-damage hit stays 0).
+    if (target === 'player' && this.power('intangible') > 0) perHit = Math.min(perHit, 1);
     for (let h = 0; h < hits; h++) {
       const blocked = Math.min(t.block, perHit);
       t.block -= blocked;
@@ -1201,6 +1534,8 @@ class Combat {
       t.hp -= hpLoss;
       this.log?.push({ t: 'damage', source, target, amount: perHit, blocked, hpLoss });
       if (target === 'player') this.recordHpLoss(hpLoss);
+      // #115 The Gambit: unblocked attack damage from the enemy loses the combat.
+      if (target === 'player' && hpLoss > 0 && this.power('gambit') > 0) t.hp = 0;
       if (t.hp <= 0) return target;
       const thorns = target === 'player' ? this.power('thorns') : 0;
       if (thorns > 0 && this.powerDamage(thorns)) return source;
@@ -1241,6 +1576,8 @@ class Combat {
       log?.push({ t: 'discard', uid: card.uid, cardId: card.cardId, reason: 'handLimit' });
     } else {
       player.hand.push(card);
+      // #115: "when drawn" triggers; a death is seen by the caller through player.hp.
+      this.runJunkTriggers(card, 'drawn');
     }
     return card;
   }
@@ -1258,7 +1595,8 @@ class Combat {
 
   private finish(outcome: Outcome): CombatResult {
     const { player, enemy, log } = this;
-    const hpLost = player.maxHp - Math.max(player.hp, 0);
+    // #115: against the Max HP at the start of combat; healing and Feed lower it, never below 0.
+    const hpLost = Math.max(0, this.startMaxHp - Math.max(player.hp, 0));
     const result: CombatResult = {
       seed: this.config.seed,
       outcome,
@@ -1289,7 +1627,7 @@ export function simulateCombat(
   if (!character) throw new Error(`Unknown character "${config.characterId}"`);
   const enemyDef = resolveCheckedEnemy(data, config);
   const deck = buildDeck(data, config);
-  return new Combat(config, character, enemyDef, deck, strategy, options?.log === true).run();
+  return new Combat(data, config, character, enemyDef, deck, strategy, options?.log === true).run();
 }
 
 export const runCombat: RunCombat = (data, config, options) =>

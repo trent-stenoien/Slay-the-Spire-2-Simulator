@@ -67,7 +67,12 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
   lasts through that player turn and the enemy's next move).
 - Ascension overrides are cumulative (A9 applies A8 then A9). Ascender's Bane is
   added automatically at A5+ via `manifest.ascensionCards`.
-- `hpLost` is measured before any healing. Burning Blood is not simulated.
+- `hpLost` = Max HP at the start of combat − final HP (minimum 0). Healing (Not Yet) lowers it by the
+  HP actually healed; a Max HP gain (Feed) raises current HP too, so it lowers it; HP removed when
+  Max HP drops below current HP (Brightest Flame) counts as lost. Burning Blood is not simulated.
+- Intangible makes every enemy hit on the player 1 (and curse/status damage); Gambit loses the combat
+  on any unblocked enemy attack damage. "Take X damage" statuses are blockable; "Lose X HP" ones are not.
+  A Stunned enemy skips its move (no damage) but its pattern still advances (#148 confirms).
 - Turn cap is 100 (`TURN_CAP`). Codes (cards, enemies, characters) are permanent; codes of
   removed cards are kept in `data/reserved-codes.json` and must never be reused.
 

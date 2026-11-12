@@ -666,11 +666,11 @@ describe('#114 addCards: copies (Anger, Dual Wield)', () => {
     expect(gen.map((e) => e.to)).toEqual(['hand', 'discard']);
   });
 
-  it('sources other than self / copyOf, and the #116 fields, still throw', () => {
+  it('copies do not support the #116 fields (they throw)', () => {
     const d = data('pad');
     for (const effect of [
-      { type: 'addCards', source: { kind: 'card', cardId: 'strike' }, count: 1, to: 'hand' },
       { type: 'addCards', source: { kind: 'self' }, count: 1, to: 'hand', freeThisTurn: true },
+      { type: 'addCards', source: { kind: 'self' }, count: 1, to: 'hand', options: 2 },
     ] as Effect[]) {
       d.cards.probe = def('probe', 0, [effect], { keywords: ['innate'] });
       expect(() =>

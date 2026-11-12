@@ -6,12 +6,24 @@ import { cfg, deckOf, passive, scripted, withEnemy } from './combatTestHelpers';
 import type { CardDef } from './types';
 
 /**
- * Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
- * #114 playCards and addReplay (tested in combat.mechanics.test.ts / combat.exhaust.test.ts /
- * combat.playCards.test.ts). The samples of repeat (a counter other than lastEffectCount), script (an id
- * other than fiendFire / thrash / playSelf) and addCards (a random source, #116) still throw.
+ * Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards, #116 addCards and
+ * transformCards, #115 heal, gainMaxHp, loseMaxHp (combat.statuses.test.ts), #114 playCards and addReplay
+ * (combat.playCards.test.ts). The samples of repeat (a counter other than lastEffectCount) and script
+ * (an id other than fiendFire / thrash / primalForcePlus / playSelf) still throw.
  */
-const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards', 'playCards', 'addReplay'];
+const SIMULATED = [
+  'loseHp',
+  'draw',
+  'drawUntil',
+  'exhaustCards',
+  'heal',
+  'gainMaxHp',
+  'loseMaxHp',
+  'addCards',
+  'transformCards',
+  'playCards',
+  'addReplay',
+];
 
 describe('#105 contract effects are not simulated yet', () => {
   it('covers every contract effect type exactly once', () => {

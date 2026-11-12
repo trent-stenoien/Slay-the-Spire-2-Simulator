@@ -11,11 +11,45 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "random",
+        "pool": {
+          "character": "own",
+          "types": [
+            "attack"
+          ]
+        }
+      },
+      "count": 3,
+      "to": "drawRandom",
+      "costThisCombat": 0
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "random",
+          "pool": {
+            "character": "own",
+            "types": [
+              "attack"
+            ]
+          }
+        },
+        "count": 5,
+        "to": "drawRandom",
+        "costThisCombat": 0
+      }
+    ]
+  },
   "description": "Add 3 random Attacks into your Draw Pile. They're free to play this combat. / Exhaust.",
   "upgradedDescription": "Add 5 random Attacks into your Draw Pile. They're free to play this combat. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
