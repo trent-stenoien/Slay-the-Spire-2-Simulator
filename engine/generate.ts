@@ -26,7 +26,7 @@ export const DEFAULT_POOL_TYPES: readonly CardType[] = ['attack', 'skill', 'powe
  * - `character` 'own' (the default) = the player's character, 'colorless' = Colorless cards;
  *   'otherCharacters' (Splash, #151) is not simulated yet;
  * - rarity and type default to DEFAULT_POOL_RARITIES / DEFAULT_POOL_TYPES;
- * - `cost` matches the printed (base) cost; unplayable and hidden / multiplayer-only cards never qualify;
+ * - `cost` matches the printed (base) cost; an upgraded pool also takes cards whose upgrade sets that cost (#170, Jackpot+ gets Body Slam+); unplayable and hidden / multiplayer-only cards never qualify;
  * - `upgraded`: only cards that can be upgraded.
  */
 export function cardPool(
@@ -51,7 +51,7 @@ export function cardPool(
         types.includes(c.type) &&
         c.cost !== null &&
         !c.keywords.includes('unplayable') &&
-        (pool.cost === undefined || c.cost === pool.cost) &&
+        (pool.cost === undefined || c.cost === pool.cost || (upgraded && c.upgraded?.cost === pool.cost)) &&
         (!upgraded || c.upgraded !== null),
     )
     .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

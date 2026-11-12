@@ -72,6 +72,15 @@ const extra: Record<string, CardDef> = {
     cost: 1,
     triggers: [{ when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 2 }] }],
   }),
+  /** #170 Howl from Beyond: plays itself from the Exhaust pile at turn end (tier 2). */
+  howl: {
+    ...cards.strike!,
+    id: 'howl',
+    cost: 3,
+    effects: [{ type: 'attack', damage: 18, hits: 1, allEnemies: true }],
+    triggers: [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }],
+    upgraded: null,
+  },
   /** A status that makes you lose HP while in hand (tier 1, "Lose X HP", modelled on Beckon; #115 adds the real trigger). */
   burn: skill('burn', [], {
     type: 'status',
@@ -220,6 +229,11 @@ describe('#139 exhaust order (every strategy)', () => {
     expect(['defend', 'strike'].map((id) => exhaustTier(card(id), BLOCK))).toEqual([6, 5]);
     // The curse from the ascension rule is Ethereal: tier 7.
     expect(exhaustTier(card('ascenders_bane'), GREEDY)).toBe(7);
+  });
+
+  it('Howl from Beyond is tier 2 with Drum of Battle (#170)', () => {
+    expect(exhaustTier(card('howl'), GREEDY)).toBe(2);
+    expect(exhaustTier(card('howl'), BLOCK)).toBe(2);
   });
 
   it('full order: HP-loss junk, Drum, blockable junk, other junk, lower-group base, other base, Ethereal junk, the rest', () => {

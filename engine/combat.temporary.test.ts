@@ -43,6 +43,7 @@ const extra: Record<string, CardDef> = {
   barrier: card('barrier', 'skill', 0, [block(12), apply('flameBarrier', 4)]),
   colossus: card('colossus', 'skill', 0, [block(4), apply('colossus', 1)]),
   panic: card('panic', 'skill', 0, [block(30), apply('noBlockFromCards', 2)], { keywords: ['exhaust'] }),
+  entrench: card('entrench', 'skill', 2, [{ type: 'gainBlockFrom', amount: 0, bonusPer: { per: 'playerBlock', amount: 1 } }]),
   equilibrium: card('equilibrium', 'skill', 0, [block(13), apply('retainHand', 1)]),
   salvo: card('salvo', 'attack', 0, [atk(12), apply('retainHand', 1)]),
   unrelenting: card('unrelenting', 'attack', 0, [atk(14), apply('freeAttack', 1)]),
@@ -454,6 +455,22 @@ describe('#110 Panic Button', () => {
       (t) => (t === 1 ? ['panic', 'defend'] : t === 2 ? ['defend'] : t === 3 ? ['defend'] : []),
     );
     expect(blocks(r.log).slice(0, 4)).toEqual([30, 0, 0, 5]);
+  });
+
+  it('Entrench still doubles current Block under No Block; Block gained after it is not doubled (#170)', () => {
+    const d = data();
+    d.cards.entrench!.cost = 0;
+    const r = run(
+      d,
+      [
+        ['panic', 1],
+        ['entrench', 1],
+        ['defend', 1],
+      ],
+      (t) => (t === 1 ? ['panic', 'entrench', 'defend'] : []),
+    );
+    // 30 from Panic Button, +30 from Entrench (doubled), Defend blocked by No Block.
+    expect(blocks(r.log).slice(0, 3)).toEqual([30, 30, 0]);
   });
 
   it('does not stop Block from powers', () => {

@@ -264,6 +264,11 @@ export function benefitsFromExhaust(card: Card): boolean {
   return (card.triggers ?? []).some((t) => t.when === 'exhausted');
 }
 
+/** #170: a card that plays itself from the Exhaust pile at turn end (Howl from Beyond) also benefits from exhaust. */
+function hasTurnEndInExhaust(card: Card): boolean {
+  return (card.triggers ?? []).some((t) => t.when === 'turnEndInExhaust');
+}
+
 /** The effects a curse or status has on its own or from a trigger other than "when exhausted", nested ones included. */
 function junkEffects(card: Card): DeepReadonly<Effect>[] {
   const out: DeepReadonly<Effect>[] = [];
@@ -317,7 +322,7 @@ export function lowerPriorityBase(config: StrategyConfig): 'strike' | 'defend' {
 
 /**
  * #139 exhaust tier (Trent, #108 final order), lower goes first, for every strategy:
- * 1 curse/status that makes you lose HP, 2 exhaust-benefit cards (Drum of Battle), 3 curse/status
+ * 1 curse/status that makes you lose HP, 2 exhaust-benefit cards (Drum of Battle, Howl from Beyond), 3 curse/status
  * with flat blockable damage, 4 other non-Ethereal curse/status, 5 non-upgraded Strike or Defend
  * of the lower-priority group, 6 the other non-upgraded one, 6.5 a draw-only card costing 1+ while
  * the draw cards are exhaustible (#144, see TallyConfig), 7 Ethereal curse/status, 8 anything
@@ -325,7 +330,7 @@ export function lowerPriorityBase(config: StrategyConfig): 'strike' | 'defend' {
  */
 export function exhaustTier(card: Card, config: StrategyConfig = GREEDY_CONFIG): number {
   if (dealsDirectHpDamage(card)) return 1;
-  if (benefitsFromExhaust(card)) return 2;
+  if (benefitsFromExhaust(card) || hasTurnEndInExhaust(card)) return 2;
   if (dealsBlockableDamage(card)) return 3;
   if (isJunk(card)) return isEthereal(card) ? 7 : 4;
   if (!card.upgraded && (card.cardId === 'strike' || card.cardId === 'defend')) {
