@@ -6,7 +6,7 @@ import { cfg, deckOf, passive, scripted, withEnemy } from './combatTestHelpers';
 import type { CardDef } from './types';
 
 /**
- * Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards
+ * Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards, #116 addCards and transformCards
  * (tested in combat.mechanics.test.ts / combat.exhaust.test.ts), #115 heal, gainMaxHp, loseMaxHp
  * (combat.statuses.test.ts), #110 applyEnemyPower, schedule, dealDamage, enemyLoseHp, setCost
  * (combat.temporary.test.ts). The samples of repeat (a counter
@@ -20,6 +20,8 @@ const SIMULATED = [
   'heal',
   'gainMaxHp',
   'loseMaxHp',
+  'addCards',
+  'transformCards',
   'applyEnemyPower',
   'schedule',
   'dealDamage',

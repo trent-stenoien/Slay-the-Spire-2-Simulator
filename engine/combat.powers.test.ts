@@ -176,7 +176,7 @@ describe('#109 played Power cards', () => {
     );
   });
 
-  it('the engine simulates exactly noDraw, the 15 simple powers, #115 intangible and gambit and the 10 #110 powers', () => {
+  it('the engine simulates exactly noDraw, the simple powers, #115, #116 generation powers and the 10 #110 powers', () => {
     expect([...SIMULATED_POWER_IDS].sort()).toEqual(
       [
         'noDraw',
@@ -195,6 +195,9 @@ describe('#109 played Power cards', () => {
         'powersCostLess',
         'upgradeAtCombatEnd',
         'corruption',
+        'calamity',
+        'helloWorld',
+        'entropy',
         'intangible',
         'gambit',
         // #110

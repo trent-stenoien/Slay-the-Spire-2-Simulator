@@ -5,7 +5,7 @@ import { fixture, errorsOf } from './dataTestHelpers';
 import { SIMULATED_POWERS } from './validate/lists';
 import { SIMULATED_POWER_IDS } from '../engine/combat';
 
-/** Contract effects the engine simulates now (#106, #107, #108, #110); a simulated card may use them. */
+/** Contract effects the engine simulates now (#106, #107, #108, #110, #116); a simulated card may use them. */
 const SIMULATED = [
   'loseHp',
   'draw',
@@ -14,6 +14,8 @@ const SIMULATED = [
   'heal',
   'gainMaxHp',
   'loseMaxHp',
+  'addCards',
+  'transformCards',
   'applyEnemyPower',
   'schedule',
   'dealDamage',
@@ -55,6 +57,28 @@ describe('#105 contract shapes', () => {
     expect(errorsOf(d)).toEqual([]);
     d.cards.strike.upgraded.effects.push({ type: 'applyPower', power: 'rupture', amount: 1 });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"applyPower"/)]);
+  });
+
+  it('rejects Splash-style pools and unsupported sources on a simulated card (#116)', () => {
+    const d = fixture();
+    d.cards.strike.effects.push({
+      type: 'addCards',
+      source: { kind: 'random', pool: { character: 'otherCharacters' } },
+      count: 1,
+      to: 'hand',
+    });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"cardPool\.otherCharacters"/)]);
+    d.cards.strike.effects.at(-1).source = { kind: 'self' };
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"addCards\.source\.self"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({
+      type: 'transformCards',
+      from: 'hand',
+      mode: 'choose',
+      count: 1,
+      into: { kind: 'card', cardId: 'x' },
+    });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"transformCards\.mode\.choose"/)]);
   });
 
   it('rejects a drawUntil stop filter on a field the engine does not match yet', () => {

@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "calamity",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 2
   },
   "description": "Whenever you play an Attack, add a random Attack into your Hand.",
   "upgradedDescription": "Whenever you play an Attack, add a random Attack into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

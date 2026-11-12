@@ -9,11 +9,33 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "transformCards",
+      "from": "hand",
+      "mode": "all",
+      "filter": {
+        "types": [
+          "attack"
+        ]
+      },
+      "into": {
+        "kind": "card",
+        "cardId": "giant_rock"
+      }
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "script",
+        "id": "primalForcePlus"
+      }
+    ]
+  },
   "description": "Transform all Attacks in your Hand into Giant Rock.",
   "upgradedDescription": "Transform all Attacks in your Hand into Giant Rock+.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

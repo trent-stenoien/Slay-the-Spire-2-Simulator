@@ -11,13 +11,27 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "random",
+        "pool": {
+          "character": "own"
+        }
+      },
+      "count": 1,
+      "to": "hand",
+      "options": 3,
+      "freeThisTurn": true
+    }
+  ],
   "upgraded": {
     "keywords": []
   },
   "description": "Choose 1 of 3 random cards to add into your Hand. It's free to play this turn. / Exhaust.",
   "upgradedDescription": "Choose 1 of 3 random cards to add into your Hand. It's free to play this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
