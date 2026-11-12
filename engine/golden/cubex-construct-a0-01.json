@@ -1,0 +1,50 @@
+{
+  "combat": "cubex-construct-a0-01",
+  "source": "Played by hand in the real game; recorded on issue #202 (Combat 7)",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 0,
+  "deck": [
+    { "card": "strike", "count": 4 },
+    { "card": "defend", "count": 4 },
+    { "card": "bash", "count": 1 },
+    { "card": "setup_strike", "count": 1 },
+    { "card": "inflame", "count": 1 },
+    { "card": "dismantle", "count": 1 },
+    { "card": "armaments", "count": 1, "upgraded": true },
+    { "card": "rage", "count": 1 },
+    { "card": "uppercut", "count": 1 },
+    { "card": "pyre", "count": 1 },
+    { "card": "whirlwind", "count": 1 },
+    { "card": "pommel_strike", "count": 1 },
+    { "card": "byrdonis_egg", "count": 1 }
+  ],
+  "relics": [{ "id": "burning_blood" }, { "id": "vajra" }, { "id": "gorget" }, { "id": "anchor" }],
+  "enemy": { "id": "cubex_construct", "startHp": 65 },
+  "player": { "startHp": 40, "maxHp": 80 },
+  "turns": [
+    {
+      "hand": ["strike", "defend", "armaments+", "whirlwind", "uppercut"],
+      "atStart": { "player": { "hp": 40, "block": 10, "strength": 1, "plating": 4 }, "enemy": { "artifact": 1 } },
+      "plays": ["armaments+", "uppercut+", "whirlwind+"],
+      "enemyHpAfterEachPlay": [65, 51, 51],
+      "afterPlays": { "player": { "block": 15 }, "enemy": { "hp": 51, "vulnerable": 2, "weak": 0, "artifact": 0 } }
+    },
+    {
+      "hand": ["strike", "defend", "bash", "pommel_strike", "byrdonis_egg"],
+      "atStart": { "player": { "hp": 40, "strength": 1, "plating": 3 }, "enemy": { "vulnerable": 1, "strength": 2 } },
+      "plays": ["bash", "defend"],
+      "enemyHpAfterEachPlay": [38, 38],
+      "afterPlays": { "player": { "block": 5 }, "enemy": { "hp": 38, "vulnerable": 3, "strength": 2 } },
+      "afterEnemy": { "player": { "hp": 39 } }
+    },
+    {
+      "hand": ["strike", "strike", "inflame", "rage", "dismantle"],
+      "atStart": { "player": { "hp": 39, "strength": 1, "plating": 2 }, "enemy": { "vulnerable": 2, "strength": 4 } },
+      "plays": ["rage", "inflame", "dismantle", "strike"],
+      "enemyHpAfterEachPlay": [38, 38, 6, 0]
+    }
+  ],
+  "result": { "outcome": "win", "turns": 3, "finalHp": 45, "hpLost": -5 },
+  "skip": "Byrdonis Egg (quest card, unplayable) is data-flagged simulated:false, so the engine refuses to build the deck. With the Egg swapped for a Defend (never played) in a throwaway copy, every recorded value matched (incl. Plating 4/3/2, Anchor 10, Artifact negating Weak, Vulnerable, damage, HP). Unskip once the Egg is simulated."
+}
