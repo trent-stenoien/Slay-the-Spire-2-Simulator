@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 35,
+      "damage": 30,
       "hits": 1
     }
   ],
@@ -20,13 +20,13 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 45,
+        "damage": 40,
         "hits": 1
       }
     ]
   },
-  "description": "Deal 35 damage.",
-  "upgradedDescription": "Deal 45 damage.",
+  "description": "Deal 30 damage.",
+  "upgradedDescription": "Deal 40 damage.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

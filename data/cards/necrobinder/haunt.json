@@ -11,8 +11,8 @@
   "keywords": [],
   "effects": [],
   "upgraded": {},
-  "description": "Whenever you play a Soul, a random enemy loses 7 HP.",
-  "upgradedDescription": "Whenever you play a Soul, a random enemy loses 9 HP.",
+  "description": "Whenever you play a Soul, a random enemy loses 6 HP.",
+  "upgradedDescription": "Whenever you play a Soul, a random enemy loses 8 HP.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

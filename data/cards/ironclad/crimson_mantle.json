@@ -13,7 +13,7 @@
     {
       "type": "applyPower",
       "power": "crimsonMantle",
-      "amount": 7
+      "amount": 8
     }
   ],
   "upgraded": {
@@ -25,7 +25,7 @@
       }
     ]
   },
-  "description": "At the start of your turn, lose 1 HP and gain 7 Block.",
+  "description": "At the start of your turn, lose 1 HP and gain 8 Block.",
   "upgradedDescription": "At the start of your turn, lose 1 HP and gain 10 Block.",
   "simulated": true,
   "multiplayerOnly": false,

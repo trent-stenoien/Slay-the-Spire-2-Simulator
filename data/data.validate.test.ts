@@ -202,15 +202,27 @@ describe('validateGameData on broken fixtures', () => {
       effects: [{ type: 'attack', damage: 5, hits: 1, allEnemies: true, xTimes: true }],
       upgraded: { effects: [{ type: 'attack', damage: 8, hits: 1, allEnemies: true, xTimes: true }] },
     });
+    // Main release: Forgotten Ritual only pays out if a card was Exhausted this turn (#208).
+    const exhausted = { kind: 'counter', counter: 'cardsExhaustedThisTurn', min: 1 };
     expect(c.forgotten_ritual).toMatchObject({
       simulated: true,
-      effects: [{ type: 'gainEnergy', amount: 3 }],
-      upgraded: { effects: [{ type: 'gainEnergy', amount: 4 }] },
+      cost: 1,
+      effects: [{ type: 'conditional', if: exhausted, then: [{ type: 'gainEnergy', amount: 3 }] }],
+      upgraded: { effects: [{ type: 'conditional', if: exhausted, then: [{ type: 'gainEnergy', amount: 4 }] }] },
     });
+    // Main release: Fuel gains 1 Energy and draws 1 card (2 upgraded) (#208).
     expect(c.fuel).toMatchObject({
       simulated: true,
-      effects: [{ type: 'gainEnergy', amount: 1 }],
-      upgraded: { effects: [{ type: 'gainEnergy', amount: 2 }] },
+      effects: [
+        { type: 'gainEnergy', amount: 1 },
+        { type: 'draw', amount: 1 },
+      ],
+      upgraded: {
+        effects: [
+          { type: 'gainEnergy', amount: 1 },
+          { type: 'draw', amount: 2 },
+        ],
+      },
     });
     expect(c.production).toMatchObject({
       simulated: true,
@@ -301,7 +313,9 @@ describe('validateGameData on broken fixtures', () => {
       expect(gameData.cards[id]).toBeUndefined();
       expect(cardByCode(code)).toBeUndefined();
     }
-    expect(reservedCodes.cards.map((r) => r.code).sort()).toEqual(['Ca', 'SD', 'Ud']);
+    expect(reservedCodes.cards.map((r) => r.code).sort()).toEqual(
+      ['BS', 'Bz', 'Ca', 'Cq', 'Cy', 'Fa', 'Hi', 'Im', 'Mb', 'OF', 'Oa', 'Po', 'SD', 'Sy', 'TB', 'Ud'].sort(),
+    );
   });
 
   it('reports a card that uses a reserved code', () => {

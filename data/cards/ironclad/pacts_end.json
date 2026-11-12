@@ -20,7 +20,7 @@
       "then": [
         {
           "type": "attack",
-          "damage": 18,
+          "damage": 17,
           "hits": 1,
           "allEnemies": true
         }
@@ -39,7 +39,7 @@
         "then": [
           {
             "type": "attack",
-            "damage": 24,
+            "damage": 23,
             "hits": 1,
             "allEnemies": true
           }
@@ -47,8 +47,8 @@
       }
     ]
   },
-  "description": "If you have 3 or more cards in your Exhaust Pile, / deal 18 damage to ALL enemies.",
-  "upgradedDescription": "If you have 3 or more cards in your Exhaust Pile, / deal 24 damage to ALL enemies.",
+  "description": "If you have 3 or more cards in your Exhaust Pile, / deal 17 damage to ALL enemies.",
+  "upgradedDescription": "If you have 3 or more cards in your Exhaust Pile, / deal 23 damage to ALL enemies.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

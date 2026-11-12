@@ -8,9 +8,7 @@
   "cost": 1,
   "xCost": false,
   "starCost": null,
-  "keywords": [
-    "exhaust"
-  ],
+  "keywords": [],
   "effects": [
     {
       "type": "attack",
@@ -29,8 +27,8 @@
       }
     ]
   },
-  "description": "Deal 7 damage to ALL enemies. / Evoke all of your Orbs twice. / Exhaust.",
-  "upgradedDescription": "Deal 11 damage to ALL enemies. / Evoke all of your Orbs twice. / Exhaust.",
+  "description": "Deal 7 damage to ALL enemies. / Evoke all of your Orbs twice.",
+  "upgradedDescription": "Deal 11 damage to ALL enemies. / Evoke all of your Orbs twice.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

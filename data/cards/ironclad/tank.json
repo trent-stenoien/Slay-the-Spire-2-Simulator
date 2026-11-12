@@ -13,8 +13,8 @@
   "upgraded": {
     "cost": 0
   },
-  "description": "Take 50% additional damage from enemies. / Allies take 50% less damage from enemies.",
-  "upgradedDescription": "Take 50% additional damage from enemies. / Allies take 50% less damage from enemies.",
+  "description": "Take double damage from enemies. / Allies take half damage from enemies.",
+  "upgradedDescription": "Take double damage from enemies. / Allies take half damage from enemies.",
   "simulated": false,
   "multiplayerOnly": true,
   "lastUpdateVersion": "v0.107.1"

@@ -8,11 +8,13 @@
   "cost": 2,
   "xCost": false,
   "starCost": null,
-  "keywords": [],
+  "keywords": [
+    "exhaust"
+  ],
   "effects": [],
   "upgraded": {},
-  "description": "ALL players Summon 6.",
-  "upgradedDescription": "ALL players Summon 8.",
+  "description": "ALL players Summon 6. / Exhaust.",
+  "upgradedDescription": "ALL players Summon 8. / Exhaust.",
   "simulated": false,
   "multiplayerOnly": true,
   "lastUpdateVersion": "v0.107.1"

@@ -7,7 +7,7 @@
   "character": "R",
   "cost": 1,
   "xCost": false,
-  "starCost": 2,
+  "starCost": 3,
   "keywords": [],
   "effects": [
     {

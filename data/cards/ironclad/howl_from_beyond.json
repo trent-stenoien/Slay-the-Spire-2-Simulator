@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 18,
+      "damage": 16,
       "hits": 1,
       "allEnemies": true
     }
@@ -32,14 +32,14 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 24,
+        "damage": 21,
         "hits": 1,
         "allEnemies": true
       }
     ]
   },
-  "description": "Deal 18 damage to ALL enemies. / At the end of your turn, if this is in your Exhaust Pile, play it.",
-  "upgradedDescription": "Deal 24 damage to ALL enemies. / At the end of your turn, if this is in your Exhaust Pile, play it.",
+  "description": "Deal 16 damage to ALL enemies. / At the end of your turn, if this is in your Exhaust Pile, play it.",
+  "upgradedDescription": "Deal 21 damage to ALL enemies. / At the end of your turn, if this is in your Exhaust Pile, play it.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

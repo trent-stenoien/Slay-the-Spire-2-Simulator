@@ -15,8 +15,8 @@
   "upgraded": {
     "cost": 0
   },
-  "description": "Retain. / If Osty is alive, he dies and you gain Block equal to triple his Max HP.",
-  "upgradedDescription": "Retain. / If Osty is alive, he dies and you gain Block equal to triple his Max HP.",
+  "description": "Retain. / If Osty is alive, he dies and you gain Block equal to double his Max HP.",
+  "upgradedDescription": "Retain. / If Osty is alive, he dies and you gain Block equal to double his Max HP.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

@@ -131,15 +131,15 @@ describe('#105 fallback text for contract effects', () => {
 
 describe('#109 power card text', () => {
   it.each([
-    ['demon_form', false, ['At the start of your turn, gain 3 Strength']],
-    ['demon_form', true, ['At the start of your turn, gain 4 Strength']],
+    ['demon_form', false, ['At the start of your turn, gain 2 Strength']],
+    ['demon_form', true, ['At the start of your turn, gain 3 Strength']],
     ['pyre', true, ['Gain 2 Energy at the start of each turn']],
     [
       'rolling_boulder',
       false,
       ['At the start of your turn, deal 5 damage to ALL enemies and increase this damage by 5'],
     ],
-    ['crimson_mantle', false, ['At the start of your turn, lose 1 HP and gain 7 Block']],
+    ['crimson_mantle', false, ['At the start of your turn, lose 1 HP and gain 8 Block']],
     ['stone_armor', false, ['Gain 4 Plating']],
     ['eternal_armor', true, ['Gain 12 Plating']],
     ['barricade', false, ['Block is not removed at the start of your turn']],

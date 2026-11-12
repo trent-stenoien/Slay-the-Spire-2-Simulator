@@ -144,7 +144,7 @@ describe('#111 Perfected Strike', () => {
 describe('#111 Rend, Bully, Dismantle', () => {
   const setup = (...effects: Effect[]) => helper('setup', effects);
 
-  it('Rend: 10 + 5 per unique debuff (Vulnerable, Weak and Poison count; stacks do not)', () => {
+  it('Rend: 15 + 5 per unique debuff (Vulnerable, Weak and Poison count; stacks do not)', () => {
     const d = world(
       {
         setup: setup(
@@ -156,15 +156,15 @@ describe('#111 Rend, Bully, Dismantle', () => {
       ['rend'],
     );
     const r = run(d, turnOne('setup', 'rend'), deckOf(['setup', 1], ['rend', 1]));
-    expect(playerHits(r.log)[0]!.amount).toBe(Math.floor((10 + 5 * 3) * 1.5));
+    expect(playerHits(r.log)[0]!.amount).toBe(Math.floor((15 + 5 * 3) * 1.5));
   });
 
-  it('Rend upgraded: 12 + 8 per unique debuff; Frail counts too; no debuff = base damage', () => {
+  it('Rend upgraded: 18 + 8 per unique debuff; Frail counts too; no debuff = base damage', () => {
     const d = world({ setup: setup({ type: 'applyFrail', amount: 1 }) }, ['rend']);
     const some = run(d, turnOne('setup', 'rend'), deckOf(['setup', 1], ['rend', 1, true]));
-    expect(playerHits(some.log)[0]!.amount).toBe(12 + 8);
+    expect(playerHits(some.log)[0]!.amount).toBe(18 + 8);
     const none = run(d, turnOne('rend'), deckOf(['rend', 1]));
-    expect(playerHits(none.log)[0]!.amount).toBe(10);
+    expect(playerHits(none.log)[0]!.amount).toBe(15);
   });
 
   it('Bully: +2 per Vulnerable stack (+3 upgraded), then the Vulnerable multiplier', () => {
@@ -212,6 +212,25 @@ describe('#111 Dominate and Molten Fist', () => {
   });
 });
 
+describe('#208 Forgotten Ritual (main release)', () => {
+  const energyGains = (log: ReturnType<typeof run>['log']) => events(log, 'energy').filter((e) => e.amount > 0);
+
+  it('gains no Energy unless a card was Exhausted this turn', () => {
+    const d = world({}, ['forgotten_ritual']);
+    const r = run(d, turnOne('forgotten_ritual'), deckOf(['forgotten_ritual', 1]));
+    expect(energyGains(r.log).every((e) => e.total <= 3)).toBe(true);
+  });
+
+  it('gains 3 Energy (4 upgraded) once a card was Exhausted this turn', () => {
+    const burn = helper('burn', [], { keywords: ['innate', 'exhaust'] });
+    const d = world({ burn }, ['forgotten_ritual']);
+    const r = run(d, turnOne('burn', 'forgotten_ritual'), deckOf(['burn', 1], ['forgotten_ritual', 1]));
+    expect(energyGains(r.log).at(-1)!.amount).toBe(3);
+    const up = run(d, turnOne('burn', 'forgotten_ritual'), deckOf(['burn', 1], ['forgotten_ritual', 1, true]));
+    expect(energyGains(up.log).at(-1)!.amount).toBe(4);
+  });
+});
+
 describe('#111 Rampage and Maul', () => {
   it('Rampage: +5 each play, and the growth stays with that copy across reshuffles', () => {
     const d = world({}, ['rampage']);
@@ -227,11 +246,11 @@ describe('#111 Rampage and Maul', () => {
     };
     const r = run(d, strategy, deckOf(['rampage', 2]));
     const hits = playerHits(r.log).map((e) => e.amount);
-    // Turn 1: A 10. Turn 2: A 15, B 10. Turn 3: A 20, B 15.
-    expect(hits.slice(0, 5)).toEqual([10, 15, 10, 20, 15]);
+    // Turn 1: A 9. Turn 2: A 14, B 9. Turn 3: A 19, B 14.
+    expect(hits.slice(0, 5)).toEqual([9, 14, 9, 19, 14]);
   });
 
-  it('Rampage upgraded grows by 10', () => {
+  it('Rampage upgraded grows by 9', () => {
     const d = world({}, ['rampage']);
     const strategy: Strategy = {
       decide: (view) => (view.playable.length ? { kind: 'play', uid: view.playable[0]!.uid } : { kind: 'endTurn' }),
@@ -241,7 +260,7 @@ describe('#111 Rampage and Maul', () => {
       playerHits(r.log)
         .slice(0, 3)
         .map((e) => e.amount),
-    ).toEqual([10, 20, 30]);
+    ).toEqual([9, 18, 27]);
   });
 
   it('Maul: every Maul in every pile grows by 2, including copies in the draw pile', () => {
@@ -380,11 +399,18 @@ describe('#111 Body Slam, Entrench, Stack, Expect a Fight, Mind Blast', () => {
     expect(blockGains(up.log).at(-1)!.amount).toBe(2 + 3);
   });
 
-  it('Expect a Fight: 15 + 5 per Strength (16 + 8 upgraded)', () => {
-    const d = world({ flex: helper('flex', [{ type: 'gainStrength', amount: 2 }]) }, ['expect_a_fight']);
-    const r = run(d, turnOne('flex', 'expect_a_fight'), deckOf(['flex', 1], ['expect_a_fight', 1]));
+  it('Block scaling with Strength: 15 + 5 per Strength (16 + 8 upgraded)', () => {
+    // The main-release Expect a Fight is an Energy card (#208), so the Strength-scaling Block effect is covered by a stand-in.
+    const scaling = (block: number, per: number) => ({
+      type: 'gainBlockFrom' as const,
+      amount: block,
+      bonusPer: { per: 'playerStrength' as const, amount: per },
+    });
+    const fight = helper('fight', [scaling(15, 5)], { upgraded: { effects: [scaling(16, 8)] } });
+    const d = world({ flex: helper('flex', [{ type: 'gainStrength', amount: 2 }]), fight });
+    const r = run(d, turnOne('flex', 'fight'), deckOf(['flex', 1], ['fight', 1]));
     expect(blockGains(r.log).at(-1)!.amount).toBe(25);
-    const up = run(d, turnOne('flex', 'expect_a_fight'), deckOf(['flex', 1], ['expect_a_fight', 1, true]));
+    const up = run(d, turnOne('flex', 'fight'), deckOf(['flex', 1], ['fight', 1, true]));
     expect(blockGains(up.log).at(-1)!.amount).toBe(32);
   });
 

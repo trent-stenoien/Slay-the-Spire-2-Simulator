@@ -8,15 +8,18 @@
   "cost": 2,
   "xCost": false,
   "starCost": null,
-  "keywords": [],
+  "keywords": [
+    "exhaust"
+  ],
   "effects": [],
   "upgraded": {
     "keywords": [
-      "retain"
+      "retain",
+      "exhaust"
     ]
   },
-  "description": "Deal damage equal to the enemy's Doom.",
-  "upgradedDescription": "Retain. / Deal damage equal to the enemy's Doom.",
+  "description": "Deal damage equal to the enemy's Doom. / Exhaust.",
+  "upgradedDescription": "Retain. / Deal damage equal to the enemy's Doom. / Exhaust.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

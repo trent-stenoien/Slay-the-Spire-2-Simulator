@@ -5,35 +5,17 @@
   "type": "skill",
   "rarity": "uncommon",
   "character": "I",
-  "cost": 3,
+  "cost": 2,
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [
-    {
-      "type": "gainBlockFrom",
-      "amount": 15,
-      "bonusPer": {
-        "per": "playerStrength",
-        "amount": 5
-      }
-    }
-  ],
+  "effects": [],
   "upgraded": {
-    "effects": [
-      {
-        "type": "gainBlockFrom",
-        "amount": 16,
-        "bonusPer": {
-          "per": "playerStrength",
-          "amount": 8
-        }
-      }
-    ]
+    "cost": 1
   },
-  "description": "Gain 15 Block. / Gains 5 additional Block for each Strength you have.",
-  "upgradedDescription": "Gain 16 Block. / Gains 8 additional Block for each Strength you have.",
-  "simulated": true,
+  "description": "Gain [E] for each Attack in your Hand. / You cannot gain additional [E] this turn.",
+  "upgradedDescription": "Gain [E] for each Attack in your Hand. / You cannot gain additional [E] this turn.",
+  "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -17,8 +17,8 @@
     }
   ],
   "upgraded": {},
-  "description": "Deal 9 damage. / Deals 4 additional damage for each Soul in your Exhaust Pile.",
-  "upgradedDescription": "Deal 9 damage. / Deals 6 additional damage for each Soul in your Exhaust Pile.",
+  "description": "Deal 9 damage. / Deals 2 additional damage for each Soul in your Exhaust Pile.",
+  "upgradedDescription": "Deal 9 damage. / Deals 3 additional damage for each Soul in your Exhaust Pile.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

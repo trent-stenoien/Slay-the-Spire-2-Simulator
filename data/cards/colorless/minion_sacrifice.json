@@ -14,19 +14,19 @@
   "effects": [
     {
       "type": "gainBlock",
-      "amount": 7
+      "amount": 8
     }
   ],
   "upgraded": {
     "effects": [
       {
         "type": "gainBlock",
-        "amount": 10
+        "amount": 11
       }
     ]
   },
-  "description": "Gain 7 Block. / Exhaust.",
-  "upgradedDescription": "Gain 10 Block. / Exhaust.",
+  "description": "Gain 8 Block. / Exhaust.",
+  "upgradedDescription": "Gain 11 Block. / Exhaust.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

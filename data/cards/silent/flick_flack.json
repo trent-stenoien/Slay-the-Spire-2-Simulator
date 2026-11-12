@@ -14,7 +14,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 7,
+      "damage": 6,
       "hits": 1,
       "allEnemies": true
     }
@@ -23,14 +23,14 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 9,
+        "damage": 8,
         "hits": 1,
         "allEnemies": true
       }
     ]
   },
-  "description": "Sly. / Deal 7 damage to ALL enemies.",
-  "upgradedDescription": "Sly. / Deal 9 damage to ALL enemies.",
+  "description": "Sly. / Deal 6 damage to ALL enemies.",
+  "upgradedDescription": "Sly. / Deal 8 damage to ALL enemies.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

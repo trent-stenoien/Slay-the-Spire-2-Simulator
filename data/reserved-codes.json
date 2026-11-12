@@ -17,6 +17,84 @@
       "id": "cacophony",
       "name": "Cacophony",
       "reason": "Beta-only Necrobinder multiplayer card, removed until it reaches the main release (#59)."
+    },
+    {
+      "code": "Mb",
+      "id": "midnight",
+      "name": "Midnight",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Bz",
+      "id": "blaze",
+      "name": "Blaze",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Oa",
+      "id": "outrage",
+      "name": "Outrage",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "BS",
+      "id": "blade_symphony",
+      "name": "Blade Symphony",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Cq",
+      "id": "concoct",
+      "name": "Concoct",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Fa",
+      "id": "fade",
+      "name": "Fade",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Po",
+      "id": "plot",
+      "name": "Plot",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Cy",
+      "id": "constellation",
+      "name": "Constellation",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Hi",
+      "id": "hibernate",
+      "name": "Hibernate",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "OF",
+      "id": "one_for_all",
+      "name": "One for All",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Im",
+      "id": "imitation_learning",
+      "name": "Imitation Learning",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "TB",
+      "id": "the_ball",
+      "name": "The Ball",
+      "reason": "Beta-only multiplayer card, removed until it reaches the main release (#208)."
+    },
+    {
+      "code": "Sy",
+      "id": "sidestep",
+      "name": "Sidestep",
+      "reason": "Beta-only rework of main card Scare (Sidestep), removed until it reaches the main release (#208)."
     }
   ]
 }

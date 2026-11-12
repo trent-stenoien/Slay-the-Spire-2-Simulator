@@ -13,7 +13,7 @@
     {
       "type": "applyPower",
       "power": "demonForm",
-      "amount": 3
+      "amount": 2
     }
   ],
   "upgraded": {
@@ -21,12 +21,12 @@
       {
         "type": "applyPower",
         "power": "demonForm",
-        "amount": 4
+        "amount": 3
       }
     ]
   },
-  "description": "At the start of your turn, gain 3 Strength.",
-  "upgradedDescription": "At the start of your turn, gain 4 Strength.",
+  "description": "At the start of your turn, gain 2 Strength.",
+  "upgradedDescription": "At the start of your turn, gain 3 Strength.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

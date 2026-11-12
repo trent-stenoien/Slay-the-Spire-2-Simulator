@@ -5,26 +5,16 @@
   "type": "skill",
   "rarity": "uncommon",
   "character": "S",
-  "cost": 2,
+  "cost": 3,
   "xCost": false,
   "starCost": null,
-  "keywords": [],
-  "effects": [
-    {
-      "type": "applyWeak",
-      "amount": 1
-    }
+  "keywords": [
+    "sly"
   ],
-  "upgraded": {
-    "effects": [
-      {
-        "type": "applyWeak",
-        "amount": 2
-      }
-    ]
-  },
-  "description": "Apply 4 Poison and 1 Weak to ALL enemies.",
-  "upgradedDescription": "Apply 6 Poison and 2 Weak to ALL enemies.",
+  "effects": [],
+  "upgraded": {},
+  "description": "Sly. / Apply 4 Poison to ALL enemies.",
+  "upgradedDescription": "Sly. / Apply 6 Poison to ALL enemies.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
