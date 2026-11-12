@@ -1,0 +1,105 @@
+{
+  "combat": "vantom-a0-01",
+  "source": "Played by hand in the real game; recorded on issue #199 (Combat 9). Flame Barrier was in hand on turns 4 and 6 but missing from Trent's deck list, so it is added to the deck here (deck = 21 cards). Trent's final 13 HP / 34 HP lost is before the +6 Burning Blood heal, so the result here is finalHp 19, hpLost 28. Turn 9 Sword Boomerang is written as upgraded (+) because Armaments+ upgraded it on turn 2 (Trent wrote no +). Turn 8 Wound comes from the card text on the issue, not Trent's list. Trent noted Byrd Swoop as 22 on both turns 4 and 5; the turn 5 screenshot shows V 118 after it (133 to 118 = 15, no Vulnerable), which is what is recorded. Byrdpip (companion relic) has no engine type and is left out of relics.",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 0,
+  "deck": [
+    { "card": "strike", "count": 4 },
+    { "card": "defend", "count": 4 },
+    { "card": "bash", "count": 1 },
+    { "card": "setup_strike", "count": 1 },
+    { "card": "inflame", "count": 1 },
+    { "card": "dismantle", "count": 1 },
+    { "card": "armaments", "count": 1, "upgraded": true },
+    { "card": "rage", "count": 1 },
+    { "card": "uppercut", "count": 1 },
+    { "card": "pyre", "count": 1 },
+    { "card": "whirlwind", "count": 1 },
+    { "card": "pommel_strike", "count": 1 },
+    { "card": "sword_boomerang", "count": 1 },
+    { "card": "flame_barrier", "count": 1 },
+    { "card": "byrd_swoop", "count": 1 }
+  ],
+  "enemy": { "id": "vantom", "startHp": 173 },
+  "player": { "startHp": 47, "maxHp": 80 },
+  "relics": [
+    { "id": "burning_blood" },
+    { "id": "vajra" },
+    { "id": "gorget" },
+    { "id": "anchor" },
+    { "id": "ornamental_fan" }
+  ],
+  "turns": [
+    {
+      "hand": ["bash", "rage", "whirlwind", "pommel_strike", "dismantle"],
+      "atStart": { "player": { "hp": 47, "block": 10, "strength": 1, "plating": 4 } },
+      "plays": ["rage", "bash", "dismantle", "whirlwind"],
+      "afterPlays": { "player": { "block": 23 }, "enemy": { "hp": 170, "slippery": 5, "vulnerable": 2 } }
+    },
+    {
+      "hand": ["strike", "defend", "defend", "armaments+", "sword_boomerang"],
+      "atStart": { "player": { "hp": 47, "strength": 1, "plating": 3 } },
+      "plays": ["armaments+", "sword_boomerang+", "defend+"],
+      "afterPlays": { "player": { "block": 13 }, "enemy": { "hp": 166, "slippery": 1, "vulnerable": 1 } }
+    },
+    {
+      "hand": ["strike", "defend", "setup_strike", "pyre", "inflame"],
+      "atStart": { "player": { "hp": 47, "strength": 1, "plating": 2 } },
+      "plays": ["pyre", "defend"],
+      "afterPlays": { "player": { "block": 5 }, "enemy": { "hp": 166, "slippery": 1 } },
+      "afterEnemy": { "player": { "hp": 28 } }
+    },
+    {
+      "hand": ["uppercut", "flame_barrier", "defend", "strike", "byrd_swoop"],
+      "atStart": { "player": { "hp": 28, "strength": 1, "plating": 1, "energy": 4 } },
+      "plays": ["uppercut", "strike", "byrd_swoop"],
+      "enemyHpAfterEachPlay": [165, 155, 133],
+      "afterPlays": { "player": { "energy": 1 }, "enemy": { "hp": 133, "weak": 1, "vulnerable": 1 } }
+    },
+    {
+      "hand": ["strike", "defend", "byrd_swoop", "sword_boomerang+", "whirlwind"],
+      "atStart": { "player": { "hp": 28, "strength": 1, "energy": 4 }, "enemy": { "strength": 2 } },
+      "plays": ["byrd_swoop", "defend", "sword_boomerang+", "strike", "whirlwind"],
+      "enemyHpAfterEachPlay": [118, 118, 102, 95, 89],
+      "afterPlays": { "player": { "block": 9, "strength": 1 }, "enemy": { "hp": 89, "strength": 2 } }
+    },
+    {
+      "hand": ["defend", "strike", "flame_barrier", "dismantle", "wound"],
+      "atStart": { "player": { "hp": 28, "strength": 1, "energy": 4 }, "enemy": { "strength": 2 } },
+      "plays": ["flame_barrier", "defend", "dismantle"],
+      "enemyHpAfterEachPlay": [89, 89, 80],
+      "afterPlays": {
+        "player": { "block": 17, "strength": 1, "flameBarrier": 4 },
+        "enemy": { "hp": 80, "strength": 2 }
+      },
+      "afterEnemy": { "player": { "hp": 28 }, "enemy": { "hp": 72 } }
+    },
+    {
+      "hand": ["strike+", "rage", "inflame", "setup_strike", "bash"],
+      "atStart": { "player": { "hp": 28, "strength": 1, "energy": 4 }, "enemy": { "hp": 72, "strength": 2 } },
+      "plays": ["rage", "bash", "setup_strike", "strike+"],
+      "afterPlays": { "player": { "block": 13 }, "enemy": { "hp": 33, "vulnerable": 2 } },
+      "afterEnemy": { "player": { "hp": 13 } }
+    },
+    {
+      "hand": ["strike", "defend+", "defend+", "uppercut", "wound"],
+      "atStart": {
+        "player": { "hp": 13, "strength": 1, "energy": 4 },
+        "enemy": { "hp": 33, "vulnerable": 1, "strength": 2 }
+      },
+      "plays": ["uppercut", "strike"],
+      "afterPlays": { "player": { "energy": 1 }, "enemy": { "hp": 2, "vulnerable": 2, "weak": 1 } }
+    },
+    {
+      "hand": ["pommel_strike", "armaments+", "wound", "whirlwind", "sword_boomerang+"],
+      "atStart": {
+        "player": { "hp": 13, "strength": 1, "energy": 4 },
+        "enemy": { "hp": 2, "vulnerable": 1, "strength": 4 }
+      },
+      "plays": ["whirlwind"],
+      "afterPlays": { "enemy": { "hp": 0 } }
+    }
+  ],
+  "result": { "outcome": "win", "turns": 9, "finalHp": 19, "hpLost": 28 }
+}
