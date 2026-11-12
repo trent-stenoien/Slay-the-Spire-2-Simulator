@@ -25,7 +25,7 @@ Checks the tests against `FEATURES.md`, item by item, and adds or fixes tests.
   row, make one small wrong change to the rule in the code (for example Vulnerable ×1.25, or tick
   enemy debuffs a turn early), run only the mapped test file, and confirm a test fails. Then undo
   the change. A break that no test catches means the test is too weak: strengthen it and try
-  again. These wrong changes are never committed. The map records caught / not caught.
+  again. This is a real, temporary edit to the code in the agent's own working copy, not an extra test, and it is never committed. The map records caught / not caught.
 - **Known failure points.** Re-measures everything listed under "Known failure points" in
   `FEATURES.md` (for example the Scared Block stress deck at 0% deaths) and reports the numbers.
 - **UI items** ("Results and UI"): a component test per item is enough; no break-it check.
@@ -69,8 +69,7 @@ The loop passes when one round ends with all of these true:
 4. Neither reviewer has anything left it would change.
 5. The runner is GREEN.
 
-Reviewers may still give a score out of 10, but it's for information only; the five points above
-decide. If round 4 ends without passing, the orchestrator stops and brings Trent what is left.
+There are no scores. If round 4 ends without passing, the orchestrator stops and brings Trent what is left.
 
 ## Finishing
 
