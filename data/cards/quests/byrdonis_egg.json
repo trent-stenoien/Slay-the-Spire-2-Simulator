@@ -15,7 +15,7 @@
   "upgraded": null,
   "description": "Unplayable. / Can be hatched at a Rest Site.",
   "upgradedDescription": null,
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
