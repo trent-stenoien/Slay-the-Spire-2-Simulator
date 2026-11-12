@@ -9,7 +9,7 @@ Read CLAUDE.md first. No agents running. Phase: planning (Trent: "only planning 
 
 ## Next up (ask Trent which first)
 - v1 Backlog: #208 fix beta values (audit table on #181) · #203 Mawler, Byrdonis, Cubex Construct, Artifact · #204 Strength and Fire Potions · #206 Void · #210 golden harness scripting · golden combats #200 (Mawler), #201 (Byrdonis), #202 (Cubex Construct).
-- Questions for Trent: #205 relics + new HP-lost rule (can HP lost go negative? which relics are "easy"?) · #209 six card values and Kettlebell text to read from the game · #199 which version is the Vantom combat?
+- Answered by Trent (on the cards): #205 relic list and HP lost may go negative · #209 card values (now on #208) · Slippery is v1 (#213), so the Vantom combat #199 is v1.
 - v2: #179, #197, #198 (multi-enemy golden combats), #211 Energy Potion. Future: #199, #207.
 - Then: the v1 quality-review loop per docs/quality-loop.md (once #175 is merged).
 

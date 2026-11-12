@@ -12,6 +12,11 @@ to read. `FEATURES.md` is the test plan.
 - Models: Sonnet for the two reviewers, Haiku for the runner. Opus only if a reviewer reports an
   engine problem it can't resolve.
 
+## Standard checks
+
+Defined once, used everywhere: `npm run format:check`, `npm run lint`, `npm run typecheck`,
+`npm test`, `npm run build`. CI (`.github/workflows/deploy.yml`) runs them on every pull request.
+
 ## The three agents
 
 ### 1. Test reviewer
@@ -46,14 +51,22 @@ Makes the code shorter and clearer without changing what it does.
 - Proof of no behaviour change, before handing back: `npm test` passes with the same test count
   or more, `npm run compare-main` prints `identical`, and the known-failure-point numbers are
   unchanged (`compare-main` covers only the starter deck).
+- **Docs in sync.** Also reads the instruction and planning files (`CLAUDE.md`, `FEATURES.md`,
+  `HANDOFF.md`, `README.md`, `docs/`, `engine/golden/README.md`, the skill under `.claude/`) and the
+  design doc, and checks them against the code and each other: dead instructions, rules that no
+  longer match the project, numbers that disagree (for example a doc saying 1,000 combats when the
+  code runs 10,000, or two files giving different debuff timing). It fixes the repo files and lists
+  design-doc mismatches for the orchestrator. When two sources disagree on a rule, not just a stale
+  number, it reports it instead of picking one.
 - Reports what it changed and what it would still change, if anything.
 
 ### 3. Test runner
 
-Runs the checks and reports. It edits nothing.
+Runs the checks and reports. The only change it may commit is formatting.
 
-- `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test` (twice, to catch flaky
-  tests), `npm run build`, `npm run compare-main`.
+- First `npm run format`; if that changed files, commit them as a formatting-only commit.
+- Then the standard checks (below), with `npm test` run twice to catch flaky tests, and
+  `npm run compare-main`.
 - No `.skip`, `.only` or `.todo` in test files; no `Math.random()` in `engine/` outside comments.
 - Reports GREEN or RED with the first failure and the test count.
 
@@ -80,8 +93,8 @@ There are no scores. If round 4 ends without passing, the orchestrator stops and
 
 ## Rules for every merge (not just the loop)
 
-- Before handing back, sub-agents run `npm run format`, then `npm run format:check`,
-  `npm run lint`, `npm run typecheck`, `npm test` and `npm run build`.
+- Sub-agents run `npm run format` before committing, plus the tests for what they changed. They
+  don't need to repeat the full standard checks: CI runs them on the pull request.
 - The orchestrator merges a pull request only after its CI check has finished green. A cancelled
   or still-running check is not a pass.
 - When a card settles a new rule, it is added to `FEATURES.md` in that card's pull request.

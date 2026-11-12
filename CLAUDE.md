@@ -79,8 +79,8 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
 ## Conventions
 
 - Tests live next to code as `*.test.ts`. Every rule gets a test.
-- Run `npm run format` before committing. `npm run format:check`, `npm run lint`, `npm test`,
-  `npm run typecheck` and `npm run build` must pass before handing back.
+- Run `npm run format` before committing, and the tests for what you changed. CI runs the standard
+  checks (format:check, lint, typecheck, test, build) on every pull request.
 - The orchestrator merges a pull request only after its CI check has finished green.
 - Work on your own branch and request a merge; never touch `main`.
 - Design doc: https://claude.ai/artifact/D79XTt7hTXmws6JnNBGt7h
