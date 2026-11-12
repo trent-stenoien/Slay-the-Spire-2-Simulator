@@ -423,7 +423,10 @@ function unexplained(fx: Fixture, mismatches: string[]): string[] {
 
 /** Checks that do not need the engine. */
 function consistency(fx: Fixture): void {
-  expect(fx.result.hpLost, 'result.hpLost = startHp - finalHp').toBe(fx.player.startHp - fx.result.finalHp);
+  // hpLost = startHp - finalHp - overheal (#205). Overheal is not recorded, so only the bound is checked.
+  expect(fx.result.hpLost, 'result.hpLost <= startHp - finalHp (overheal >= 0)').toBeLessThanOrEqual(
+    fx.player.startHp - fx.result.finalHp,
+  );
   expect(checkFields(fx), 'unknown state fields').toEqual([]);
   for (const k of fx.knownDiffs ?? []) expect(k.reason, `knownDiff without reason: ${k.diff}`).toBeTruthy();
   fx.turns.forEach((t, i) => {
