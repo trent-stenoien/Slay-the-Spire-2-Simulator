@@ -1,0 +1,18 @@
+{
+  "id": "sling_of_courage",
+  "code": "SL",
+  "name": "Sling of Courage",
+  "rarity": "shop",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "script",
+      "id": "slingOfCourage",
+      "amount": 2
+    }
+  ],
+  "description": "Start each Elite combat with 2 Strength.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

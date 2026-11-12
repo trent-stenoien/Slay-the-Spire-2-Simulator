@@ -91,7 +91,7 @@ function StatsTable({
                 {r.name}
               </th>
               <td>{fmtNumber(r.summary.avgHpLost)}</td>
-              <td>{fmtHpLostRange(r.summary.hpLostCounts)}</td>
+              <td>{fmtHpLostRange(r.summary.hpLostCounts, r.summary.minHpLost)}</td>
               <td>{fmtNumber(r.summary.avgTurns)}</td>
               <td>{fmtRate(r.summary.deathRate)}</td>
               {showRewards && <td>{fmtRewards(r.summary)}</td>}

@@ -1,0 +1,31 @@
+{
+  "id": "bread",
+  "code": "Br",
+  "name": "Bread",
+  "rarity": "shop",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "effects": [
+        {
+          "type": "gainEnergy",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "when": "turnStart",
+      "turn": 1,
+      "effects": [
+        {
+          "type": "loseEnergy",
+          "amount": 3
+        }
+      ]
+    }
+  ],
+  "description": "At the start of your first turn, lose 2 Energy. At the start of all other turns, gain 1 Energy.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

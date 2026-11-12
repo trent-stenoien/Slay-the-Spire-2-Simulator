@@ -1,0 +1,22 @@
+{
+  "id": "akabeko",
+  "code": "Ak",
+  "name": "Akabeko",
+  "rarity": "uncommon",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "combatStart",
+      "effects": [
+        {
+          "type": "applyPower",
+          "power": "vigor",
+          "amount": 8
+        }
+      ]
+    }
+  ],
+  "description": "At the start of each combat, gain 8 Vigor.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

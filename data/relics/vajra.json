@@ -1,0 +1,21 @@
+{
+  "id": "vajra",
+  "code": "Vj",
+  "name": "Vajra",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "combatStart",
+      "effects": [
+        {
+          "type": "gainStrength",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "description": "Start each combat with 1 Strength.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

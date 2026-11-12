@@ -1,0 +1,17 @@
+{
+  "id": "beating_remnant",
+  "code": "BR",
+  "name": "Beating Remnant",
+  "rarity": "rare",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "hpLossCapPerTurn",
+      "amount": 20
+    }
+  ],
+  "description": "You cannot lose more than 20 HP in a single turn.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

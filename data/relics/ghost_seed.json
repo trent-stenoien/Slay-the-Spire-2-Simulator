@@ -1,0 +1,17 @@
+{
+  "id": "ghost_seed",
+  "code": "GS",
+  "name": "Ghost Seed",
+  "rarity": "shop",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "script",
+      "id": "ghostSeed"
+    }
+  ],
+  "description": "Strikes and Defends gain Ethereal.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

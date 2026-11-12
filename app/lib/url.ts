@@ -18,6 +18,8 @@
  *
  * Potions (#204): optional `p`, concatenated potion codes (2 chars each, in slot order, at most
  * MAX_POTIONS), e.g. `p=SPFP`. Absent = no potions.
+ * Relics (#205): optional `r` after `d`: relic codes joined by "," with Girya's Strength after its
+ * code ("BB,Gy3"); an empty `r=` means no relics. Absent = the character's starting relic.
  *
  * Deck: concatenated entries of card code (2 chars) + optional "+" (upgraded)
  * + count (decimal, no leading zeros). The "+" is written literally, so the
@@ -30,10 +32,12 @@ import {
   type CardDef,
   type Deck,
   type GameData,
+  type RelicSetup,
   type StrategyColor,
   type StrategyConfig,
 } from '../../engine/types';
 import { deckPool, startingDeckFor } from './deck';
+import { decodeRelics, encodeRelics, sameRelics, startingRelics } from './relics';
 
 export const URL_VERSION = '1';
 export const MAX_ASCENSION = 10;
@@ -54,6 +58,8 @@ export interface SetupState {
   deck: Deck;
   /** #204: potion ids in slot order (at most MAX_POTIONS); absent means none. */
   potions?: string[];
+  /** #205: relics in play; absent = the character's starting relic (Burning Blood for the Ironclad). */
+  relics?: RelicSetup[];
 }
 
 export interface LogTarget {
@@ -182,7 +188,7 @@ export function decodePotions(data: GameData, text: string): PotionParseResult {
 // Query string
 // ---------------------------------------------------------------------------
 
-/** Build the query string (without "?"). Param order is fixed: v c e a d [p] [s st [k] [n]]. */
+/** Build the query string (without "?"). Param order is fixed: v c e a d [p] [r] [s st [k] [n]]. */
 export function buildQuery(data: GameData, setup: SetupState, log?: LogTarget | null): string {
   const character = data.characters[setup.characterId];
   const enemy = data.enemies[setup.enemyId];
@@ -196,6 +202,10 @@ export function buildQuery(data: GameData, setup: SetupState, log?: LogTarget | 
     `d=${encodeDeck(data, setup.deck)}`,
   ];
   if (setup.potions && setup.potions.length > 0) parts.push(`p=${encodePotions(data, setup.potions)}`);
+  // #205: written only when the relics differ from the starting relic, so older links stay the same.
+  if (setup.relics && !sameRelics(setup.relics, startingRelics(data, setup.characterId))) {
+    parts.push(`r=${encodeRelics(data, setup.relics)}`);
+  }
   if (log) {
     if (log.strategies.length < 1 || log.strategies.length > MAX_STRATEGIES_PER_RUN) {
       throw new Error(`A log link needs 1–${MAX_STRATEGIES_PER_RUN} strategies, got ${log.strategies.length}`);
@@ -293,6 +303,13 @@ export function parseQuery(data: GameData, search: string): ParsedUrl {
   if (pt !== undefined && pt !== '') {
     const r = decodePotions(data, pt);
     if (r.ok) setup.potions = r.potions;
+    else errors.push(r.error);
+  }
+
+  const rl = p.get('r');
+  if (rl !== undefined) {
+    const r = decodeRelics(data, rl);
+    if (r.ok) setup.relics = r.relics;
     else errors.push(r.error);
   }
 

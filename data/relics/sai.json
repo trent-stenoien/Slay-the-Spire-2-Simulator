@@ -1,0 +1,21 @@
+{
+  "id": "sai",
+  "code": "Sa",
+  "name": "Sai",
+  "rarity": "ancient",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "effects": [
+        {
+          "type": "gainBlock",
+          "amount": 7
+        }
+      ]
+    }
+  ],
+  "description": "At the start of your turn, gain 7 Block.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

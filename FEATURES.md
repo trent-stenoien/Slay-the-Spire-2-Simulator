@@ -11,10 +11,13 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    turn, enemy debuffs at the end of the enemy's turn; Poison at enemy turn start (ignores Block,
    a kill wins before the move, then −1); Howl from Beyond plays itself from the Exhaust pile at
    the end of the player's turn, then goes to discard (#114).
-4. **HP lost (#115)** = Max HP at the start of combat − final HP (minimum 0). It includes self-damage
-   (Hemokinesis etc.); dying from self-damage is a loss. Not Yet lowers it by the HP actually healed
-   (65/70 → −5). Feed's Max HP gain also raises current HP, so it lowers it. HP removed by Brightest
-   Flame's cap (69/70 → 68/68) counts as lost. Turn cap 100.
+4. **HP lost (#115, #205)** = start HP (default Max HP; `startHp` can start a combat lower) − final HP,
+   and can be negative: every heal from cards and relics counts in full, past the damage taken and
+   past Max HP (Trent: start 70/80, Blood Vial 2, lose 5, Burning Blood 6 → −3; no damage + Burning
+   Blood → −6; Not Yet 10 at full HP → −10). HP itself stops at Max HP. It includes self-damage
+   (Hemokinesis etc.); dying from self-damage is a loss. Feed's Max HP gain also raises current HP, so
+   it lowers it (Feed at full HP → −3). HP removed by Brightest Flame's cap (69/70 → 68/68) counts as
+   lost. Turn cap 100. Burning Blood heals only on a win.
 5. **Ascension:** overrides are cumulative; Ascender's Bane added (and locked in the deck builder) at A5+.
 6. **Draw rules:** Innate cards go on top of the draw pile (turn 1 still draws 5); hand limit 10;
    Scrawl and Pillage stop at 10; Battle Trance blocks all further draws that turn; Retain keeps cards.
@@ -75,13 +78,28 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 18. **Card coverage:** every main-release Ironclad and Colorless card is simulated and matches its
     wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20) and the multiplayer-only
     cards (#117).
+17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
+    in pick order: combat start (before the first draw), turn start (after the draw and start-of-turn
+    powers), turn end (before Plating), after a card is played, combat end (wins only). "Start each
+    combat with" Block, Energy, Plating or extra draw happens on turn 1 after the Block reset (Anchor 10
+    Block on turn 1 only; Gorget's 4 Plating gives 4 Block at the end of turn 1). Relic Block ignores
+    Dexterity and Frail. Ornamental Fan counts Attacks per turn (every 3rd); Iron Club counts cards per
+    combat (every 4th). Happy Flower / Pollinous Core fire on turns 3, 6… / 4, 8… and Iron Club on
+    every 4th card; their counters carry between combats in the game, so Setup sets the starting
+    count (default 0, URL `HF2`; Happy Flower 2 → turns 1, 4…). Tungsten Rod takes 1 off every HP loss, then Beating Remnant caps HP lost at 20 per
+    turn (the player's turn and the enemy's turn count separately, Trent confirmed). The Boot raises unblocked attack
+    damage of 1–4 to 5. Snecko Eye: +2 draw, and each drawn card costs a random 0–3 (seeded Rng).
+    Ghost Seed: the basic Strike and Defend (upgraded too) exhaust at end of turn like Ethereal.
+    Belt Buckle's +2 Dexterity is off while a potion slot is filled. Sling of Courage: only
+    against `elite` enemies. Velvet Choker: no 7th card a turn. Girya's Strength (1–3, default 1) is chosen in Setup.
+    The Ironclad has Burning Blood by default; relics are in the URL (`r`).
 
 ## Strategy behaviour
 
 18. **Ordered groups:** Attack / Block / Powers in the chosen order; "allow X through" applies only to
     Block. Defaults: Greedy Damage (Attack, Powers, Block), Scared Block (Block 0, Powers, Attack).
-19. **Play order:** 0-cost draw first, then Enlightenment (always played, #169); Not Yet first when it
-    would heal 8+ (#115); Apotheosis right away when something can be upgraded and tutors when the draw
+19. **Play order:** 0-cost draw first, then Enlightenment (always played, #169); Not Yet (any healing card)
+    with the energy left after the groups, at any HP, since every heal counts in full (#205); Apotheosis right away when something can be upgraded and tutors when the draw
     pile has a card to fetch (#112); net-energy cards (Bloodletting) before pure draw; 1+ cost pure
     draw only when the top group can't be filled, then re-plan, and skipped when the turn already
     spends all its energy (X-cost cards and expensive Powers count), except for Block-first strategies
@@ -141,7 +159,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 35. **Enemy basics:** HP is rolled inside the enemy's range from the seeded Rng; move patterns cycle
     in order; an Ascension level applies every override at or below it and none above (A8 has no A9).
 36. **Storage and notes:** saved decks and strategies live in localStorage, and the app still works
-    when storage is blocked. The UI says Burning Blood's heal is not simulated.
+    when storage is blocked. The UI notes a starting relic only when it is not simulated (Burning
+    Blood is, #205); negative HP lost shows as "gained N HP" in the combat log.
 37. **Potions (#204):** up to 3 potion slots in the setup (URL `p=` codes, e.g. `SPFP`). The strategy is
     asked before every move; using a potion costs no energy, empties the slot and logs a `potion`
     event. Fire Potion deals a fixed 20 (no Strength or Weak) through enemy Block. All built-in

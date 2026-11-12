@@ -1,0 +1,17 @@
+{
+  "id": "belt_buckle",
+  "code": "BK",
+  "name": "Belt Buckle",
+  "rarity": "shop",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "dexterityWithoutPotions",
+      "amount": 2
+    }
+  ],
+  "description": "While you have no Potions, you have 2 additional Dexterity.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

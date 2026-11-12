@@ -42,7 +42,7 @@ export function checkEffects(r: Reporter, list: unknown, path: string): void {
   });
 }
 
-function checkFilter(r: Reporter, v: unknown, p: string): void {
+export function checkFilter(r: Reporter, v: unknown, p: string): void {
   if (!isObj(v)) {
     r.add(p, 'must be an object');
     return;

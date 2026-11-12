@@ -1,0 +1,22 @@
+{
+  "id": "bronze_scales",
+  "code": "BZ",
+  "name": "Bronze Scales",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "combatStart",
+      "effects": [
+        {
+          "type": "applyPower",
+          "power": "thorns",
+          "amount": 3
+        }
+      ]
+    }
+  ],
+  "description": "Start each combat with 3 Thorns.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

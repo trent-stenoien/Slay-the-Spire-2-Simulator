@@ -384,3 +384,18 @@ describe('potion validation (#204)', () => {
     expect(errs).toContainEqual(expect.stringMatching(/potions\/strength_potion.*effects\[0\]\.type/));
   });
 });
+
+describe('#205 relic validation', () => {
+  it('accepts every relic file and rejects a choice no hook uses or an unknown script', () => {
+    expect(Object.keys(gameData.relics ?? {}).length).toBeGreaterThan(40);
+    const d = fixture() as Record<string, unknown>;
+    const vajra = structuredClone(gameData.relics!.vajra!);
+    d.relics = {
+      vajra: { ...vajra, choice: { label: 'x', values: [0, 1], default: 0 } },
+      fan: { ...vajra, id: 'fan', code: 'Fq', hooks: [], modifiers: [{ kind: 'script', id: 'nope' }] },
+    };
+    const errs = errorsOf(d as never);
+    expect(errs).toContainEqual(expect.stringMatching(/relics\/vajra.*choice.*needs a hook/));
+    expect(errs).toContainEqual(expect.stringMatching(/relics\/fan.*modifiers\[0\]\.id/));
+  });
+});

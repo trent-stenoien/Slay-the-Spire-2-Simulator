@@ -1,0 +1,31 @@
+{
+  "id": "orichalcum_fake",
+  "code": "Of",
+  "name": "Orichalcum???",
+  "rarity": "event",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnEnd",
+      "effects": [
+        {
+          "type": "conditional",
+          "if": {
+            "kind": "counter",
+            "counter": "playerBlock",
+            "max": 0
+          },
+          "then": [
+            {
+              "type": "gainBlock",
+              "amount": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "description": "If you end your turn without Block, gain 3 Block.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

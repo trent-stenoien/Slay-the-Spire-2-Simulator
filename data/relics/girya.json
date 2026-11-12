@@ -1,0 +1,27 @@
+{
+  "id": "girya",
+  "code": "Gy",
+  "name": "Girya",
+  "rarity": "rare",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "combatStart",
+      "amountFromChoice": true,
+      "effects": [
+        {
+          "type": "gainStrength",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "choice": {
+    "label": "Strength lifted",
+    "values": [1, 2, 3],
+    "default": 1
+  },
+  "description": "You can now gain Strength at Rest Site. (3 times max)",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

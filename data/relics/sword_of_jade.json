@@ -1,0 +1,21 @@
+{
+  "id": "sword_of_jade",
+  "code": "SJ",
+  "name": "Sword of Jade",
+  "rarity": "event",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "combatStart",
+      "effects": [
+        {
+          "type": "gainStrength",
+          "amount": 3
+        }
+      ]
+    }
+  ],
+  "description": "Start each combat with 3 Strength.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

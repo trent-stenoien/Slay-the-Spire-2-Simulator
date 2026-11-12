@@ -1,0 +1,20 @@
+{
+  "id": "strike_dummy",
+  "code": "Sd",
+  "name": "Strike Dummy",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "cardDamageBonus",
+      "amount": 3,
+      "filter": {
+        "nameIncludes": "Strike"
+      }
+    }
+  ],
+  "description": "Cards containing “Strike” deal 3 additional damage.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

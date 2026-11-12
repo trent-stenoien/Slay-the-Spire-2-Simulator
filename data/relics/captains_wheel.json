@@ -1,0 +1,22 @@
+{
+  "id": "captains_wheel",
+  "code": "CW",
+  "name": "Captain's Wheel",
+  "rarity": "rare",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "turn": 3,
+      "effects": [
+        {
+          "type": "gainBlock",
+          "amount": 18
+        }
+      ]
+    }
+  ],
+  "description": "At the start of your 3rd turn, gain 18 Block.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

@@ -15,6 +15,23 @@ import {
   perCounterValue,
 } from './rules';
 import type { CounterContext } from './rules';
+import {
+  CONFUSED_COST,
+  ORNAMENTAL_FAN_ATTACKS,
+  type ActiveRelic,
+  activeRelics,
+  cardsPerTurnLimit,
+  hookEffects,
+  hooksFor,
+  hpLossCap,
+  isBasicStrikeOrDefend,
+  startCount,
+  minUnblockedAttack,
+  modifiersOf,
+  modifierTotal,
+  scriptMods,
+  turnMatches,
+} from './relics';
 import { chooseExhaust, createStrategy } from './strategies';
 import {
   HAND_LIMIT,
@@ -366,8 +383,18 @@ class Combat {
   private returning: { uid: number; to: CardDestination }[] = [];
   /** #116: cost a card had before it became free this turn (restored at the end of the turn). */
   private readonly freeBackup = new Map<number, number | null>();
-  /** #115: Max HP at the start of combat; `hpLost` is measured against it (Feed and healing lower it). */
-  private readonly startMaxHp: number;
+  /** #205: HP at the start of combat (config.startHp, or Max HP); `hpLost` is measured against it. */
+  private readonly startHp: number;
+  /** #205: relics in play, in pick order. */
+  private readonly relics: ActiveRelic[];
+  /** #205 (Trent): healing beyond Max HP. It is not added to HP, but it still lowers `hpLost`. */
+  private overheal = 0;
+  /** #205: total HP healed this combat (cards and relics, overheal included). */
+  private healedTotal = 0;
+  /** #205: relic id while a relic's hook resolves (heal events name it as `source`). */
+  private relicSource: string | undefined;
+  /** #205 Beating Remnant: HP lost so far in the current turn (the player's or the enemy's). */
+  private relicTurnLoss = 0;
   /** #104: gold and potions gained so far this combat (rewards only; no combat effect). */
   private gold = 0;
   private potions = 0;
@@ -395,7 +422,12 @@ class Combat {
   ) {
     this.log = logging ? [] : null;
     this.nextUid = deck.length;
-    this.startMaxHp = character.maxHp;
+    this.relics = activeRelics(data, config);
+    const startHp = config.startHp ?? character.maxHp;
+    if (!Number.isInteger(startHp) || startHp < 1 || startHp > character.maxHp) {
+      throw new Error(`startHp ${startHp} must be an integer from 1 to Max HP ${character.maxHp}`);
+    }
+    this.startHp = startHp;
     // RNG use order is fixed: (1) enemy HP, (2) random cycle start or first random pick (when
     // there is no opener), (3) shuffle. Later random picks happen right after each enemy move.
     this.rng = createRng(config.seed);
@@ -408,7 +440,7 @@ class Combat {
     this.state = {
       turn: 0,
       player: {
-        hp: character.maxHp,
+        hp: startHp,
         maxHp: character.maxHp,
         block: 0,
         energy: 0,
@@ -435,7 +467,7 @@ class Combat {
         nextMoveId: firstMove,
       },
     };
-    this.log?.push({ t: 'combatStart', seed: config.seed, enemyHp, playerHp: character.maxHp });
+    this.log?.push({ t: 'combatStart', seed: config.seed, enemyHp, playerHp: startHp });
     // #203: powers the enemy starts with (Cubex Construct: Artifact; Byrdonis: Strength per turn).
     for (const [power, amount] of Object.entries(enemyDef.startPowers ?? {}) as [EnemyPowerId, number][]) {
       if (amount > 0) this.applyEnemyPower(power, amount);
@@ -461,6 +493,8 @@ class Combat {
 
   /** Turns until one side dies or the turn cap is reached. */
   run(): CombatResult {
+    const opened = this.relicCombatStart();
+    if (opened) return this.finish(opened);
     for (;;) {
       this.state.turn++;
       const started = this.startPlayerTurn();
@@ -500,9 +534,14 @@ class Combat {
       player.block = 0;
       log?.push({ t: 'blockReset', side: 'player' });
     }
-    player.energy = this.character.energyPerTurn;
+    this.relicTurnLoss = 0;
+    // #205: Ice Cream keeps unspent energy; Sozu / Velvet Choker add to every refill.
+    const refill = this.character.energyPerTurn + modifierTotal(this.relics, 'energyPerTurn');
+    player.energy = (modifiersOf(this.relics, 'conserveEnergy').length > 0 ? player.energy : 0) + refill;
     this.returnCards();
-    for (let i = 0; i < this.character.drawPerTurn; i++) {
+    // #205 Snecko Eye: extra cards in the normal draw.
+    const draw = this.character.drawPerTurn + modifierTotal(this.relics, 'drawPerTurn');
+    for (let i = 0; i < draw; i++) {
       if (!this.drawOne()) break;
       if (player.hp <= 0) return 'loss';
       if (this.enemy.hp <= 0) return 'win';
@@ -510,7 +549,9 @@ class Combat {
     // #110: effects scheduled for this turn's start (Outmaneuver, Relax, Toric Toughness, Prolong), after the draw.
     const scheduled = this.runScheduled('turnStart');
     if (scheduled) return scheduled;
-    return this.turnStartPowers();
+    const powers = this.turnStartPowers();
+    if (powers) return powers;
+    return this.relicTurnStart();
   }
 
   /**
@@ -685,7 +726,7 @@ class Combat {
     // #110 Panic Button: no Block from cards while the power lasts.
     if (this.power('noBlockFromCards') > 0) return 0;
     const fasten = card.name.includes(FASTEN_NAME) ? this.power('fasten') : 0;
-    const raw = amount + this.power('dexterity') + fasten;
+    const raw = amount + this.power('dexterity') + this.beltBuckle() + fasten;
     // #113 Unmovable: the first Block gain from a card each turn is doubled; Frail and the doubling
     // are multipliers, so they are applied together and floored once (raw × 0.75 × 2).
     const double = raw > 0 && this.power('unmovable') > 0 && !this.unmovableUsed;
@@ -771,8 +812,15 @@ class Combat {
    * played by an effect or trigger rather than the strategy; `exhaust` sends it to the Exhaust pile
    * (Havoc). Returns the side that died, if one did.
    */
-  private playCard(card: CardInstance, x: number, by?: 'effect' | 'trigger' | 'power', exhaust = false): Side | null {
+  private playCard(
+    card: CardInstance,
+    xPaid: number,
+    by?: 'effect' | 'trigger' | 'power',
+    exhaust = false,
+  ): Side | null {
     const { player, enemy, log, counters } = this;
+    // #205 Chemical X: X-cost cards act as if X were higher (the energy spent is unchanged).
+    const x = card.xCost ? xPaid + modifierTotal(this.relics, 'xBonus') : xPaid;
     const logPlay = (how?: 'effect' | 'replay' | 'trigger' | 'power') => {
       if (!log) return;
       const ev: GameEvent = { t: 'play', uid: card.uid, cardId: card.cardId, energyLeft: player.energy };
@@ -844,6 +892,7 @@ class Combat {
       player.discardPile.push(card);
     }
     if (!died && enemy.hp > 0) died = this.afterPlay(card, panacheOn);
+    if (!died && enemy.hp > 0 && player.hp > 0) died = this.relicCardPlayed(card);
     return died ?? (enemy.hp <= 0 ? 'enemy' : null);
   }
 
@@ -913,6 +962,9 @@ class Combat {
    */
   private endPlayerTurn(): Outcome | null {
     const { player, log } = this;
+    // #205: end-of-turn relics (Stone Calendar, Orichalcum) before Plating.
+    const relicEnd = this.relicHooks('turnEnd');
+    if (relicEnd) return relicEnd;
     // #109 Plating: gain Block equal to it at the end of your turn.
     const plating = this.power('plating');
     if (plating > 0) this.gainPowerBlock(plating);
@@ -936,13 +988,15 @@ class Combat {
       if (this.enemy.hp <= 0) return 'win';
     }
     // #110 Equilibrium, Salvo: the whole hand is retained this turn (Ethereal cards still exhaust).
-    const retainHand = this.power('retainHand') > 0;
+    // #205 Runic Pyramid: the hand is kept like Retain (Ethereal cards still exhaust).
+    const retainHand = this.power('retainHand') > 0 || modifiersOf(this.relics, 'keepHand').length > 0;
+    const ghostSeed = scriptMods(this.relics, 'ghostSeed').length > 0;
     const retained: CardInstance[] = [];
     // #113: cards drawn while exhausting (Dark Embrace) join the new hand and stay in it.
     const handNow = player.hand;
     player.hand = retained;
     for (const card of handNow) {
-      if (card.keywords.includes('ethereal')) {
+      if (card.keywords.includes('ethereal') || (ghostSeed && isBasicStrikeOrDefend(card))) {
         const died = this.exhaustCard(card, 'ethereal');
         if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
       } else if (card.keywords.includes('retain') || retainHand) {
@@ -1010,6 +1064,7 @@ class Combat {
     const { player, enemy, log } = this;
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'enemy' });
     this.playerTurn = false;
+    this.relicTurnLoss = 0;
     enemy.block = 0;
     log?.push({ t: 'blockReset', side: 'enemy' });
     // Poison: HP loss equal to stacks (ignores Block and modifiers), then -1. A kill ends combat before the move.
@@ -1110,7 +1165,12 @@ class Combat {
       let died: Side | null = null;
       switch (e.type) {
         case 'attack':
-          died = this.attack(source, other, e.damage + (card?.damageBonus ?? 0), attackHits(e, x));
+          died = this.attack(
+            source,
+            other,
+            e.damage + (card?.damageBonus ?? 0) + this.relicCardDamage(card),
+            attackHits(e, x),
+          );
           break;
         case 'gainBlock': {
           // #109: Block from a card gets Dexterity and Fasten; other Block (enemy moves, triggers) does not.
@@ -1308,7 +1368,8 @@ class Combat {
           break;
         case 'gainPotion':
           if (source !== 'player') throw new Error('Enemies do not gain potions');
-          this.potions++;
+          // #205 Sozu: no potions can be obtained.
+          if (modifiersOf(this.relics, 'noPotions').length === 0) this.potions++;
           break;
         case 'conditional': {
           if (source !== 'player') throw new Error('Effect "conditional" is not simulated yet on enemy moves');
@@ -1517,6 +1578,9 @@ class Combat {
 
   /** #111: a card with `playableIf` (Clash) can be played only while it holds. */
   private playableNow(card: CardInstance): boolean {
+    // #205 Velvet Choker: no more cards once the turn's limit is reached.
+    const limit = cardsPerTurnLimit(this.relics);
+    if (limit !== null && this.counters.cardsPlayedThisTurn >= limit) return false;
     return !card.playableIf || this.holds(card.playableIf, card);
   }
 
@@ -1527,7 +1591,12 @@ class Combat {
   private perfectedStrike(values: readonly number[] | undefined, card: CardInstance | undefined): Side | null {
     const [base = 0, per = 0] = values ?? [];
     const strikes = countStrikes(this.player) + (card && isStrikeName(card.name) ? 1 : 0);
-    return this.attack('player', 'enemy', base + per * strikes + (card?.damageBonus ?? 0), 1);
+    return this.attack(
+      'player',
+      'enemy',
+      base + per * strikes + (card?.damageBonus ?? 0) + this.relicCardDamage(card),
+      1,
+    );
   }
 
   /**
@@ -2104,21 +2173,30 @@ class Combat {
   }
 
   /** #106: the player loses HP directly (ignores Block; not an attack). Returns true if they died. */
-  private loseHp(amount: number): boolean {
+  private loseHp(lost: number): boolean {
     const { player } = this;
+    const amount = this.reduceHpLoss(lost);
     player.hp -= amount;
     this.recordHpLoss(amount);
     this.log?.push({ t: 'loseHp', side: 'player', amount, hpAfter: Math.max(player.hp, 0) });
     return player.hp <= 0;
   }
 
-  /** #115: the player heals; only the HP actually restored counts (and lowers `hpLost`). */
+  /**
+   * #115/#205 (Trent): the player heals the full amount for `hpLost`, even past Max HP. HP itself
+   * stops at Max HP; the rest is kept as overheal, which lowers `hpLost` too (so it can go negative).
+   * The event's `amount` is the full heal; `hpAfter` is the real HP.
+   */
   private heal(amount: number): void {
     const { player } = this;
-    const healed = Math.max(0, Math.min(amount, player.maxHp - player.hp));
-    if (healed === 0) return;
-    player.hp += healed;
-    this.log?.push({ t: 'heal', amount: healed, hpAfter: player.hp });
+    if (amount <= 0) return;
+    const restored = Math.max(0, Math.min(amount, player.maxHp - player.hp));
+    player.hp += restored;
+    this.overheal += amount - restored;
+    this.healedTotal += amount;
+    const ev: GameEvent = { t: 'heal', amount, hpAfter: player.hp };
+    if (this.relicSource) ev.source = this.relicSource;
+    this.log?.push(ev);
   }
 
   /**
@@ -2175,7 +2253,7 @@ class Combat {
     const amount = this.power('intangible') > 0 ? Math.min(damage, 1) : damage;
     const blocked = Math.min(player.block, amount);
     player.block -= blocked;
-    const hpLoss = amount - blocked;
+    const hpLoss = this.reduceHpLoss(amount - blocked);
     player.hp -= hpLoss;
     this.log?.push({ t: 'damage', source: 'player', target: 'player', amount, blocked, hpLoss });
     this.recordHpLoss(hpLoss);
@@ -2287,7 +2365,8 @@ class Combat {
     for (let h = 0; h < hits; h++) {
       const blocked = Math.min(t.block, perHit);
       t.block -= blocked;
-      const raw = perHit - blocked;
+      // #205 The Boot / Tungsten Rod / Beating Remnant first, then #213 Slippery on the enemy.
+      const raw = this.attackHpLoss(target, perHit - blocked);
       const hpLoss = target === 'enemy' ? this.slipperyLoss(raw) : raw;
       t.hp -= hpLoss;
       this.log?.push({ t: 'damage', source, target, amount: perHit, blocked, hpLoss });
@@ -2388,6 +2467,7 @@ class Combat {
       log?.push({ t: 'discard', uid: card.uid, cardId: card.cardId, reason: 'handLimit' });
     } else {
       player.hand.push(card);
+      this.confuse(card);
       // #115: "when drawn" triggers; a death is seen by the caller through player.hp.
       this.runJunkTriggers(card, 'drawn');
       // #113 Hellraiser: a drawn card with "Strike" in its name is played for free (if it can be).
@@ -2419,10 +2499,147 @@ class Combat {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // #205 Relics (which hooks fire is decided in engine/relics.ts)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Resolve one relic's effects as the player (Block from a relic is not from a card, so
+   * Dexterity and Frail don't change it). Heals name the relic as their source.
+   */
+  private resolveRelic(relic: ActiveRelic, effects: readonly Effect[]): Side | null {
+    this.log?.push({ t: 'relic', relicId: relic.def.id });
+    this.unpowered = true;
+    this.relicSource = relic.def.id;
+    const died = this.resolveEffects('player', effects);
+    this.unpowered = false;
+    this.relicSource = undefined;
+    return died;
+  }
+
+  /** The outcome after a relic effect, or null when both sides live. */
+  private relicOutcome(died: Side | null): Outcome | null {
+    if (died === 'player' || this.player.hp <= 0) return 'loss';
+    if (died === 'enemy' || this.enemy.hp <= 0) return 'win';
+    return null;
+  }
+
+  /** Every hook for `when` whose turn conditions hold this turn, in pick order. */
+  private relicHooks(when: 'combatStart' | 'turnStart' | 'turnEnd'): Outcome | null {
+    for (const { relic, hook } of hooksFor(this.relics, when)) {
+      if (when !== 'combatStart' && !turnMatches(hook, this.state.turn, startCount(relic, hook))) continue;
+      const out = this.relicOutcome(this.resolveRelic(relic, hookEffects(hook, relic.choice)));
+      if (out) return out;
+    }
+    return null;
+  }
+
+  /** combatStart hooks (Vajra, Bronze Scales, Blood Vial…), then Sling of Courage against an Elite. */
+  private relicCombatStart(): Outcome | null {
+    const out = this.relicHooks('combatStart');
+    if (out) return out;
+    if (this.enemyDef.difficulty !== 'elite') return null;
+    for (const { relic, mod } of scriptMods(this.relics, 'slingOfCourage')) {
+      const died = this.resolveRelic(relic, [{ type: 'gainStrength', amount: mod.amount ?? 0 }]);
+      if (died) return this.relicOutcome(died);
+    }
+    return null;
+  }
+
+  /** turnStart hooks after the draw and the start-of-turn powers; on turn 1 Bellows upgrades the hand last. */
+  private relicTurnStart(): Outcome | null {
+    const out = this.relicHooks('turnStart');
+    if (out) return out;
+    if (this.state.turn !== 1) return null;
+    for (const { relic } of scriptMods(this.relics, 'bellows')) {
+      this.log?.push({ t: 'relic', relicId: relic.def.id });
+      const { hand } = this.player;
+      for (const c of [...hand]) if (this.canUpgrade(c)) this.upgradeInstance(c, hand);
+    }
+    return null;
+  }
+
+  /**
+   * After a card is played (once per play): `cardPlayed` hooks count matching cards in
+   * PlayerState.relicCounters and fire on every `everyCards`-th one (Iron Club); Ornamental Fan
+   * gains its Block on every 3rd Attack played this turn.
+   */
+  private relicCardPlayed(card: CardInstance): Side | null {
+    for (const { relic, hook } of hooksFor(this.relics, 'cardPlayed')) {
+      if (hook.filter && !matchesFilter(card, hook.filter)) continue;
+      if (hook.everyCards !== undefined) {
+        const counters = (this.player.relicCounters ??= {});
+        const n = (counters[relic.def.id] ?? startCount(relic, hook)) + 1;
+        counters[relic.def.id] = n;
+        if (n % hook.everyCards !== 0) continue;
+      }
+      const died = this.resolveRelic(relic, hookEffects(hook, relic.choice));
+      if (died) return died;
+    }
+    const attacks = this.counters.attacksPlayedThisTurn;
+    if (card.type === 'attack' && attacks % ORNAMENTAL_FAN_ATTACKS === 0) {
+      for (const { relic, mod } of scriptMods(this.relics, 'ornamentalFan')) {
+        const died = this.resolveRelic(relic, [{ type: 'gainBlock', amount: mod.amount ?? 0 }]);
+        if (died) return died;
+      }
+    }
+    return null;
+  }
+
+  /** Strike Dummy: extra damage per hit for the player's cards that match the modifier's filter. */
+  private relicCardDamage(card: CardInstance | undefined): number {
+    if (!card) return 0;
+    let bonus = 0;
+    for (const { mod } of modifiersOf(this.relics, 'cardDamageBonus')) {
+      if (!mod.filter || matchesFilter(card, mod.filter)) bonus += mod.amount ?? 0;
+    }
+    return bonus;
+  }
+
+  /** Belt Buckle: extra Dexterity while the player holds no potion. */
+  private beltBuckle(): number {
+    const held = (this.player.potions ?? []).some((p) => p !== null);
+    return held ? 0 : modifierTotal(this.relics, 'dexterityWithoutPotions');
+  }
+
+  /**
+   * HP the player loses from any source: Tungsten Rod takes N off each loss, then Beating Remnant
+   * caps the total for the current turn (the player's turn and the enemy's turn count separately).
+   */
+  private reduceHpLoss(amount: number): number {
+    if (amount <= 0 || this.relics.length === 0) return amount;
+    let n = Math.max(0, amount - modifierTotal(this.relics, 'hpLossReduce'));
+    const cap = hpLossCap(this.relics);
+    if (cap !== null) n = Math.min(n, Math.max(0, cap - this.relicTurnLoss));
+    this.relicTurnLoss += n;
+    return n;
+  }
+
+  /** Unblocked attack damage: reduced on the player (reduceHpLoss); raised by The Boot on the enemy. */
+  private attackHpLoss(target: Side, unblocked: number): number {
+    if (target === 'player') return this.reduceHpLoss(unblocked);
+    const boot = minUnblockedAttack(this.relics);
+    return unblocked > 0 && unblocked < boot ? boot : unblocked;
+  }
+
+  /** Snecko Eye (Confused): a drawn card with a printed cost costs a random 0–3 for the rest of combat. */
+  private confuse(card: CardInstance): void {
+    if (card.cost === null || card.xCost || scriptMods(this.relics, 'confused').length === 0) return;
+    card.costThisCombat = this.rng.int(CONFUSED_COST[0], CONFUSED_COST[1]);
+  }
+
+  /**
+   * #205: on a win the combatEnd relics heal (Burning Blood). `hpLost` = start HP − final HP −
+   * overheal: every heal counts in full, so it can be negative (lose 5, heal 8 → −3).
+   */
   private finish(outcome: Outcome): CombatResult {
     const { player, enemy, log } = this;
-    // #115: against the Max HP at the start of combat; healing and Feed lower it, never below 0.
-    const hpLost = Math.max(0, this.startMaxHp - Math.max(player.hp, 0));
+    if (outcome === 'win') {
+      for (const { relic, hook } of hooksFor(this.relics, 'combatEnd')) {
+        this.resolveRelic(relic, hookEffects(hook, relic.choice));
+      }
+    }
+    const hpLost = this.startHp - Math.max(player.hp, 0) - this.overheal;
     const result: CombatResult = {
       seed: this.config.seed,
       outcome,
@@ -2430,6 +2647,7 @@ class Combat {
       hpLost,
       enemyHpRemaining: Math.max(enemy.hp, 0),
     };
+    if (this.healedTotal > 0) result.healed = this.healedTotal;
     if (this.gold > 0 || this.potions > 0) result.rewards = { gold: this.gold, potions: this.potions };
     if (log) {
       log.push({ t: 'combatEnd', outcome, turns: this.state.turn, hpLost });

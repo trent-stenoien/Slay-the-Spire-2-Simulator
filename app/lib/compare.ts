@@ -16,6 +16,7 @@ import type {
 } from '../../engine/types';
 import { buildReplay, intendedMoveId, type Replay } from './logReplay';
 import type { SetupState } from './url';
+import { setupRelics } from './relics';
 
 export type TurnIntent = { intent: EnemyIntent; effects: Effect[] } | null;
 
@@ -49,6 +50,7 @@ export function replayCombat(
         enemyId: setup.enemyId,
         ascension: setup.ascension,
         ...(setup.potions && setup.potions.length > 0 ? { potions: setup.potions } : {}),
+        relics: setupRelics(data, setup),
         strategy,
         seed,
       },

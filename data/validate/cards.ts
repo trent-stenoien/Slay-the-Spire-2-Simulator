@@ -53,7 +53,7 @@ function unsimulatedFilter(f: unknown, path: string): string | undefined {
 }
 
 /** The first unsimulated effect in a nested list (repeat, triggers), or undefined. */
-function unsimulatedIn(list: unknown): string | undefined {
+export function unsimulatedIn(list: unknown): string | undefined {
   if (!Array.isArray(list)) return undefined;
   for (const item of list) {
     if (!isObj(item) || typeof item.type !== 'string') continue;

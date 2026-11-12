@@ -33,6 +33,8 @@ export function runCombatRange(
         strategy,
         ...(config.potions ? { potions: config.potions } : {}),
         seed: deriveSeed(config.runSeed, i),
+        ...(config.startHp !== undefined ? { startHp: config.startHp } : {}),
+        ...(config.relics && config.relics.length > 0 ? { relics: config.relics } : {}),
       }),
     );
   }
@@ -48,10 +50,12 @@ export function runCombatRange(
  *   their full length); 0 for an empty list.
  * - avgGold: mean gold gained per combat; potionRate: fraction of combats that gained a potion (#104).
  * - deathRate, turnCapRate: FRACTIONS in [0, 1] (not percentages).
- * - hpLostCounts[n]: combats that lost exactly n HP; length = max hpLost + 1
+ * - hpLostCounts[n]: combats that lost exactly n + minHpLost HP; length = max − min hpLost + 1
  *   (at least 1, so an empty run gives [0]).
- * - firstCombatByHpLost[n]: the position in `results` of the first combat that lost
- *   exactly n HP. `results` must be in combat-index order starting at combat 0 (as
+ * - minHpLost (#205): the lowest HP lost when it is negative (heals beyond the damage taken);
+ *   absent when no combat went below 0, so hpLostCounts[n] is then exactly n HP.
+ * - firstCombatByHpLost[v]: keyed by the HP lost itself (negative keys included): the position
+ *   in `results` of the first combat that lost exactly v HP. `results` must be in combat-index order starting at combat 0 (as
  *   runCombatRange(…, 0, n) and mergeChunkResults produce), so this is the lowest combat index.
  * An empty result list gives zeros everywhere (no NaN).
  */
@@ -63,6 +67,7 @@ export function summarize(strategyId: string, results: readonly CombatResult[]):
   let losses = 0;
   let caps = 0;
   let maxHp = 0;
+  let minHp = 0;
   let turnSum = 0;
   let goldSum = 0;
   let potionCombats = 0;
@@ -72,6 +77,7 @@ export function summarize(strategyId: string, results: readonly CombatResult[]):
     goldSum += r.rewards?.gold ?? 0;
     if ((r.rewards?.potions ?? 0) > 0) potionCombats++;
     if (r.hpLost > maxHp) maxHp = r.hpLost;
+    if (r.hpLost < minHp) minHp = r.hpLost;
     if (r.outcome === 'win') {
       wins++;
       winTurns += r.turns;
@@ -81,10 +87,10 @@ export function summarize(strategyId: string, results: readonly CombatResult[]):
       caps++;
     }
   }
-  const hpLostCounts = new Array<number>(maxHp + 1).fill(0);
+  const hpLostCounts = new Array<number>(maxHp - minHp + 1).fill(0);
   const firstCombatByHpLost: Record<number, number> = {};
   results.forEach((r, i) => {
-    hpLostCounts[r.hpLost] = (hpLostCounts[r.hpLost] ?? 0) + 1;
+    hpLostCounts[r.hpLost - minHp] = (hpLostCounts[r.hpLost - minHp] ?? 0) + 1;
     if (!(r.hpLost in firstCombatByHpLost)) firstCombatByHpLost[r.hpLost] = i;
   });
   return {
@@ -98,6 +104,7 @@ export function summarize(strategyId: string, results: readonly CombatResult[]):
     deathRate: n > 0 ? losses / n : 0,
     turnCapRate: n > 0 ? caps / n : 0,
     hpLostCounts,
+    ...(minHp < 0 ? { minHpLost: minHp } : {}),
     firstCombatByHpLost,
   };
 }

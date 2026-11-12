@@ -1,0 +1,21 @@
+{
+  "id": "blood_vial",
+  "code": "BV",
+  "name": "Blood Vial",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "combatStart",
+      "effects": [
+        {
+          "type": "heal",
+          "amount": 2
+        }
+      ]
+    }
+  ],
+  "description": "At the start of each combat, heal 2 HP.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

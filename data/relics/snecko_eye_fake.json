@@ -1,0 +1,17 @@
+{
+  "id": "snecko_eye_fake",
+  "code": "Sf",
+  "name": "Snecko Eye???",
+  "rarity": "event",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "script",
+      "id": "confused"
+    }
+  ],
+  "description": "Start each combat Confused.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

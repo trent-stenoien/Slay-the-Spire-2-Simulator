@@ -1,0 +1,27 @@
+{
+  "id": "iron_club",
+  "code": "IB",
+  "name": "Iron Club",
+  "rarity": "ancient",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "cardPlayed",
+      "everyCards": 4,
+      "effects": [
+        {
+          "type": "draw",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "choice": {
+    "label": "Cards counted",
+    "values": [0, 1, 2, 3],
+    "default": 0
+  },
+  "description": "Every 4 cards you play, draw 1 card.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

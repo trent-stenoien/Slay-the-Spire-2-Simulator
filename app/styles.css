@@ -1451,3 +1451,24 @@ textarea {
     grid-row: 2;
   }
 }
+
+/* #205 Relic picker in the Setup panel. */
+.relic-picker {
+  margin-top: 0.5rem;
+}
+.relic-list {
+  list-style: none;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.relic-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 999px;
+  padding: 0.1rem 0.2rem 0.1rem 0.6rem;
+}

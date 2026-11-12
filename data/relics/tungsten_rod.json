@@ -1,0 +1,17 @@
+{
+  "id": "tungsten_rod",
+  "code": "TR",
+  "name": "Tungsten Rod",
+  "rarity": "rare",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "hpLossReduce",
+      "amount": 1
+    }
+  ],
+  "description": "Whenever you would lose HP, lose 1 less.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

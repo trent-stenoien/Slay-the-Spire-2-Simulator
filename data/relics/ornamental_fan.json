@@ -1,0 +1,18 @@
+{
+  "id": "ornamental_fan",
+  "code": "OF",
+  "name": "Ornamental Fan",
+  "rarity": "uncommon",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "script",
+      "id": "ornamentalFan",
+      "amount": 4
+    }
+  ],
+  "description": "Every time you play 3 Attacks in a single turn, gain 4 Block.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

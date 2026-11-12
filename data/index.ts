@@ -3,7 +3,7 @@
  * Loads every data JSON file at build time, validates it, and exports the
  * result. An invalid file fails the build/tests with every problem listed.
  */
-import type { CardDef, CharacterDef, EnemyDef, GameData, PotionDef } from '../engine/types';
+import type { CardDef, CharacterDef, EnemyDef, GameData, PotionDef, RelicDef } from '../engine/types';
 import manifest from './manifest.json';
 import { assembleGameData, validateGameData } from './validate';
 
@@ -11,6 +11,7 @@ const cardFiles = import.meta.glob('./cards/**/*.json', { eager: true, import: '
 const enemyFiles = import.meta.glob('./enemies/*.json', { eager: true, import: 'default' });
 const characterFiles = import.meta.glob('./characters/*.json', { eager: true, import: 'default' });
 const potionFiles = import.meta.glob('./potions/*.json', { eager: true, import: 'default' });
+const relicFiles = import.meta.glob('./relics/*.json', { eager: true, import: 'default' });
 
 function load(): GameData {
   const { raw, errors } = assembleGameData({
@@ -19,6 +20,7 @@ function load(): GameData {
     enemies: enemyFiles,
     characters: characterFiles,
     potions: potionFiles,
+    relics: relicFiles,
   });
   const result = validateGameData(raw);
   const all = [...errors, ...(result.ok ? [] : result.errors)];
@@ -49,6 +51,13 @@ export function enemyByCode(code: string): EnemyDef | undefined {
 
 export function characterByCode(code: string): CharacterDef | undefined {
   return charactersByCode.get(code);
+}
+
+const relicsByCode = new Map<string, RelicDef>(Object.values(gameData.relics ?? {}).map((r) => [r.code, r]));
+
+/** #205: a relic by its two-character URL code. */
+export function relicByCode(code: string): RelicDef | undefined {
+  return relicsByCode.get(code);
 }
 
 export { validateGameData } from './validate';

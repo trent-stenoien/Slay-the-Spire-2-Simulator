@@ -3,7 +3,14 @@ import { sameConfig, strategyCode } from '../../engine/strategies';
 import type { GameData, GameEvent, SavedStrategy, StrategyColor, StrategyConfig } from '../../engine/types';
 import { defaultName, describeConfig } from '../lib/strategyLibrary';
 import { useSavedLibrary } from '../useStrategies';
-import { ascensionLabel, describeEvent, enemyIntentLabel, type Round, type SideSnapshot } from '../lib/logReplay';
+import {
+  ascensionLabel,
+  describeEvent,
+  enemyIntentLabel,
+  hpLostPhrase,
+  type Round,
+  type SideSnapshot,
+} from '../lib/logReplay';
 import { setupHref } from '../lib/links';
 import type { LogTarget, SetupState } from '../lib/url';
 import { Panel } from './Panel';
@@ -97,7 +104,8 @@ function SingleLog({ data, setup, target }: Props) {
       ) : (
         <>
           <p className={`outcome outcome-${outcome.result.outcome}`}>
-            {outcomeLabel(outcome.result.outcome)} on turn {outcome.result.turns}, losing {outcome.result.hpLost} HP.
+            {outcomeLabel(outcome.result.outcome)} on turn {outcome.result.turns},{' '}
+            {hpLostPhrase(outcome.result.hpLost, true)}.
           </p>
           {roundCount > 0 && (
             <div className="round">
@@ -191,8 +199,8 @@ function CompareColumn({
         </h3>
         {col.combat.ok ? (
           <p className={`outcome small outcome-${col.combat.result.outcome}`}>
-            {outcomeLabel(col.combat.result.outcome)} on turn {col.combat.result.turns}, lost {col.combat.result.hpLost}{' '}
-            HP
+            {outcomeLabel(col.combat.result.outcome)} on turn {col.combat.result.turns},{' '}
+            {hpLostPhrase(col.combat.result.hpLost)}
           </p>
         ) : (
           <p className="warn small">Could not replay: {col.combat.error}</p>
@@ -218,8 +226,8 @@ function CompareCell({
   if (at.kind === 'ended') {
     return (
       <p className={`compare-ended outcome outcome-${combat.result.outcome}`}>
-        Combat ended on turn {at.endTurn}: {outcomeLabel(combat.result.outcome).toLowerCase()}, lost{' '}
-        {combat.result.hpLost} HP.
+        Combat ended on turn {at.endTurn}: {outcomeLabel(combat.result.outcome).toLowerCase()},{' '}
+        {hpLostPhrase(combat.result.hpLost)}.
       </p>
     );
   }

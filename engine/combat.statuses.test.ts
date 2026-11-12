@@ -60,17 +60,19 @@ function world(...enemies: ReturnType<typeof makeEnemy>[]) {
 const play = (...turns: string[][]) => scripted((t) => turns[t - 1] ?? []);
 
 describe('#115 heal and hpLost', () => {
-  it('Not Yet heals and lowers HP lost by the HP actually healed', () => {
+  it('#205: Not Yet heals in full for HP lost, past the damage taken (lose 6, heal 10 → −4)', () => {
     const r = logged(world(), play(['ouch', 'notyet', 'strike']), {
       enemyId: 'weak',
       deck: deckOf(['ouch', 1], ['notyet', 1], ['strike', 1]),
     });
-    expect(events(r.log, 'heal')).toEqual([{ t: 'heal', amount: 6, hpAfter: 80 }]);
+    // HP itself stops at Max HP; the event carries the full heal.
+    expect(events(r.log, 'heal')).toEqual([{ t: 'heal', amount: 10, hpAfter: 80 }]);
     expect(r.outcome).toBe('win');
-    expect(r.hpLost).toBe(0);
+    expect(r.hpLost).toBe(-4);
+    expect(r.healed).toBe(10);
   });
 
-  it('heals only up to Max HP and partial heals count in full', () => {
+  it('a heal below Max HP restores its full amount (lose 25, heal 10 → 15)', () => {
     const d = world();
     d.cards.ouch = card('ouch', 'Ou', [lose(25)]);
     const r = logged(d, play(['ouch', 'notyet', 'strike']), {
@@ -81,13 +83,13 @@ describe('#115 heal and hpLost', () => {
     expect(r.hpLost).toBe(15);
   });
 
-  it('a heal at full HP restores nothing and logs nothing', () => {
+  it('#205: a heal at full HP still counts in full (HP lost −10)', () => {
     const r = logged(world(), play(['notyet', 'strike']), {
       enemyId: 'weak',
       deck: deckOf(['notyet', 1], ['strike', 1]),
     });
-    expect(events(r.log, 'heal')).toHaveLength(0);
-    expect(r.hpLost).toBe(0);
+    expect(events(r.log, 'heal')).toEqual([{ t: 'heal', amount: 10, hpAfter: 80 }]);
+    expect(r.hpLost).toBe(-10);
   });
 });
 
@@ -129,9 +131,9 @@ describe('#115 Max HP (Feed, Brightest Flame)', () => {
     expect(r.hpLost).toBe(6);
   });
 
-  it('HP lost never goes below 0 after Feed and healing', () => {
+  it('#205: HP lost can go below 0 after Feed at full HP (80/80 → 83/83 = −3)', () => {
     const r = logged(world(), play(['feed']), { enemyId: 'weak', deck: deckOf(['feed', 1]) });
-    expect(r.hpLost).toBe(0);
+    expect(r.hpLost).toBe(-3);
   });
 });
 
@@ -300,22 +302,29 @@ describe('#115 strategy: Not Yet', () => {
     return out;
   };
 
-  it('is played before the other plays when it would heal 8 or more', () => {
-    // The enemy hits for 20 on turn 1; turn 2 starts at 60/80, so Not Yet heals 10 first.
-    const r = logged(world(hitter(20)), createStrategy(blockFirstConfig(0)), config);
+  it('#205: is played with leftover energy even at full HP (every heal counts in full)', () => {
+    for (const config_ of [blockFirstConfig(0), GREEDY_CONFIG]) {
+      const r = logged(world(hitter(7)), createStrategy(config_), config);
+      expect(notYetTurns(r)).toEqual([1]);
+      expect(
+        events(r.log, 'play')
+          .map((e) => e.cardId)
+          .slice(0, 2),
+      ).toEqual(['strike', 'notyet']);
+      expect(events(r.log, 'heal')[0]).toMatchObject({ amount: 10, hpAfter: 80 });
+    }
+  });
+
+  it('#205: never takes energy the groups want (3 Strikes first, Not Yet waits)', () => {
+    const r = logged(world(hitter(7)), createStrategy(GREEDY_CONFIG), {
+      enemyId: 'hitter',
+      deck: deckOf(['notyet', 1], ['strike', 3]),
+    });
     expect(
       events(r.log, 'play')
         .map((e) => e.cardId)
         .slice(0, 3),
-    ).toEqual(['strike', 'notyet', 'strike']);
-    expect(events(r.log, 'heal')[0]).toMatchObject({ amount: 10 });
-  });
-
-  it('waits until at least 8 HP would be healed (7 missing is not enough)', () => {
-    // 7 damage a turn: turn 2 starts 7 missing (no), turn 3 starts 14 missing (yes, heals 10).
-    for (const config_ of [blockFirstConfig(0), GREEDY_CONFIG]) {
-      const r = logged(world(hitter(7)), createStrategy(config_), config);
-      expect(notYetTurns(r)[0]).toBe(3);
-    }
+    ).toEqual(['strike', 'strike', 'strike']);
+    expect(notYetTurns(r)).not.toContain(1);
   });
 });

@@ -1,0 +1,20 @@
+{
+  "id": "sozu",
+  "code": "Sz",
+  "name": "Sozu",
+  "rarity": "ancient",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "energyPerTurn",
+      "amount": 1
+    },
+    {
+      "kind": "noPotions"
+    }
+  ],
+  "description": "Gain 1 Energy at the start of each turn. You can no longer obtain Potions.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

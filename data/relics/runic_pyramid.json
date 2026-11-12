@@ -1,0 +1,16 @@
+{
+  "id": "runic_pyramid",
+  "code": "RP",
+  "name": "Runic Pyramid",
+  "rarity": "ancient",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "keepHand"
+    }
+  ],
+  "description": "At the end of your turn, you no longer discard your Hand.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

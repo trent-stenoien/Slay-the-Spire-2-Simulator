@@ -1,0 +1,27 @@
+{
+  "id": "happy_flower_fake",
+  "code": "Hf",
+  "name": "Happy Flower???",
+  "rarity": "event",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "everyTurns": 5,
+      "effects": [
+        {
+          "type": "gainEnergy",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "choice": {
+    "label": "Turns counted",
+    "values": [0, 1, 2, 3, 4],
+    "default": 0
+  },
+  "description": "Every 5 turns, gain 1 Energy.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

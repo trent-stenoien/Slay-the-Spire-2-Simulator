@@ -101,16 +101,13 @@ const renderDeckBuilder = (characterId: string, ascension: number, deck: Deck) =
   );
 const renderSetupPanel = (setup: SetupState) =>
   renderToStaticMarkup(
-    <SetupPanel data={gameData} setup={setup} onCharacter={noop} onEnemy={noop} onAscension={noop} />,
+    <SetupPanel data={gameData} setup={setup} onCharacter={noop} onEnemy={noop} onAscension={noop} onRelics={noop} />,
   );
 
 describe('views render', () => {
-  it('renders the main page with the Burning Blood note inside the Results panel body, not at the top', () => {
+  it('renders the main page with no relic note for the Ironclad (#205: Burning Blood is simulated)', () => {
     const html = renderToStaticMarkup(<App />);
-    const note = html.indexOf('Burning Blood&#x27;s 6 HP heal is not simulated.');
-    expect(note).toBeGreaterThan(html.indexOf('id="res-body"'));
-    expect(note).toBeLessThan(html.indexOf('class="grid"'));
-    expect(html.match(/is not simulated\./g)).toHaveLength(1);
+    expect(html).not.toContain('is not simulated.');
     expect(html.slice(0, html.indexOf('<main'))).not.toContain('class="note"');
     expect(html).toContain('Greedy Damage');
     expect(html).toContain('Scared Block');
@@ -463,7 +460,7 @@ describe('views render', () => {
     expect(html).toContain('Scared Block');
     expect(html).toContain('#2f6fdf');
     expect(html).toContain('#d6453d');
-    expect(html.match(/(Won|Died|Hit the turn cap) on turn \d+, lost \d+ HP/g)).toHaveLength(3);
+    expect(html.match(/(Won|Died|Hit the turn cap) on turn \d+, (lost|gained) \d+ HP/g)).toHaveLength(3);
   });
 
   it('rescales the Y axis to the visible strategies only', () => {
@@ -624,5 +621,17 @@ describe('potion pickers (#204)', () => {
     expect(html).toContain('Potion 3');
     expect(html).toContain('Strength Potion');
     expect(html).toContain('Fire Potion');
+  });
+});
+
+describe('#205 relic picker', () => {
+  it('shows Burning Blood by default for the Ironclad, and Girya with its Strength choice', () => {
+    const html = renderSetupPanel(defaultSetup(gameData));
+    expect(html).toContain('Remove Burning Blood');
+    expect(html).toContain('Add a relic');
+    const girya = renderSetupPanel({ ...defaultSetup(gameData), relics: [{ relicId: 'girya', choice: 2 }] });
+    expect(girya).toContain('Girya: Strength lifted');
+    expect(girya).not.toContain('Remove Burning Blood');
+    expect(renderSetupPanel({ ...defaultSetup(gameData), relics: [] })).toContain('None');
   });
 });

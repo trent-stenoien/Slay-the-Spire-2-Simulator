@@ -9,6 +9,7 @@ import { SetupPanel } from './components/SetupPanel';
 import { StrategyPanel } from './components/StrategyPanel';
 import { deckPowerNames, deckSize, startingDeckFor } from './lib/deck';
 import { setupHref } from './lib/links';
+import { setupRelics } from './lib/relics';
 import { buildQuery, parseQuery, type SetupState } from './lib/url';
 import { runSimulation } from './sim/runSimulation';
 import { useStrategies } from './useStrategies';
@@ -98,6 +99,7 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
       enemyId: setup.enemyId,
       ascension: setup.ascension,
       ...(setup.potions && setup.potions.length > 0 ? { potions: setup.potions } : {}),
+      relics: setupRelics(data, setup),
       strategies: strategiesForRun,
       runSeed,
     };
@@ -137,10 +139,14 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
           <SetupPanel
             data={data}
             setup={setup}
-            onCharacter={(id) => setSetup({ ...setup, characterId: id, deck: startingDeckFor(data, id) })}
+            onCharacter={(id) => {
+              const { relics: _relics, ...rest } = setup;
+              setSetup({ ...rest, characterId: id, deck: startingDeckFor(data, id) });
+            }}
             onEnemy={(id) => setSetup({ ...setup, enemyId: id })}
             onAscension={(a) => setSetup({ ...setup, ascension: a })}
             onPotions={(potions) => setSetup({ ...setup, potions })}
+            onRelics={(relics) => setSetup({ ...setup, relics })}
           />
           <StrategyPanel
             library={strategies.library}

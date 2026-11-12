@@ -1,0 +1,23 @@
+{
+  "id": "gorget",
+  "code": "Gg",
+  "name": "Gorget",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "turn": 1,
+      "effects": [
+        {
+          "type": "applyPower",
+          "power": "plating",
+          "amount": 4
+        }
+      ]
+    }
+  ],
+  "description": "At the start of each combat, gain 4 Plating.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

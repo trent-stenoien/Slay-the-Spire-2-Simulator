@@ -1,0 +1,22 @@
+{
+  "id": "horn_cleat",
+  "code": "HC",
+  "name": "Horn Cleat",
+  "rarity": "uncommon",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "turn": 2,
+      "effects": [
+        {
+          "type": "gainBlock",
+          "amount": 14
+        }
+      ]
+    }
+  ],
+  "description": "At the start of your 2nd turn, gain 14 Block.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}
