@@ -463,4 +463,3 @@ describe('aboveCurvePath', () => {
     expect(aboveCurvePath([], sx, sy, 0)).toBe('');
   });
 });
-

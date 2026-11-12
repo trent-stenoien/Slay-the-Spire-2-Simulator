@@ -154,7 +154,9 @@ describe('#104 rewards formatting', () => {
   });
 
   it('formats gold and potion share', () => {
-    expect(fmtRewards(fakeSummary('a', { avgGold: 14.2, potionRate: 0.63 }))).toBe('+14.2 gold avg · Random Potion 63%');
+    expect(fmtRewards(fakeSummary('a', { avgGold: 14.2, potionRate: 0.63 }))).toBe(
+      '+14.2 gold avg · Random Potion 63%',
+    );
     expect(fmtRewards(fakeSummary('a', { avgGold: 20 }))).toBe('+20.0 gold avg');
     expect(fmtRewards(fakeSummary('a', { potionRate: 1 }))).toBe('Random Potion 100%');
     expect(fmtRewards(fakeSummary('a', { potionRate: 0.001 }))).toBe('Random Potion <1%');

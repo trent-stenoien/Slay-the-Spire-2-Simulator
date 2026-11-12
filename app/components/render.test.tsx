@@ -292,7 +292,7 @@ describe('views render', () => {
     expect(ys.size).toBe(3);
   });
 
-  it('puts all of a strategy\'s labels on one line and has a Show Percentiles checkbox, on by default', () => {
+  it("puts all of a strategy's labels on one line and has a Show Percentiles checkbox, on by default", () => {
     const html = renderChart();
     const ys = [...html.matchAll(/class="pmark-label" x="[^"]*" y="([^"]*)"/g)].map((m) => m[1]);
     expect(new Set(ys).size).toBe(2);

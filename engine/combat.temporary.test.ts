@@ -43,7 +43,9 @@ const extra: Record<string, CardDef> = {
   barrier: card('barrier', 'skill', 0, [block(12), apply('flameBarrier', 4)]),
   colossus: card('colossus', 'skill', 0, [block(4), apply('colossus', 1)]),
   panic: card('panic', 'skill', 0, [block(30), apply('noBlockFromCards', 2)], { keywords: ['exhaust'] }),
-  entrench: card('entrench', 'skill', 2, [{ type: 'gainBlockFrom', amount: 0, bonusPer: { per: 'playerBlock', amount: 1 } }]),
+  entrench: card('entrench', 'skill', 2, [
+    { type: 'gainBlockFrom', amount: 0, bonusPer: { per: 'playerBlock', amount: 1 } },
+  ]),
   equilibrium: card('equilibrium', 'skill', 0, [block(13), apply('retainHand', 1)]),
   salvo: card('salvo', 'attack', 0, [atk(12), apply('retainHand', 1)]),
   unrelenting: card('unrelenting', 'attack', 0, [atk(14), apply('freeAttack', 1)]),

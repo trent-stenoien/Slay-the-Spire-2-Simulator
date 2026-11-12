@@ -101,7 +101,9 @@ describe('copy limits (#137)', () => {
     expect(atCopyLimit([{ cardId: 'rolling_boulder', upgraded: true, count: 1 }], boulder)).toBe(true);
   });
   it('never limits a card without maxCopies', () => {
-    expect(atCopyLimit([{ cardId: 'rolling_boulder', upgraded: false, count: 9 }], gameData.cards.rolling_boulder!)).toBe(false);
+    expect(
+      atCopyLimit([{ cardId: 'rolling_boulder', upgraded: false, count: 9 }], gameData.cards.rolling_boulder!),
+    ).toBe(false);
     expect(atCopyLimit([{ cardId: 'strike', upgraded: false, count: 50 }], strike)).toBe(false);
   });
 });
