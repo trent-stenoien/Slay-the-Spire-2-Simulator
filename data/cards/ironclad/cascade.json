@@ -9,11 +9,30 @@
   "xCost": true,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "playCards",
+      "from": "draw",
+      "mode": "top",
+      "count": 1,
+      "xTimes": true
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "playCards",
+        "from": "draw",
+        "mode": "top",
+        "count": 1,
+        "xTimes": true,
+        "xBonus": 1
+      }
+    ]
+  },
   "description": "Play the top X cards of your Draw Pile.",
   "upgradedDescription": "Play the top X+1 cards of your Draw Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
