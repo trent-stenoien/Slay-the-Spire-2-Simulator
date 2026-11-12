@@ -11,13 +11,25 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "draw",
+      "amount": 2
+    },
+    {
+      "type": "moveCards",
+      "from": "hand",
+      "to": "drawTop",
+      "count": 1,
+      "mode": "choose"
+    }
+  ],
   "upgraded": {
     "keywords": []
   },
   "description": "Draw 2 cards. / Put 1 card from your Hand on top of your Draw Pile. / Exhaust.",
   "upgradedDescription": "Draw 2 cards. / Put 1 card from your Hand on top of your Draw Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

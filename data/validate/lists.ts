@@ -58,7 +58,7 @@ export const CONTRACT_EFFECTS = [
 
 /**
  * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
- * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion.  `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
+ * #116 addCards, transformCards, #112 moveCards, moveSelf, upgradeCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion.  `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
  * are checked by field in data/validate/cards.ts.
  */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
@@ -68,6 +68,9 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'exhaustCards',
   'addCards',
   'transformCards',
+  'moveCards',
+  'moveSelf',
+  'upgradeCards',
   'heal',
   'gainMaxHp',
   'loseMaxHp',
@@ -124,7 +127,7 @@ export const SIMULATED_POWERS = new Set<string>([
 ]);
 
 /** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */
-export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded']);
+export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'rarity', 'cardId', 'upgraded']);
 
 /** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS). */
 export const UNSIMULATED_CARD_FIELDS = ['playableIf', 'costLessPer'] as const;

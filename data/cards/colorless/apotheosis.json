@@ -12,13 +12,24 @@
     "innate",
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "upgradeCards",
+      "piles": [
+        "hand",
+        "draw",
+        "discard",
+        "exhaust"
+      ],
+      "mode": "all"
+    }
+  ],
   "upgraded": {
     "cost": 1
   },
   "description": "Innate. / Upgrade ALL your cards. / Exhaust.",
   "upgradedDescription": "Innate. / Upgrade ALL your cards. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

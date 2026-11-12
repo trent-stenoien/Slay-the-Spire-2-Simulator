@@ -16,6 +16,14 @@
       "type": "attack",
       "damage": 10,
       "hits": 1
+    },
+    {
+      "type": "moveCards",
+      "from": "discard",
+      "to": "hand",
+      "count": 2,
+      "mode": "choose",
+      "upTo": true
     }
   ],
   "upgraded": {
@@ -24,12 +32,20 @@
         "type": "attack",
         "damage": 14,
         "hits": 1
+      },
+      {
+        "type": "moveCards",
+        "from": "discard",
+        "to": "hand",
+        "count": 3,
+        "mode": "choose",
+        "upTo": true
       }
     ]
   },
   "description": "Deal 10 damage. / Put up to 2 cards from your Discard Pile into your Hand. / Exhaust.",
   "upgradedDescription": "Deal 14 damage. / Put up to 3 cards from your Discard Pile into your Hand. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -11,7 +11,15 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "moveCards",
+      "from": "draw",
+      "to": "hand",
+      "count": 1,
+      "mode": "choose"
+    }
+  ],
   "upgraded": {
     "keywords": [
       "retain",
@@ -20,7 +28,7 @@
   },
   "description": "Put a card from your Draw Pile into your Hand. / Exhaust.",
   "upgradedDescription": "Retain. / Put a card from your Draw Pile into your Hand. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -6,7 +6,20 @@ import { SIMULATED_POWERS } from './validate/lists';
 import { SIMULATED_POWER_IDS } from '../engine/combat';
 
 /** Contract effects the engine simulates now (#106, #107, #108, #116); a simulated card may use them. */
-const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards', 'heal', 'gainMaxHp', 'loseMaxHp', 'addCards', 'transformCards'];
+const SIMULATED = [
+  'loseHp',
+  'draw',
+  'drawUntil',
+  'exhaustCards',
+  'heal',
+  'gainMaxHp',
+  'loseMaxHp',
+  'addCards',
+  'transformCards',
+  'moveCards',
+  'moveSelf',
+  'upgradeCards',
+];
 const UNSIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => !SIMULATED.includes(e.type));
 const SIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => SIMULATED.includes(e.type));
 
@@ -68,8 +81,10 @@ describe('#105 contract shapes', () => {
 
   it('rejects a drawUntil stop filter on a field the engine does not match yet', () => {
     const d = fixture();
-    d.cards.strike.effects.push({ type: 'drawUntil', stopOn: { types: ['skill'], rarity: ['rare'] } });
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"drawUntil\.stopOn\.rarity"/)]);
+    d.cards.strike.effects.push({ type: 'drawUntil', stopOn: { types: ['skill'], nameIncludes: 'Strike' } });
+    expect(errorsOf(d)).toEqual([
+      expect.stringMatching(/cards\/strike.*"simulated".*"drawUntil\.stopOn\.nameIncludes"/),
+    ]);
     d.cards.strike.effects.at(-1).stopOn = { notTypes: ['attack'] };
     expect(errorsOf(d)).toEqual([]);
   });
@@ -148,8 +163,46 @@ describe('#105 contract shapes', () => {
     d.cards.strike.effects.push({ type: 'exhaustCards', from: 'exhaust', count: 1, mode: 'random' });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/"exhaustCards\.from\.exhaust"/)]);
     d.cards.strike.effects.at(-1).from = 'hand';
-    d.cards.strike.effects.at(-1).filter = { rarity: ['rare'] };
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/"exhaustCards\.filter\.rarity"/)]);
+    d.cards.strike.effects.at(-1).filter = { nameIncludes: 'Strike' };
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"exhaustCards\.filter\.nameIncludes"/)]);
+  });
+
+  it('#112: rejects moves to the exhaust pile, upgrade-on-move and an immediate moveSelf on a simulated card', () => {
+    const d = fixture();
+    d.cards.strike.effects.push({ type: 'moveCards', from: 'discard', to: 'exhaust', count: 1, mode: 'choose' });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"moveCards\.to\.exhaust"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({
+      type: 'moveCards',
+      from: 'discard',
+      to: 'hand',
+      count: 1,
+      mode: 'choose',
+      upgrade: true,
+    });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"moveCards\.upgrade"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({
+      type: 'moveCards',
+      from: 'draw',
+      to: 'hand',
+      mode: 'all',
+      filter: { nameIncludes: 'Strike' },
+    });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"moveCards\.filter\.nameIncludes"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({ type: 'moveSelf', to: 'hand', when: 'now' });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"moveSelf\.now"/)]);
+  });
+
+  it('#112: accepts a rarity filter and the Anointed, Bolas and Armaments shapes on simulated cards', () => {
+    const d = fixture();
+    d.cards.strike.effects.push(
+      { type: 'moveCards', from: 'draw', to: 'hand', mode: 'all', filter: { rarity: ['rare'] } },
+      { type: 'moveSelf', to: 'hand', when: 'nextTurnStart' },
+      { type: 'upgradeCards', piles: ['hand'], count: 1, mode: 'choose' },
+    );
+    expect(errorsOf(d)).toEqual([]);
   });
 
   it('accepts triggers, playableIf and costLessPer on unsimulated cards and rejects them on simulated ones', () => {

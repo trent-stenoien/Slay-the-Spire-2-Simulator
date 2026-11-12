@@ -94,6 +94,14 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
     if (e.from === 'exhaust') return 'transformCards.from.exhaust';
     return unsimulatedPool(e.into) ?? unsimulatedFilter(e.filter, 'transformCards.filter');
   }
+  // #112: moves to the exhaust pile and upgrade-on-move (Aggression) wait for their cards; Bolas-style
+  // returns happen at the start of the next turn only.
+  if (name === 'moveCards') {
+    if (e.to === 'exhaust') return 'moveCards.to.exhaust';
+    if (e.upgrade === true) return 'moveCards.upgrade';
+    return unsimulatedFilter(e.filter, 'moveCards.filter');
+  }
+  if (name === 'moveSelf') return e.when === 'nextTurnStart' ? undefined : 'moveSelf.now';
   if (UNSIMULATED_EFFECTS.has(name)) return name;
   // #4: Shrink is simulated on enemy moves only (it Shrinks the player).
   if (name === 'applyShrink') return name;

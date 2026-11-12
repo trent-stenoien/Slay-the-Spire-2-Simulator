@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 3,
       "hits": 1
+    },
+    {
+      "type": "moveSelf",
+      "to": "hand",
+      "when": "nextTurnStart"
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 4,
         "hits": 1
+      },
+      {
+        "type": "moveSelf",
+        "to": "hand",
+        "when": "nextTurnStart"
       }
     ]
   },
   "description": "Deal 3 damage. / At the start of your next turn, return this to your Hand.",
   "upgradedDescription": "Deal 4 damage. / At the start of your next turn, return this to your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

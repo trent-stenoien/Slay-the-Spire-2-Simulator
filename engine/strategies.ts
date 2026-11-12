@@ -1139,7 +1139,34 @@ function pickZeroCostDraw(view: StrategyView): Card | undefined {
 }
 
 /**
- * Plays made before the groups, in this order: a 0-cost draw card (#132); Tremble when Attack
+ * #112: a "tutor" (Secret Technique, Secret Weapon, Wish, Anointed) puts draw-pile cards in the
+ * hand; Apotheosis upgrades every card. Neither is an Attack or Block card, so no group plays them.
+ */
+function pickUtility(view: StrategyView): Card | undefined {
+  const p = view.state.player;
+  const fits = (c: Card, f: DeepReadonly<CardFilter> | undefined) =>
+    !f ||
+    ((!f.types || f.types.includes(c.type)) &&
+      !f.notTypes?.includes(c.type) &&
+      (!f.rarity || (c.rarity !== undefined && f.rarity.includes(c.rarity))));
+  const useful = (c: Card): boolean => {
+    if (isAttackCard(c) || isBlockCard(c)) return false;
+    return c.effects.some((e) => {
+      if (e.type === 'moveCards')
+        return e.from === 'draw' && e.to === 'hand' && p.drawPile.some((d) => fits(d, e.filter));
+      if (e.type === 'upgradeCards') {
+        return [p.hand, p.drawPile, p.discardPile].some((pile) =>
+          pile.some((d) => d.uid !== c.uid && !d.upgraded && !isJunk(d)),
+        );
+      }
+      return false;
+    });
+  };
+  return best(view.playable.filter(useful), (c) => [-(c.cost ?? 0)]);
+}
+
+/**
+ * Plays made before the groups, in this order: a 0-cost draw card (#132); a tutor or Apotheosis (#112); Tremble when Attack
  * ranks first (it is first within the Attack group, and Attack is the top priority); a Brand /
  * Burning Pact / Purity worth playing (#108); a card that nets energy (#22), as long as some other
  * card in hand could use it (#127: before any pure draw card); then a pure draw card when the
@@ -1152,6 +1179,8 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   if (heal) return heal;
   const zero = pickZeroCostDraw(view);
   if (zero) return zero;
+  const utility = pickUtility(view);
+  if (utility) return utility;
   if (config.order[0] === 'attack') {
     const tremble = pickPlayFirst(view);
     if (tremble) return tremble;
@@ -1484,7 +1513,7 @@ export function createStrategy(config: StrategyConfig): Strategy {
       return d;
     },
     choose: (view, request) =>
-      request.purpose === 'generate'
+      request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade'
         ? chooseGenerated(request, c.order)
         : chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined),
   };

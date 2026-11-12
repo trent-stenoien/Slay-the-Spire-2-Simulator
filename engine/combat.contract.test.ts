@@ -11,7 +11,20 @@ import type { CardDef } from './types';
  * (combat.statuses.test.ts). The samples of repeat (a counter
  * other than lastEffectCount) and script (an id other than fiendFire / thrash) still throw.
  */
-const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards', 'heal', 'gainMaxHp', 'loseMaxHp', 'addCards', 'transformCards'];
+const SIMULATED = [
+  'loseHp',
+  'draw',
+  'drawUntil',
+  'exhaustCards',
+  'heal',
+  'gainMaxHp',
+  'loseMaxHp',
+  'addCards',
+  'transformCards',
+  'moveCards',
+  'moveSelf',
+  'upgradeCards',
+];
 
 describe('#105 contract effects are not simulated yet', () => {
   it('covers every contract effect type exactly once', () => {
@@ -92,6 +105,7 @@ describe('#105 contract effects are not simulated yet', () => {
       'effects',
       'keywords',
       'name',
+      'rarity',
       'type',
       'uid',
       'upgraded',
