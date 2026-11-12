@@ -1,0 +1,123 @@
+{
+  "id": "vantom",
+  "code": "Vn",
+  "name": "Vantom",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "boss",
+  "hp": {
+    "min": 173,
+    "max": 173
+  },
+  "moves": {
+    "inkBlot": {
+      "name": "Ink Blot",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 7,
+          "hits": 1
+        }
+      ]
+    },
+    "inkyLance": {
+      "name": "Inky Lance",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 6,
+          "hits": 2
+        }
+      ]
+    },
+    "dismember": {
+      "name": "Dismember",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 26,
+          "hits": 1
+        },
+        {
+          "type": "addCards",
+          "source": {
+            "kind": "card",
+            "cardId": "wound"
+          },
+          "count": 3,
+          "to": "discard"
+        }
+      ]
+    },
+    "prepare": {
+      "name": "Prepare",
+      "effects": [
+        {
+          "type": "gainStrength",
+          "amount": 2
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["inkBlot", "inkyLance", "dismember", "prepare"],
+    "start": "first"
+  },
+  "startPowers": {
+    "slippery": 8
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 183,
+        "max": 183
+      }
+    },
+    "9": {
+      "startPowers": {
+        "slippery": 9
+      },
+      "moves": {
+        "inkBlot": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 8,
+              "hits": 1
+            }
+          ]
+        },
+        "inkyLance": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 7,
+              "hits": 2
+            }
+          ]
+        },
+        "dismember": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 30,
+              "hits": 1
+            },
+            {
+              "type": "addCards",
+              "source": {
+                "kind": "card",
+                "cardId": "wound"
+              },
+              "count": 3,
+              "to": "discard"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

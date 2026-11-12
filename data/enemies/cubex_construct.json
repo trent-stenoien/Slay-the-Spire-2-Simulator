@@ -1,0 +1,92 @@
+{
+  "id": "cubex_construct",
+  "code": "Cx",
+  "name": "Cubex Construct",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "normal",
+  "hp": {
+    "min": 65,
+    "max": 65
+  },
+  "moves": {
+    "chargeUp": {
+      "name": "Charge Up",
+      "effects": [
+        {
+          "type": "gainStrength",
+          "amount": 2
+        }
+      ]
+    },
+    "repeaterBlast": {
+      "name": "Repeater Blast",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 7,
+          "hits": 1
+        },
+        {
+          "type": "gainStrength",
+          "amount": 2
+        }
+      ]
+    },
+    "expelBlast": {
+      "name": "Expel Blast",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 5,
+          "hits": 2
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "opener": ["chargeUp"],
+    "order": ["repeaterBlast", "repeaterBlast", "expelBlast"],
+    "start": "first"
+  },
+  "startPowers": {
+    "artifact": 1
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 70,
+        "max": 70
+      }
+    },
+    "9": {
+      "moves": {
+        "repeaterBlast": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 8,
+              "hits": 1
+            },
+            {
+              "type": "gainStrength",
+              "amount": 2
+            }
+          ]
+        },
+        "expelBlast": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 6,
+              "hits": 2
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

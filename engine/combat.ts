@@ -435,6 +435,10 @@ class Combat {
       },
     };
     this.log?.push({ t: 'combatStart', seed: config.seed, enemyHp, playerHp: character.maxHp });
+    // #203: powers the enemy starts with (Cubex Construct: Artifact; Byrdonis: Strength per turn).
+    for (const [power, amount] of Object.entries(enemyDef.startPowers ?? {}) as [EnemyPowerId, number][]) {
+      if (amount > 0) this.applyEnemyPower(power, amount);
+    }
     this.log?.push({ t: 'shuffle', reason: 'start', count: deck.length });
   }
 
@@ -998,6 +1002,12 @@ class Combat {
     // #115 Intangible lasts through the enemy's next move, then goes down by 1.
     if (this.power('intangible') > 0) this.applyPower('intangible', -1);
     this.endEnemyTurnPowers();
+    // #203 Strength per turn (Byrdonis): at the end of its own turn, after the move.
+    const perTurn = enemy.powers?.strengthPerTurn ?? 0;
+    if (perTurn > 0) {
+      enemy.strength += perTurn;
+      log?.push({ t: 'strength', side: 'enemy', amount: perTurn, total: enemy.strength });
+    }
     // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
     this.tickDebuffs('enemy');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'enemy' });
@@ -1093,6 +1103,7 @@ class Combat {
         }
         case 'applyPoison':
           if (source !== 'player') throw new Error('Poison on the player is not simulated yet');
+          if (e.amount > 0 && this.artifactNegates('poison')) break;
           enemy.poison += e.amount;
           log?.push({ t: 'poison', amount: e.amount, total: enemy.poison });
           break;
@@ -1138,6 +1149,7 @@ class Combat {
           if (source !== 'player' || (e.power !== 'stun' && e.power !== 'strengthLossThisTurn')) {
             throw new Error(`Effect "applyEnemyPower" is not simulated yet (power "${e.power}")`);
           }
+          if (e.amount > 0 && this.artifactNegates(e.power)) break;
           this.applyEnemyPower(e.power, e.amount);
           break;
         case 'schedule':
@@ -1225,7 +1237,8 @@ class Combat {
           break;
         }
         case 'addCards':
-          if (source !== 'player') throw new Error('Enemies do not create cards');
+          // #203: an enemy move may add a named card (Vantom's Wounds); other sources are player-only.
+          if (source !== 'player' && e.source.kind !== 'card') throw new Error('Enemies only create named cards');
           count = this.addCards(e, card);
           break;
         case 'transformCards':
@@ -2247,7 +2260,21 @@ class Combat {
     return null;
   }
 
+  /**
+   * #203 Artifact: negates the next debuff applied to the enemy and uses one stack. Debuffs it
+   * negates: Vulnerable, Weak, Frail, Poison, Stun and the temporary Strength loss. Returns true
+   * when the debuff was negated (the caller must not apply it).
+   */
+  private artifactNegates(status: DebuffKind | EnemyPowerId | 'poison'): boolean {
+    const left = this.enemy.powers?.artifact ?? 0;
+    if (left <= 0) return false;
+    this.applyEnemyPower('artifact', -1);
+    this.log?.push({ t: 'negated', side: 'enemy', status, left: left - 1 });
+    return true;
+  }
+
   private applyDebuff(side: Side, kind: DebuffKind, amount: number): void {
+    if (side === 'enemy' && amount > 0 && this.artifactNegates(kind)) return;
     const f = this.fighter(side);
     f.debuffs[kind] += amount;
     this.log?.push({ t: 'debuff', side, kind, amount, total: f.debuffs[kind] });

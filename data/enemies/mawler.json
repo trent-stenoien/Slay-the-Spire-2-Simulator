@@ -1,0 +1,81 @@
+{
+  "id": "mawler",
+  "code": "Mw",
+  "name": "Mawler",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "normal",
+  "hp": {
+    "min": 72,
+    "max": 72
+  },
+  "moves": {
+    "ripAndTear": {
+      "name": "Rip and Tear",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 14,
+          "hits": 1
+        }
+      ]
+    },
+    "roar": {
+      "name": "Roar",
+      "effects": [
+        {
+          "type": "applyVulnerable",
+          "amount": 3
+        }
+      ]
+    },
+    "claw": {
+      "name": "Claw",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 4,
+          "hits": 2
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "random",
+    "opener": ["claw"],
+    "moves": ["ripAndTear", "roar", "claw"],
+    "noRepeat": true
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 76,
+        "max": 76
+      }
+    },
+    "9": {
+      "moves": {
+        "ripAndTear": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 16,
+              "hits": 1
+            }
+          ]
+        },
+        "claw": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 5,
+              "hits": 2
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

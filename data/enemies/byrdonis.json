@@ -1,0 +1,72 @@
+{
+  "id": "byrdonis",
+  "code": "By",
+  "name": "Byrdonis",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "elite",
+  "hp": {
+    "min": 81,
+    "max": 84
+  },
+  "moves": {
+    "swoop": {
+      "name": "Swoop",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 17,
+          "hits": 1
+        }
+      ]
+    },
+    "peck": {
+      "name": "Peck",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 3,
+          "hits": 3
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["swoop", "peck"],
+    "start": "first"
+  },
+  "startPowers": {
+    "strengthPerTurn": 1
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 90,
+        "max": 90
+      },
+      "moves": {
+        "swoop": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 19,
+              "hits": 1
+            }
+          ]
+        },
+        "peck": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 4,
+              "hits": 3
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}
