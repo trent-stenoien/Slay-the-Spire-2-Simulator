@@ -1,7 +1,18 @@
 import { createRng } from './rng';
 import { cardPool, chooseGenerated } from './generate';
 import { patternMoveIds, patternPool, resolveEnemy } from './enemy';
-import { attackDamage, attackHits, blockGain, isPlayable } from './rules';
+import {
+  attackDamage,
+  attackHits,
+  blockGain,
+  conditionHolds,
+  counterValue,
+  countStrikes,
+  isPlayable,
+  isStrikeName,
+  perCounterValue,
+} from './rules';
+import type { CounterContext } from './rules';
 import { chooseExhaust, createStrategy } from './strategies';
 import {
   HAND_LIMIT,
@@ -17,6 +28,8 @@ import {
   type CombatCounters,
   type CombatResult,
   type CombatState,
+  type Condition,
+  type Counter,
   type DebuffKind,
   type Debuffs,
   type Effect,
@@ -26,6 +39,7 @@ import {
   type GameData,
   type GameEvent,
   type Outcome,
+  type PerCounter,
   type PileName,
   type PowerId,
   type Rng,
@@ -89,6 +103,8 @@ export function makeCardInstance(def: CardDef, upgraded: boolean, uid: number): 
   // #108: the card's own triggers (Drum of Battle); an upgrade replaces the list.
   const triggers = up?.triggers ?? def.triggers;
   if (triggers) inst.triggers = triggers.map((t) => ({ when: t.when, effects: t.effects.map((e) => ({ ...e })) }));
+  // #111: "can only be played if" (Clash).
+  if (def.playableIf) inst.playableIf = structuredClone(def.playableIf);
   return inst;
 }
 
@@ -174,16 +190,18 @@ function emptyCounters(): CombatCounters {
 
 /**
  * True when `card` matches every present field of `filter` (#107: Pillage's non-Attack stop rule).
- * Fields whose rules are still open (rarity, nameIncludes, noReplay) throw until their cards land.
+ * Fields whose rules are still open (rarity, noReplay) throw until their cards land.
  */
 export function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
-  for (const field of ['rarity', 'nameIncludes', 'noReplay'] as const) {
+  for (const field of ['rarity', 'noReplay'] as const) {
     if (filter[field] !== undefined) throw new Error(`Card filter "${field}" is not simulated yet`);
   }
   if (filter.types && !filter.types.includes(card.type)) return false;
   if (filter.notTypes?.includes(card.type)) return false;
   if (filter.cardId !== undefined && card.cardId !== filter.cardId) return false;
   if (filter.upgraded !== undefined && card.upgraded !== filter.upgraded) return false;
+  // #111: the name rule is case-sensitive and ignores the upgraded "+" (see isStrikeName).
+  if (filter.nameIncludes !== undefined && !card.name.includes(filter.nameIncludes)) return false;
   return true;
 }
 
@@ -197,6 +215,23 @@ export function perHitBaseDamage(card: CardInstance): number {
   }
   return 0;
 }
+
+/** #111: counters the engine reads; the cards-played tallies wait for the trigger cards (#113). */
+export const SIMULATED_COUNTERS: readonly Counter[] = [
+  'playerBlock',
+  'playerStrength',
+  'enemyVulnerable',
+  'enemyUniqueDebuffs',
+  'handSize',
+  'drawPileSize',
+  'discardPileSize',
+  'exhaustPileSize',
+  'hpLossesThisCombat',
+  'cardsExhaustedThisTurn',
+  'cardsExhaustedThisCombat',
+  'lastEffectCount',
+  'lastAttackDamage',
+];
 
 /** Safety guard: at most this many cards drawn by one `drawUntil` effect. */
 const MAX_DRAW_UNTIL = 1000;
@@ -272,6 +307,8 @@ class Combat {
   /** #104: gold and potions gained so far this combat (rewards only; no combat effect). */
   private gold = 0;
   private potions = 0;
+  /** #111: damage the last attack hit dealt to Block and HP together, overkill included (Fisticuffs). */
+  private lastAttackDamage = 0;
 
   constructor(
     private readonly data: GameData,
@@ -496,7 +533,7 @@ class Combat {
       if (decision.kind === 'endTurn') break;
       const idx = player.hand.findIndex((c) => c.uid === decision.uid);
       const card = idx >= 0 ? player.hand[idx] : undefined;
-      if (!card || !isPlayable(card, player.energy)) {
+      if (!card || !isPlayable(card, player.energy) || !this.playableNow(card)) {
         throw new Error(`Strategy tried to play illegal card uid ${decision.uid} on turn ${this.state.turn}`);
       }
       player.hand.splice(idx, 1);
@@ -511,6 +548,7 @@ class Combat {
       // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
       const vigor = card.type === 'attack' ? this.power('vigor') : 0;
       this.activeVigor = vigor;
+      this.lastAttackDamage = 0;
       const died = this.resolveEffects('player', card.effects, x, card);
       this.activeVigor = 0;
       if (vigor > 0) this.applyPower('vigor', -vigor);
@@ -547,7 +585,7 @@ class Combat {
     return {
       state: this.state,
       intent: this.intent(moveId, move),
-      playable: player.hand.filter((c) => isPlayable(c, player.energy)),
+      playable: player.hand.filter((c) => isPlayable(c, player.energy) && this.playableNow(c)),
     };
   }
 
@@ -765,13 +803,48 @@ class Combat {
           ({ count, died } = this.exhaustCards(e, card));
           break;
         case 'repeat': {
-          // #108: only "for each card Exhausted" (Second Wind) so far; other counters are #111.
-          if (source !== 'player' || (e.per !== 'lastEffectCount' && e.per !== 'handSize')) {
+          // #108/#111: N = counter × times, read once before the first repeat.
+          if (source !== 'player' || !SIMULATED_COUNTERS.includes(e.per)) {
             throw new Error(`Effect "repeat" is not simulated yet (counter "${e.per}")`);
           }
-          // #115: handSize (Regret) counts the cards in hand when the effect starts.
-          const n = (e.per === 'handSize' ? player.hand.length : lastCount) * (e.times ?? 1);
+          const n = this.counter(e.per, lastCount) * (e.times ?? 1);
           for (let i = 0; i < n && !died; i++) died = this.resolveEffects(source, e.effects, x, card);
+          break;
+        }
+        case 'attackFrom': {
+          // #111: per hit damage + amount × counter; hits + extra × counter; both read before the attack.
+          if (source !== 'player') throw new Error('Effect "attackFrom" is not simulated yet on enemy moves');
+          this.checkCounters(e.bonusPer, e.extraHitsPer);
+          const per = e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount);
+          const hits = e.hits + this.perCounter(e.extraHitsPer, lastCount);
+          died = this.attack(source, other, per, Math.max(0, hits));
+          break;
+        }
+        case 'gainBlockFrom': {
+          // #111: one gain of amount + amount × counter. From a card it gets Dexterity and Frail
+          // (Fisticuffs, Trent); doubling the Block you have (Entrench) is not a Block value, so
+          // Dexterity and Frail don't change it.
+          if (source !== 'player') throw new Error('Effect "gainBlockFrom" is not simulated yet on enemy moves');
+          this.checkCounters(e.bonusPer);
+          const raw = e.amount + this.perCounter(e.bonusPer, lastCount);
+          const amt = e.bonusPer.per === 'playerBlock' ? Math.max(0, raw) : card ? this.cardBlock(raw, card) : 0;
+          self.block += amt;
+          log?.push({ t: 'block', side: source, amount: amt, total: self.block });
+          break;
+        }
+        case 'growDamage': {
+          // #111: 'self' = this copy (Rampage); 'sameCard' = every copy of the card in every pile (Maul).
+          if (source !== 'player' || !card) throw new Error('Effect "growDamage" is not simulated yet on enemy moves');
+          const grow = (c: CardInstance) => {
+            c.damageBonus = (c.damageBonus ?? 0) + e.amount;
+          };
+          if (e.scope === 'self') grow(card);
+          else {
+            grow(card);
+            for (const pile of [player.hand, player.drawPile, player.discardPile, player.exhaustPile]) {
+              for (const c of pile) if (c.cardId === card.cardId) grow(c);
+            }
+          }
           break;
         }
         case 'addCards':
@@ -791,18 +864,23 @@ class Combat {
           this.potions++;
           break;
         case 'conditional': {
-          // #104: only "if Fatal". A kill returns early, so a fatal conditional right after the
-          // killing attack is resolved at the return below; if this is reached, nothing was killed.
-          if (source !== 'player' || e.if.kind !== 'fatal')
-            throw new Error('Effect "conditional" is not simulated yet');
-          // Reached here means the enemy is alive, so the condition is false.
-          died = this.resolveEffects(source, e.else ?? [], x, card);
+          if (source !== 'player') throw new Error('Effect "conditional" is not simulated yet on enemy moves');
+          if (e.if.kind === 'fatal') {
+            // #104: a kill returns early, so a fatal conditional right after the killing attack is
+            // resolved at the return below; if this is reached, nothing was killed.
+            died = this.resolveEffects(source, e.else ?? [], x, card);
+            break;
+          }
+          this.checkCondition(e.if);
+          const holds = this.holds(e.if, card, lastCount);
+          died = this.resolveEffects(source, holds ? e.then : (e.else ?? []), x, card);
           break;
         }
         case 'script':
           if (source === 'player' && e.id === 'primalForcePlus') count = this.primalForcePlus();
           else if (source === 'player' && e.id === 'fiendFire') died = this.fiendFire(e.values?.[0] ?? 0);
           else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
+          else if (source === 'player' && e.id === 'perfectedStrike') died = this.perfectedStrike(e.values, card);
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
@@ -932,6 +1010,54 @@ class Combat {
       );
     }
     return picked as CardInstance[];
+  }
+
+  /** #111: the value of a counter right now (`lastCount` = cards moved by the previous effect). */
+  private counter(counter: Counter, lastCount = 0): number {
+    return counterValue(counter, this.state, this.counterContext(lastCount));
+  }
+
+  private counterContext(lastCount: number): CounterContext {
+    return { lastEffectCount: lastCount, lastAttackDamage: this.lastAttackDamage };
+  }
+
+  private perCounter(per: PerCounter | undefined, lastCount: number): number {
+    return perCounterValue(per, this.state, this.counterContext(lastCount));
+  }
+
+  /** #111: counters the engine tracks; the cards-played tallies wait for #113. */
+  private checkCounters(...pers: (PerCounter | undefined)[]): void {
+    for (const per of pers) {
+      if (per && !SIMULATED_COUNTERS.includes(per.per)) {
+        throw new Error(`Counter "${per.per}" is not simulated yet`);
+      }
+    }
+  }
+
+  private checkCondition(cond: Condition): void {
+    if (cond.kind === 'counter' && !SIMULATED_COUNTERS.includes(cond.counter)) {
+      throw new Error(`Counter "${cond.counter}" is not simulated yet`);
+    }
+  }
+
+  /** #111: whether a condition holds for the card being played (the card itself is not in hand). */
+  private holds(cond: Condition, card: CardInstance | undefined, lastCount = 0): boolean {
+    return conditionHolds(cond, this.state, matchesFilter, card?.uid, this.counterContext(lastCount));
+  }
+
+  /** #111: a card with `playableIf` (Clash) can be played only while it holds. */
+  private playableNow(card: CardInstance): boolean {
+    return !card.playableIf || this.holds(card.playableIf, card);
+  }
+
+  /**
+   * #111 Perfected Strike: `values` = [base damage, damage per Strike]. Counts every card with
+   * "Strike" in its name in all four piles, plus this card itself (it is in play, not in a pile).
+   */
+  private perfectedStrike(values: readonly number[] | undefined, card: CardInstance | undefined): Side | null {
+    const [base = 0, per = 0] = values ?? [];
+    const strikes = countStrikes(this.player) + (card && isStrikeName(card.name) ? 1 : 0);
+    return this.attack('player', 'enemy', base + per * strikes + (card?.damageBonus ?? 0), 1);
   }
 
   /**
@@ -1305,6 +1431,7 @@ class Combat {
     // #4 Shrink is on the player only (v1), so only the player's attacks shrink.
     const shrink = source === 'player' ? (this.player.shrink ?? 0) : 0;
     let perHit = attackDamage(base, a.strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink);
+    if (source === 'player') this.lastAttackDamage = 0;
     // #115 Intangible: every hit on the player is 1 (a 0-damage hit stays 0).
     if (target === 'player' && this.power('intangible') > 0) perHit = Math.min(perHit, 1);
     for (let h = 0; h < hits; h++) {
@@ -1313,6 +1440,7 @@ class Combat {
       const hpLoss = perHit - blocked;
       t.hp -= hpLoss;
       this.log?.push({ t: 'damage', source, target, amount: perHit, blocked, hpLoss });
+      if (source === 'player') this.lastAttackDamage += perHit;
       if (target === 'player') this.recordHpLoss(hpLoss);
       // #115 The Gambit: unblocked attack damage from the enemy loses the combat.
       if (target === 'player' && hpLoss > 0 && this.power('gambit') > 0) t.hp = 0;

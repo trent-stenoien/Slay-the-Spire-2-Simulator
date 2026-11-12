@@ -58,8 +58,9 @@ export const CONTRACT_EFFECTS = [
 
 /**
  * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
- * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion.  `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
- * are checked by field in data/validate/cards.ts.
+ * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion, #111 attackFrom,
+ * gainBlockFrom, growDamage (their counters are checked by field). `applyEnemyPower` (stun only), `conditional`
+ * and `repeat` are checked by field in data/validate/cards.ts.
  */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseHp',
@@ -73,19 +74,36 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseMaxHp',
   'gainGold',
   'gainPotion',
+  'attackFrom',
+  'gainBlockFrom',
+  'growDamage',
 ]);
 
 /** #115: enemy powers the engine simulates (Whistle's Stun); strengthLossThisTurn waits for #110. */
 export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun']);
 
 /**
- * #108: `repeat` stays unsimulated in general (#111), but a simulated card may repeat "for each
- * card Exhausted" (Second Wind) with these counters.
+ * #108/#111: counters the engine reads for `repeat`, `conditional`, `attackFrom` and `gainBlockFrom`
+ * (engine/combat.ts SIMULATED_COUNTERS). The cards-played tallies wait for the trigger cards (#113).
  */
-export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount', 'handSize']);
+export const SIMULATED_COUNTERS = new Set<string>([
+  'playerBlock',
+  'playerStrength',
+  'enemyVulnerable',
+  'enemyUniqueDebuffs',
+  'handSize',
+  'drawPileSize',
+  'discardPileSize',
+  'exhaustPileSize',
+  'hpLossesThisCombat',
+  'cardsExhaustedThisTurn',
+  'cardsExhaustedThisCombat',
+  'lastEffectCount',
+  'lastAttackDamage',
+]);
 
-/** #108: `script` ids the engine runs (Fiend Fire, Thrash); other scripts are not simulated yet. */
-export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus']);
+/** #108/#111: `script` ids the engine runs (Fiend Fire, Thrash, Perfected Strike); other scripts are not simulated yet. */
+export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus', 'perfectedStrike']);
 
 /** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand); turnEndInExhaust waits for #114. */
 export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'drawn', 'turnEndInHand']);
@@ -124,10 +142,10 @@ export const SIMULATED_POWERS = new Set<string>([
 ]);
 
 /** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */
-export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded']);
+export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded', 'nameIncludes']);
 
-/** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS). */
-export const UNSIMULATED_CARD_FIELDS = ['playableIf', 'costLessPer'] as const;
+/** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS; `playableIf` is simulated, #111). */
+export const UNSIMULATED_CARD_FIELDS = ['costLessPer'] as const;
 
 export const PILES = ['hand', 'draw', 'discard', 'exhaust'] as const;
 

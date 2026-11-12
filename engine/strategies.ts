@@ -13,7 +13,7 @@ import type {
   StrategyGroup,
   StrategyView,
 } from './types';
-import { attackDamage, attackHits } from './rules';
+import { attackDamage, attackHits, conditionHolds, countStrikes, perCounterValue } from './rules';
 import { chooseGenerated } from './generate';
 
 type Card = DeepReadonly<CardInstance>;
@@ -41,14 +41,52 @@ function xCostPlayable(card: Card, energy: number): boolean {
   return !card.xCost || energy > 0;
 }
 
-/** v1: an attack is any card with an `attack` effect (Bash included). */
-export function isAttackCard(card: Card): boolean {
-  return card.effects.some((e) => e.type === 'attack');
+type State = StrategyView['state'];
+
+/** #111: an effect that is an attack in the strategy's eyes: `attack`, `attackFrom`, Perfected Strike, or a conditional holding one. */
+function isAttackEffect(e: DeepReadonly<Effect>): boolean {
+  if (e.type === 'attack' || e.type === 'attackFrom') return true;
+  if (e.type === 'script') return e.id === 'perfectedStrike';
+  return e.type === 'conditional' && [...e.then, ...(e.else ?? [])].some(isAttackEffect);
 }
 
-/** v1: a block card is any card with a `gainBlock` effect. */
+/** v1: an attack is any card with an `attack` effect (Bash included); #111 adds `attackFrom` and Perfected Strike. */
+export function isAttackCard(card: Card): boolean {
+  return card.effects.some(isAttackEffect);
+}
+
+/**
+ * v1: a block card is any card with a `gainBlock` effect; #111 adds `gainBlockFrom` (Stack, Entrench,
+ * Expect a Fight), except Fisticuffs' Block, which only follows its attack (it is an attack card).
+ */
 export function isBlockCard(card: Card): boolean {
-  return card.effects.some((e) => e.type === 'gainBlock');
+  return card.effects.some(
+    (e) => e.type === 'gainBlock' || (e.type === 'gainBlockFrom' && e.bonusPer.per !== 'lastAttackDamage'),
+  );
+}
+
+/** #111 (Trent): Entrench ("double your Block") is planned with the block cards, played after them. */
+function doublesBlock(card: Card): boolean {
+  return card.effects.some((e) => e.type === 'gainBlockFrom' && e.bonusPer.per === 'playerBlock');
+}
+
+/** #111 (Trent): Body Slam (damage equal to your Block) is played after the other block cards. */
+function waitsForBlock(card: Card): boolean {
+  return card.effects.some((e) => e.type === 'attackFrom' && e.bonusPer?.per === 'playerBlock');
+}
+
+/** The effects a card would run now: with a state, a `conditional` is replaced by the branch that holds (#111). */
+function activeEffects(card: Card, state: State | undefined): DeepReadonly<Effect>[] {
+  const out: DeepReadonly<Effect>[] = [];
+  const walk = (effects: readonly DeepReadonly<Effect>[]) => {
+    for (const e of effects) {
+      if (e.type !== 'conditional') out.push(e);
+      else if (state && conditionHolds(e.if, state, filterMatches, card.uid)) walk(e.then);
+      else walk(e.else ?? []);
+    }
+  };
+  walk(card.effects);
+  return out;
 }
 
 function appliesVulnerable(card: Card): boolean {
@@ -59,12 +97,19 @@ function appliesVulnerable(card: Card): boolean {
  * Total base damage (damage × hits), including the card's own damage bonus (Thrash, #108).
  * For X-cost cards, X is `energy` (all of it gets spent).
  */
-function totalBaseDamage(card: Card, energy: number): number {
+function totalBaseDamage(card: Card, energy: number, state?: State): number {
   const x = card.xCost ? energy : 0;
   let sum = 0;
-  for (const e of card.effects) {
-    if (e.type !== 'attack') continue;
-    sum += (e.damage + (card.damageBonus ?? 0)) * attackHits(e, x);
+  for (const e of activeEffects(card, state)) {
+    if (e.type === 'attack') sum += (e.damage + (card.damageBonus ?? 0)) * attackHits(e, x);
+    // #111: scaling attacks count what they would deal now (the base alone without a state).
+    else if (e.type === 'attackFrom') {
+      const per = e.damage + (card.damageBonus ?? 0) + (state ? perCounterValue(e.bonusPer, state) : 0);
+      sum += per * (e.hits + (state ? perCounterValue(e.extraHitsPer, state) : 0));
+    } else if (e.type === 'script' && e.id === 'perfectedStrike') {
+      const [base = 0, per = 0] = e.values ?? [];
+      sum += base + (card.damageBonus ?? 0) + (state ? per * countStrikes(state.player) : 0);
+    }
   }
   return sum;
 }
@@ -125,9 +170,15 @@ function withoutNeverPlayed(view: StrategyView): StrategyView {
 /** 1 for a card that draws: draw cards win ties against cards that don't (#107). */
 const draws = (c: Card): number => (isDrawCard(c) ? 1 : 0);
 
-function totalBlock(card: Card): number {
+function totalBlock(card: Card, state?: State): number {
   let sum = 0;
-  for (const e of card.effects) if (e.type === 'gainBlock') sum += e.amount;
+  for (const e of card.effects) {
+    if (e.type === 'gainBlock') sum += e.amount;
+    // #111: Stack, Expect a Fight and Entrench count what they would give now (their base alone without a state).
+    else if (e.type === 'gainBlockFrom' && e.bonusPer.per !== 'lastAttackDamage') {
+      sum += Math.max(0, e.amount + (state ? perCounterValue(e.bonusPer, state) : 0));
+    }
+  }
   return sum;
 }
 
@@ -406,7 +457,7 @@ export const MIN_DAMAGING = 2;
 export const DRAW_UNTIL_FULL_EXTRA = 5;
 
 /** #141: ids of `script` effects that deal damage to the enemy (Fiend Fire; Thrash also has an `attack`). */
-const DAMAGING_SCRIPT_IDS: readonly string[] = ['fiendFire', 'thrash'];
+const DAMAGING_SCRIPT_IDS: readonly string[] = ['fiendFire', 'thrash', 'perfectedStrike'];
 
 /** Every effect of the card on its own, nested ones (repeat, schedule, conditional) included. */
 function allEffects(card: Card): DeepReadonly<Effect>[] {
@@ -432,6 +483,7 @@ export function dealsDamageToEnemy(card: Card): boolean {
   return allEffects(card).some(
     (e) =>
       e.type === 'attack' ||
+      e.type === 'attackFrom' ||
       e.type === 'dealDamage' ||
       e.type === 'enemyLoseHp' ||
       e.type === 'applyPoison' ||
@@ -536,6 +588,7 @@ export function damagePerEnergy(card: Card): number {
   let dmg = 0;
   for (const e of allEffects(card)) {
     if (e.type === 'attack') dmg += (e.damage + (card.damageBonus ?? 0)) * attackHits(e, 1);
+    else if (e.type === 'attackFrom') dmg += (e.damage + (card.damageBonus ?? 0)) * e.hits;
     else if (e.type === 'dealDamage' || e.type === 'enemyLoseHp' || e.type === 'applyPoison') dmg += e.amount;
     else if (e.type === 'script' && DAMAGING_SCRIPT_IDS.includes(e.id)) dmg += e.values?.[0] ?? 0;
   }
@@ -969,10 +1022,10 @@ const notXCost = (c: Card): number => (c.xCost ? 0 : 1);
  * #147: an attack's base damage per energy for play order: an X-cost attack counts its damage for
  * X = 1, a 0-cost attack is Infinity (it is free), others total base damage / cost.
  */
-function attackDamagePerEnergy(card: Card): number {
-  if (card.xCost) return totalBaseDamage(card, 1);
+function attackDamagePerEnergy(card: Card, state?: State): number {
+  if (card.xCost) return totalBaseDamage(card, 1, state);
   const cost = card.cost ?? 0;
-  return cost <= 0 ? Infinity : totalBaseDamage(card, 0) / cost;
+  return cost <= 0 ? Infinity : totalBaseDamage(card, 0, state) / cost;
 }
 
 /**
@@ -994,20 +1047,25 @@ function vulnerableFirst(card: Card, attacks: readonly Card[], energy: number, e
  * doesn't, or (same Vulnerable) its damage for 1 energy is higher than the other's damage per
  * energy. At 3 energy: Whirlwind (5) after Strike (6), Whirlwind+ (8) before Strike.
  */
-export function pickAttack(playable: readonly Card[], energy = 0, enemyVulnerable = 0): Card | undefined {
+export function pickAttack(
+  playable: readonly Card[],
+  energy = 0,
+  enemyVulnerable = 0,
+  state?: State,
+): Card | undefined {
   const attacks = playable.filter((c) => isAttackCard(c) && xCostPlayable(c, energy));
   const vuln = (c: Card) => (appliesVulnerable(c) && vulnerableFirst(c, attacks, energy, enemyVulnerable) ? 1 : 0);
   const other = best(
     attacks.filter((c) => !c.xCost),
-    (c) => [vuln(c), totalBaseDamage(c, energy), draws(c)],
+    (c) => [vuln(c), totalBaseDamage(c, energy, state), draws(c)],
   );
   const x = best(
     attacks.filter((c) => c.xCost),
-    (c) => [vuln(c), totalBaseDamage(c, 1), draws(c)],
+    (c) => [vuln(c), totalBaseDamage(c, 1, state), draws(c)],
   );
   if (!x || !other) return x ?? other;
   if (vuln(x) !== vuln(other)) return vuln(x) > vuln(other) ? x : other;
-  return attackDamagePerEnergy(x) > attackDamagePerEnergy(other) ? x : other;
+  return attackDamagePerEnergy(x, state) > attackDamagePerEnergy(other, state) ? x : other;
 }
 
 /**
@@ -1015,9 +1073,71 @@ export function pickAttack(playable: readonly Card[], energy = 0, enemyVulnerabl
  * playable (never at 0 energy), then largest block amount, then cards that
  * draw (#107), ties → lowest uid.
  */
-export function pickBlock(playable: readonly Card[], energy = 0): Card | undefined {
+export function pickBlock(playable: readonly Card[], energy = 0, state?: State): Card | undefined {
   const blocks = playable.filter((c) => isBlockCard(c) && xCostPlayable(c, energy));
-  return best(blocks, (c) => [notXCost(c), totalBlock(c), draws(c)]);
+  return best(blocks, (c) => [notXCost(c), totalBlock(c, state), draws(c)]);
+}
+
+/** The Block still wanted to satisfy the strategy: `Infinity` when Block is last (it spends leftover energy). */
+function blockTarget(view: StrategyView, config: StrategyConfig): number {
+  return blockIsLast(config) ? Infinity : view.intent.totalIncoming - config.allowThrough;
+}
+
+/**
+ * #111 (Trent): the block card to play now. Without an Entrench (a card that doubles your Block)
+ * in hand this is pickBlock. With one, the block cards are planned as a set: every combination
+ * that fits the energy is tried, the other cards in their usual order and the Entrench last, and
+ * the plan that reaches `target` with the least excess Block wins (fewer energy, then fewer
+ * cards on a tie); when none reaches it, the plan with the most Block. The plan's first card is
+ * played. With 14 incoming, 7 Block then Entrench (14) beats 7 + 5 Block then Entrench (24).
+ * An empty plan (Entrench with no Block to double) plays nothing.
+ */
+function pickBlockPlanned(view: StrategyView, target: number): Card | undefined {
+  const { state } = view;
+  const energy = state.player.energy;
+  const blocks = view.playable.filter((c) => isBlockCard(c) && xCostPlayable(c, energy));
+  if (!blocks.some(doublesBlock)) return pickBlock(view.playable, energy, state);
+  const sized = blocks.filter((c) => !c.xCost);
+  const plain = sized
+    .filter((c) => !doublesBlock(c))
+    .sort((a, b) => totalBlock(b, state) - totalBlock(a, state) || a.uid - b.uid);
+  const doublers = sized.filter(doublesBlock).sort((a, b) => a.uid - b.uid);
+  const cards = [...plain, ...doublers];
+  let bestPlan: { picks: Card[]; block: number; cost: number } | undefined;
+  const startBlock = state.player.block;
+  for (let mask = 0; mask < 1 << cards.length; mask++) {
+    const picks = cards.filter((_, i) => mask & (1 << i));
+    const cost = picks.reduce((n, c) => n + (c.cost ?? 0), 0);
+    if (cost > energy) continue;
+    let block = startBlock;
+    for (const c of picks) block = doublesBlock(c) ? block * 2 : block + totalBlock(c, state);
+    const reaches = block >= target;
+    const better =
+      !bestPlan ||
+      (reaches
+        ? bestPlan.block < target ||
+          block < bestPlan.block ||
+          (block === bestPlan.block &&
+            (cost < bestPlan.cost || (cost === bestPlan.cost && picks.length < bestPlan.picks.length)))
+        : bestPlan.block < target && (block > bestPlan.block || (block === bestPlan.block && cost < bestPlan.cost)));
+    if (better) bestPlan = { picks, block, cost };
+  }
+  return bestPlan?.picks[0];
+}
+
+/**
+ * #111 (Trent): Body Slam waits for the block cards: it is left out of `playable` while the Block
+ * group still wants Block (or Block is last, or there is no Block yet) and a block card can be
+ * played. Once none is wanted or affordable, it is played like any attack, with the Block gained.
+ */
+function withoutWaitingForBlock(view: StrategyView, config: StrategyConfig): StrategyView {
+  if (!view.playable.some(waitsForBlock)) return view;
+  const { block } = view.state.player;
+  // With no Block yet it would deal nothing, so it waits even when no more Block is wanted.
+  const wants = block < blockTarget(view, config) || block === 0;
+  const energy = view.state.player.energy;
+  if (!wants || !view.playable.some((c) => isBlockCard(c) && xCostPlayable(c, energy))) return view;
+  return { ...view, playable: view.playable.filter((c) => !waitsForBlock(c)) };
 }
 
 /** #130 / #109: a Power card (the Powers group). */
@@ -1080,7 +1200,9 @@ export function cannotFillTopGroup(view: StrategyView, config: StrategyConfig): 
   const energy = view.state.player.energy;
   switch (config.order[0]) {
     case 'attack':
-      return !pickPlayFirst(view) && !pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable);
+      return (
+        !pickPlayFirst(view) && !pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state)
+      );
     case 'powers':
       return !pickPower(view.playable, energy);
     case 'block': {
@@ -1257,7 +1379,7 @@ function pickFromGroup(
     case 'attack': {
       const first = pickPlayFirst(view);
       if (first) return first;
-      const atk = pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable);
+      const atk = pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state);
       return planning ? atk : (pickFiendFire(view, config, atk) ?? atk);
     }
     case 'powers':
@@ -1266,7 +1388,7 @@ function pickFromGroup(
       if (!blockIsLast(config) && view.intent.totalIncoming - view.state.player.block <= config.allowThrough) {
         return undefined;
       }
-      const blk = pickBlock(view.playable, energy);
+      const blk = pickBlockPlanned(view, blockTarget(view, config));
       return planning ? blk : (pickSecondWind(view, config, blk) ?? blk);
     }
   }
@@ -1358,7 +1480,11 @@ export function blockIsLast(config: StrategyConfig): boolean {
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
-  return decideWith(withoutGuardBroken(withoutLethal(withoutNeverPlayed(raw)), config), config, false);
+  return decideWith(
+    withoutWaitingForBlock(withoutGuardBroken(withoutLethal(withoutNeverPlayed(raw)), config), config),
+    config,
+    false,
+  );
 }
 
 function decideWith(view: StrategyView, config: StrategyConfig, planning: boolean): Decision {
@@ -1413,7 +1539,7 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   const drawing = canDraw(view);
   const pure = drawing ? pickPureDraw(view) : undefined;
   if (pure) return play(pure);
-  const blk = pickBlock(view.playable, view.state.player.energy);
+  const blk = pickBlockPlanned(view, Infinity);
   if (blk) return play(blk);
   const trance = drawing ? pickTrance(view) : undefined;
   if (trance) return play(trance);

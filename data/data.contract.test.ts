@@ -5,8 +5,24 @@ import { fixture, errorsOf } from './dataTestHelpers';
 import { SIMULATED_POWERS } from './validate/lists';
 import { SIMULATED_POWER_IDS } from '../engine/combat';
 
-/** Contract effects the engine simulates now (#106, #107, #108, #116); a simulated card may use them. */
-const SIMULATED = ['loseHp', 'draw', 'drawUntil', 'exhaustCards', 'heal', 'gainMaxHp', 'loseMaxHp', 'addCards', 'transformCards'];
+/** Contract effects the engine simulates now (#106, #107, #108, #111, #116); a simulated card may use them. */
+const SIMULATED = [
+  'loseHp',
+  'draw',
+  'drawUntil',
+  'exhaustCards',
+  'heal',
+  'gainMaxHp',
+  'loseMaxHp',
+  'addCards',
+  'transformCards',
+  'conditional',
+  'repeat',
+  'attackFrom',
+  'gainBlockFrom',
+  'growDamage',
+  'script',
+];
 const UNSIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => !SIMULATED.includes(e.type));
 const SIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => SIMULATED.includes(e.type));
 
@@ -120,7 +136,7 @@ describe('#105 contract shapes', () => {
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"applyPower"/)]);
   });
 
-  it('#108: repeat only per lastEffectCount with simulated inner effects; script only fiendFire / thrash', () => {
+  it('#108/#111: repeat only per a tracked counter with simulated inner effects; script only known ids', () => {
     const d = fixture();
     d.cards.strike.effects.push(
       { type: 'exhaustCards', mode: 'all', filter: { notTypes: ['attack'] } },
@@ -139,8 +155,30 @@ describe('#105 contract shapes', () => {
     });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"dealDamage"/)]);
     d.cards.strike.effects.pop();
-    d.cards.strike.effects.push({ type: 'script', id: 'perfectedStrike' });
+    d.cards.strike.effects.push({ type: 'script', id: 'perfectedStrike', values: [6, 2] });
+    expect(errorsOf(d)).toEqual([]);
+    d.cards.strike.effects.push({ type: 'script', id: 'playSelf' });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"script"/)]);
+  });
+
+  it('#111: counters the engine does not track (cards played) are rejected on a simulated card', () => {
+    const d = fixture();
+    const goldAxe = { type: 'attackFrom', damage: 0, hits: 1, bonusPer: { per: 'cardsPlayedThisCombat', amount: 1 } };
+    d.cards.strike.effects.push(goldAxe);
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"attackFrom\.cardsPlayedThisCombat"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({
+      type: 'conditional',
+      if: { kind: 'counter', counter: 'attacksPlayedThisTurn', min: 1 },
+      then: [],
+    });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"conditional\.attacksPlayedThisTurn"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({ type: 'gainBlockFrom', amount: 0, bonusPer: { per: 'discardPileSize', amount: 1 } });
+    d.cards.strike.playableIf = { kind: 'handAll', filter: { types: ['attack'] } };
+    expect(errorsOf(d)).toEqual([]);
+    d.cards.strike.playableIf = { kind: 'handAll', filter: { rarity: ['rare'] } };
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"conditional\.filter\.rarity"/)]);
   });
 
   it('#108: rejects exhaustCards from the exhaust pile or with an unmatched filter field on a simulated card', () => {
@@ -156,11 +194,13 @@ describe('#105 contract shapes', () => {
     const d = fixture();
     d.cards.strike.triggers = [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }];
     d.cards.strike.upgraded.triggers = [{ when: 'drawn', effects: [] }];
-    d.cards.defend.playableIf = { kind: 'handAll', filter: { types: ['attack'] } };
+    d.cards.defend.playableIf = { kind: 'counter', counter: 'cardsPlayedThisTurn', min: 1 };
     d.cards.bash.costLessPer = { per: 'attacksPlayedThisTurn', amount: 1 };
     const errs = errorsOf(d);
     expect(errs).toContainEqual(expect.stringMatching(/cards\/strike.*"simulated".*"triggers"/));
-    expect(errs).toContainEqual(expect.stringMatching(/cards\/defend.*"simulated".*"playableIf"/));
+    expect(errs).toContainEqual(
+      expect.stringMatching(/cards\/defend.*"simulated".*"conditional\.cardsPlayedThisTurn"/),
+    );
     expect(errs).toContainEqual(expect.stringMatching(/cards\/bash.*"simulated".*"costLessPer"/));
     d.cards.strike.simulated = false;
     d.cards.defend.simulated = false;

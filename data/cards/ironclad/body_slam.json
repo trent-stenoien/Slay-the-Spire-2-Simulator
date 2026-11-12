@@ -9,13 +9,23 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "attackFrom",
+      "damage": 0,
+      "hits": 1,
+      "bonusPer": {
+        "per": "playerBlock",
+        "amount": 1
+      }
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Deal damage equal to your Block.",
   "upgradedDescription": "Deal damage equal to your Block.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

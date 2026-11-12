@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 5,
       "hits": 2
+    },
+    {
+      "type": "growDamage",
+      "amount": 2,
+      "scope": "sameCard"
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 6,
         "hits": 2
+      },
+      {
+        "type": "growDamage",
+        "amount": 3,
+        "scope": "sameCard"
       }
     ]
   },
   "description": "Deal 5 damage twice. / Increase the damage of ALL Maul cards by 2 this combat.",
   "upgradedDescription": "Deal 6 damage twice. / Increase the damage of ALL Maul cards by 3 this combat.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

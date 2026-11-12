@@ -9,11 +9,31 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "gainBlockFrom",
+      "amount": 0,
+      "bonusPer": {
+        "per": "discardPileSize",
+        "amount": 1
+      }
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "gainBlockFrom",
+        "amount": 3,
+        "bonusPer": {
+          "per": "discardPileSize",
+          "amount": 1
+        }
+      }
+    ]
+  },
   "description": "Gain Block equal to the number of cards in your Discard Pile.",
   "upgradedDescription": "Gain Block equal to the number of cards in your Discard Pile +3.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -1,5 +1,14 @@
 /** Pure combat rules shared by the combat loop and the strategies. */
-import type { CardInstance, DeepReadonly } from './types';
+import type {
+  CardFilter,
+  CardInstance,
+  CombatState,
+  Condition,
+  Counter,
+  DeepReadonly,
+  EnemyState,
+  PlayerState,
+} from './types';
 
 /**
  * Damage per hit = floor((base + Strength) × (Weak ? 0.75 : 1) × (Vulnerable ? 1.5 : 1) × Shrink),
@@ -36,4 +45,127 @@ export function attackHits(e: { hits: number; xTimes?: boolean; xBonus?: number 
 /** True when the card has a cost, the energy covers it, and it isn't Unplayable. */
 export function isPlayable(card: DeepReadonly<CardInstance>, energy: number): boolean {
   return card.cost !== null && card.cost <= energy && !card.keywords.includes('unplayable');
+}
+
+// ---------------------------------------------------------------------------
+// #111 Conditional and scaling cards: shared by the combat loop and the strategies
+// ---------------------------------------------------------------------------
+
+/** #111 (Trent): a card counts as a Strike when "Strike" appears anywhere in its name ("Strike+", "Twin Strike"). */
+export const STRIKE_NAME = 'Strike';
+
+/** #111/#113: the one name rule for Perfected Strike and Hellraiser. Case-sensitive; an upgraded "+" does not matter. */
+export function isStrikeName(name: string): boolean {
+  return name.includes(STRIKE_NAME);
+}
+
+/** #111 Perfected Strike: every card with "Strike" in its name in the Draw, Hand, Discard and Exhaust piles. */
+export function countStrikes(player: DeepReadonly<PlayerState>): number {
+  let n = 0;
+  for (const pile of [player.drawPile, player.hand, player.discardPile, player.exhaustPile]) {
+    for (const c of pile) if (isStrikeName(c.name)) n++;
+  }
+  return n;
+}
+
+/**
+ * #111 Rend (Trent): the debuffs from the wiki's Debuffs table that the simulator models on an
+ * enemy, each counted once: Vulnerable, Weak, Frail, Poison, negative Strength and the
+ * temporary Strength loss (#110).
+ */
+export function uniqueDebuffs(enemy: DeepReadonly<EnemyState>): number {
+  let n = 0;
+  if (enemy.debuffs.vulnerable > 0) n++;
+  if (enemy.debuffs.weak > 0) n++;
+  if (enemy.debuffs.frail > 0) n++;
+  if (enemy.poison > 0) n++;
+  if (enemy.strength < 0) n++;
+  if ((enemy.powers?.strengthLossThisTurn ?? 0) > 0) n++;
+  return n;
+}
+
+/** Values a counter can read that live outside the piles and debuffs: the previous effects of the same card. */
+export interface CounterContext {
+  lastEffectCount?: number;
+  lastAttackDamage?: number;
+}
+
+/** The value of a counter in `state` (#111). */
+export function counterValue(counter: Counter, state: DeepReadonly<CombatState>, ctx: CounterContext = {}): number {
+  const { player, enemy } = state;
+  const c = player.counters;
+  switch (counter) {
+    case 'playerBlock':
+      return player.block;
+    case 'playerStrength':
+      return player.strength;
+    case 'enemyVulnerable':
+      return enemy.debuffs.vulnerable;
+    case 'enemyUniqueDebuffs':
+      return uniqueDebuffs(enemy);
+    case 'handSize':
+      return player.hand.length;
+    case 'drawPileSize':
+      return player.drawPile.length;
+    case 'discardPileSize':
+      return player.discardPile.length;
+    case 'exhaustPileSize':
+      return player.exhaustPile.length;
+    case 'hpLossesThisCombat':
+      return c?.hpLossesThisCombat ?? 0;
+    case 'cardsPlayedThisTurn':
+      return c?.cardsPlayedThisTurn ?? 0;
+    case 'cardsPlayedThisCombat':
+      return c?.cardsPlayedThisCombat ?? 0;
+    case 'attacksPlayedThisTurn':
+      return c?.attacksPlayedThisTurn ?? 0;
+    case 'cardsExhaustedThisTurn':
+      return c?.cardsExhaustedThisTurn ?? 0;
+    case 'cardsExhaustedThisCombat':
+      return c?.cardsExhaustedThisCombat ?? 0;
+    case 'lastEffectCount':
+      return ctx.lastEffectCount ?? 0;
+    case 'lastAttackDamage':
+      return ctx.lastAttackDamage ?? 0;
+  }
+}
+
+/** `amount` × counter for a PerCounter, or 0 when absent. */
+export function perCounterValue(
+  per: { per: Counter; amount: number } | undefined,
+  state: DeepReadonly<CombatState>,
+  ctx: CounterContext = {},
+): number {
+  return per ? per.amount * counterValue(per.per, state, ctx) : 0;
+}
+
+/**
+ * Whether a `conditional` / `playableIf` condition holds. `selfUid` is the card being played or
+ * considered: it is ignored in "every card in hand" tests. `fatal` is decided by the engine
+ * (the previous attack killed), so it is false here.
+ */
+export function conditionHolds(
+  cond: DeepReadonly<Condition>,
+  state: DeepReadonly<CombatState>,
+  matches: (card: CardInstance, filter: CardFilter) => boolean,
+  selfUid?: number,
+  ctx: CounterContext = {},
+): boolean {
+  const { player, enemy } = state;
+  switch (cond.kind) {
+    case 'lostHpThisTurn':
+      return (player.counters?.hpLostThisTurn ?? 0) > 0;
+    case 'enemyHas':
+      return cond.status === 'poison' ? enemy.poison > 0 : enemy.debuffs[cond.status] > 0;
+    case 'counter': {
+      const v = counterValue(cond.counter, state, ctx);
+      return (cond.min === undefined || v >= cond.min) && (cond.max === undefined || v <= cond.max);
+    }
+    case 'handHasNone':
+      return !player.hand.some((c) => c.uid !== selfUid && matches(c as CardInstance, cond.filter as CardFilter));
+    case 'handAll':
+      return player.hand.every((c) => c.uid === selfUid || matches(c as CardInstance, cond.filter as CardFilter));
+    case 'fatal':
+      return false;
+  }
 }

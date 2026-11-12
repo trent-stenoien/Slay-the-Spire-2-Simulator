@@ -11,21 +11,29 @@
   "keywords": [],
   "effects": [
     {
-      "type": "gainBlock",
-      "amount": 15
+      "type": "gainBlockFrom",
+      "amount": 15,
+      "bonusPer": {
+        "per": "playerStrength",
+        "amount": 5
+      }
     }
   ],
   "upgraded": {
     "effects": [
       {
-        "type": "gainBlock",
-        "amount": 16
+        "type": "gainBlockFrom",
+        "amount": 16,
+        "bonusPer": {
+          "per": "playerStrength",
+          "amount": 8
+        }
       }
     ]
   },
   "description": "Gain 15 Block. / Gains 5 additional Block for each Strength you have.",
   "upgradedDescription": "Gain 16 Block. / Gains 8 additional Block for each Strength you have.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

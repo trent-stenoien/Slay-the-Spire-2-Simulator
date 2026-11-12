@@ -386,14 +386,14 @@ describe('#108 Fiend Fire', () => {
 
   it('a script id the engine does not know is not simulated yet', () => {
     const d = data();
-    d.cards.probe = skill('probe', 'Pr', [{ type: 'script', id: 'perfectedStrike', values: [2] }]);
+    d.cards.probe = skill('probe', 'Pr', [{ type: 'script', id: 'playSelf' }]);
     expect(() =>
       simulateCombat(
         d,
         cfg({ deck: deckOf(['probe', 5]) }),
         scripted((t) => (t === 1 ? ['probe'] : [])),
       ),
-    ).toThrow(/Effect "script" is not simulated yet \(id "perfectedStrike"\)/);
+    ).toThrow(/Effect "script" is not simulated yet \(id "playSelf"\)/);
   });
 });
 

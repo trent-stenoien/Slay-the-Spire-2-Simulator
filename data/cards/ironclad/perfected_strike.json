@@ -11,15 +11,29 @@
   "keywords": [],
   "effects": [
     {
-      "type": "attack",
-      "damage": 6,
-      "hits": 1
+      "type": "script",
+      "id": "perfectedStrike",
+      "values": [
+        6,
+        2
+      ]
     }
   ],
-  "upgraded": {},
+  "upgraded": {
+    "effects": [
+      {
+        "type": "script",
+        "id": "perfectedStrike",
+        "values": [
+          6,
+          3
+        ]
+      }
+    ]
+  },
   "description": "Deal 6 damage. / Deals 2 additional damage for ALL your cards containing “Strike”.",
   "upgradedDescription": "Deal 6 damage. / Deals 3 additional damage for ALL your cards containing “Strike”.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

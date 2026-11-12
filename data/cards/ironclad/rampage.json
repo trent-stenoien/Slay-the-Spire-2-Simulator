@@ -14,12 +14,30 @@
       "type": "attack",
       "damage": 10,
       "hits": 1
+    },
+    {
+      "type": "growDamage",
+      "amount": 5,
+      "scope": "self"
     }
   ],
-  "upgraded": {},
+  "upgraded": {
+    "effects": [
+      {
+        "type": "attack",
+        "damage": 10,
+        "hits": 1
+      },
+      {
+        "type": "growDamage",
+        "amount": 10,
+        "scope": "self"
+      }
+    ]
+  },
   "description": "Deal 10 damage. / Increase this card's damage by 5 this combat.",
   "upgradedDescription": "Deal 10 damage. / Increase this card's damage by 10 this combat.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

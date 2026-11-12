@@ -11,13 +11,23 @@
   "keywords": [
     "innate"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "attackFrom",
+      "damage": 0,
+      "hits": 1,
+      "bonusPer": {
+        "per": "drawPileSize",
+        "amount": 1
+      }
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Innate. / Deal damage equal to the number of cards in your Draw Pile.",
   "upgradedDescription": "Innate. / Deal damage equal to the number of cards in your Draw Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
