@@ -1,0 +1,41 @@
+{
+  "combat": "nibbit-a0-01",
+  "source": "Played by hand in the real game; recorded on issue #177 (Combat 1)",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 0,
+  "deck": [
+    { "card": "strike", "count": 5 },
+    { "card": "defend", "count": 4 },
+    { "card": "bash", "count": 1 }
+  ],
+  "enemy": { "id": "nibbit", "startHp": 46 },
+  "player": { "startHp": 80, "maxHp": 80 },
+  "turns": [
+    {
+      "hand": ["strike", "strike", "defend", "defend", "bash"],
+      "plays": ["defend", "defend", "strike"],
+      "afterPlays": { "player": { "hp": 80, "block": 10 }, "enemy": { "hp": 40 } },
+      "afterEnemy": { "player": { "hp": 78 }, "enemy": { "hp": 40 } }
+    },
+    {
+      "hand": ["strike", "strike", "strike", "defend", "defend"],
+      "plays": ["defend", "strike", "strike"],
+      "afterPlays": { "player": { "hp": 78, "block": 5 }, "enemy": { "hp": 28 } },
+      "afterEnemy": { "player": { "hp": 77 }, "enemy": { "hp": 28, "block": 5 } }
+    },
+    {
+      "hand": ["bash", "defend", "defend", "strike", "strike"],
+      "plays": ["bash", "strike"],
+      "afterPlays": { "enemy": { "hp": 16, "block": 0, "vulnerable": 2 } },
+      "afterEnemy": { "player": { "hp": 77 }, "enemy": { "hp": 16 } }
+    },
+    {
+      "hand": ["strike", "strike", "strike", "defend", "defend"],
+      "atStart": { "enemy": { "strength": 2, "vulnerable": 1 } },
+      "plays": ["strike", "strike"],
+      "enemyHpAfterEachPlay": [7, 0]
+    }
+  ],
+  "result": { "outcome": "win", "turns": 4, "finalHp": 77, "hpLost": 3 }
+}
