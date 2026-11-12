@@ -30,7 +30,11 @@ function data(enemyHp: number): GameData {
 }
 
 const run = (hp: number, deck: ReturnType<typeof deckOf>, plan: string[]) =>
-  simulateCombat(data(hp), cfg({ enemyId: 'target', deck }), scripted((t) => (t === 1 ? plan : [])));
+  simulateCombat(
+    data(hp),
+    cfg({ enemyId: 'target', deck }),
+    scripted((t) => (t === 1 ? plan : [])),
+  );
 
 describe('#104 rewards', () => {
   it('Hand of Greed gains gold when its hit kills the enemy', () => {

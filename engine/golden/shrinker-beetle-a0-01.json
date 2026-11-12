@@ -1,0 +1,41 @@
+{
+  "combat": "shrinker-beetle-a0-01",
+  "source": "Played by hand in the real game; recorded on issue #177 (Combat 3)",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 0,
+  "deck": [
+    { "card": "strike", "count": 5 },
+    { "card": "defend", "count": 4 },
+    { "card": "bash", "count": 1 },
+    { "card": "setup_strike", "count": 1 },
+    { "card": "inflame", "count": 1 }
+  ],
+  "enemy": { "id": "shrinker_beetle", "startHp": 38 },
+  "player": { "startHp": 79, "maxHp": 80 },
+  "turns": [
+    {
+      "hand": ["setup_strike", "inflame", "strike", "strike", "defend"],
+      "plays": ["inflame", "setup_strike", "strike"],
+      "atStart": { "player": { "hp": 79 } },
+      "afterPlays": { "player": { "strength": 4 }, "enemy": { "hp": 19 } },
+      "enemyHpAfterEachPlay": [38, 29, 19],
+      "afterEnemy": { "player": { "hp": 79, "shrink": 30 } }
+    },
+    {
+      "hand": ["strike", "strike", "defend", "defend", "bash"],
+      "plays": ["bash", "defend"],
+      "atStart": { "player": { "hp": 79, "strength": 2, "shrink": 30 } },
+      "enemyHpAfterEachPlay": [12, 12],
+      "afterPlays": { "player": { "block": 5 }, "enemy": { "hp": 12, "vulnerable": 2 } },
+      "afterEnemy": { "player": { "hp": 77 } }
+    },
+    {
+      "hand": ["strike", "defend", "strike", "defend", "defend"],
+      "plays": ["strike", "strike"],
+      "atStart": { "player": { "hp": 77, "strength": 2, "shrink": 30 }, "enemy": { "vulnerable": 1 } },
+      "enemyHpAfterEachPlay": [4, 0]
+    }
+  ],
+  "result": { "outcome": "win", "turns": 3, "finalHp": 77, "hpLost": 2 }
+}
