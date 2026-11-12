@@ -25,8 +25,8 @@
       }
     ]
   },
-  "description": "Deal 13 damage. / Draw 1 card. / Whenever you create a Status, reduce this card's cost by 1 [E] until played.",
-  "upgradedDescription": "Deal 14 damage. / Draw 2 cards. / Whenever you create a Status, reduce this card's cost by 1 [E] until played.",
+  "description": "Deal 13 damage. / Draw 1 card. / Whenever you create a Status, this card costs 0 [E] until played.",
+  "upgradedDescription": "Deal 14 damage. / Draw 2 cards. / Whenever you create a Status, this card costs 0 [E] until played.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

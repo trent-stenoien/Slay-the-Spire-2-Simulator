@@ -1,0 +1,28 @@
+{
+  "id": "scare",
+  "code": "AL",
+  "name": "Scare",
+  "type": "skill",
+  "rarity": "uncommon",
+  "character": "S",
+  "cost": 0,
+  "xCost": false,
+  "starCost": null,
+  "keywords": [
+    "exhaust"
+  ],
+  "effects": [
+    {
+      "type": "applyWeak",
+      "amount": 1
+    }
+  ],
+  "upgraded": {
+    "keywords": []
+  },
+  "description": "Apply 1 Weak to ALL enemies. / Exhaust.",
+  "upgradedDescription": "Apply 1 Weak to ALL enemies.",
+  "simulated": true,
+  "multiplayerOnly": false,
+  "lastUpdateVersion": "v0.107.1"
+}

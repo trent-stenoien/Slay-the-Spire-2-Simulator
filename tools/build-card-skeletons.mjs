@@ -12,6 +12,11 @@
 // and are never handed out again, and those cards' rows are skipped so a re-run does
 // not recreate them.
 //
+// WARNING: data/raw/cards.txt is a BETA export (newer than manifest.json's gameVersion), so
+// --refresh-meta would overwrite main-release metadata (rarity, cost, type, text) with beta
+// values (e.g. Splash/Salvo rarities, Mirage, Outbreak, Well-Laid Plans). Do not run it
+// without checking every changed file against the wiki Update History (sts2-wiki-import).
+//
 // Usage: node tools/build-card-skeletons.mjs [--refresh-meta] [--dry-run]
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
