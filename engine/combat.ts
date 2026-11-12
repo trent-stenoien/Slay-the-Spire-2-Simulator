@@ -1,14 +1,13 @@
 import { createRng } from './rng';
 import { cardPool, chooseGenerated } from './generate';
 import { patternMoveIds, patternPool, resolveEnemy } from './enemy';
-import { attackDamage, attackHits, blockGain, isPlayable } from './rules';
+import { COLOSSUS_REDUCTION, attackDamage, attackHits, blockGain, cardCost, isPlayable } from './rules';
 import { chooseExhaust, createStrategy } from './strategies';
 import {
   HAND_LIMIT,
   TURN_CAP,
   type CardDef,
   type CardDestination,
-  type SelectMode,
   type CardFilter,
   type CardInstance,
   type CardPool,
@@ -24,12 +23,14 @@ import {
   type EnemyDef,
   type EnemyIntent,
   type EnemyMove,
+  type EnemyPowerId,
   type GameData,
   type GameEvent,
   type Outcome,
   type PileName,
   type PowerId,
   type Rng,
+  type SelectMode,
   type RunCombat,
   type Side,
   type Strategy,
@@ -49,18 +50,27 @@ const DEBUFF_KINDS: readonly DebuffKind[] = ['vulnerable', 'weak', 'frail'];
 export function computeIntent(
   moveId: string,
   move: { name: string; effects: readonly Effect[] },
-  enemy: { strength: number; debuffs: Debuffs },
-  player: { debuffs: Debuffs },
+  enemy: { strength: number; debuffs: Debuffs; powers?: Partial<Record<EnemyPowerId, number>> },
+  player: { debuffs: Debuffs; powers?: Partial<Record<PowerId, number>> },
 ): EnemyIntent {
   const attacks: EnemyIntent['attacks'] = [];
   let totalIncoming = 0;
+  // #110: Mangle / Dark Shackles lower the enemy's Strength through the end of its turn.
+  const strength = enemy.strength - (enemy.powers?.strengthLossThisTurn ?? 0);
+  // #110: Colossus halves damage from a Vulnerable enemy.
+  const reduce = colossusReduction(player.powers, enemy.debuffs);
   for (const e of move.effects) {
     if (e.type !== 'attack') continue;
-    const dph = attackDamage(e.damage, enemy.strength, enemy.debuffs.weak, player.debuffs.vulnerable);
+    const dph = attackDamage(e.damage, strength, enemy.debuffs.weak, player.debuffs.vulnerable, 0, 0, reduce);
     attacks.push({ damagePerHit: dph, hits: e.hits });
     totalIncoming += dph * e.hits;
   }
   return { moveId, name: move.name, attacks, totalIncoming };
+}
+
+/** #110: the percent less damage a Vulnerable enemy deals while the player has Colossus (else 0). */
+function colossusReduction(powers: Partial<Record<PowerId, number>> | undefined, enemyDebuffs: Debuffs): number {
+  return (powers?.colossus ?? 0) > 0 && enemyDebuffs.vulnerable > 0 ? COLOSSUS_REDUCTION : 0;
 }
 
 /** Resolve a CardDef (optionally upgraded) into a CardInstance. */
@@ -91,6 +101,8 @@ export function makeCardInstance(def: CardDef, upgraded: boolean, uid: number): 
   // #108: the card's own triggers (Drum of Battle); an upgrade replaces the list.
   const triggers = up?.triggers ?? def.triggers;
   if (triggers) inst.triggers = triggers.map((t) => ({ when: t.when, effects: t.effects.map((e) => ({ ...e })) }));
+  // #110: Stomp's cost reduction.
+  if (def.costLessPer) inst.costLessPer = { ...def.costLessPer };
   return inst;
 }
 
@@ -176,13 +188,13 @@ function emptyCounters(): CombatCounters {
 
 /**
  * True when `card` matches every present field of `filter` (#107: Pillage's non-Attack stop rule).
- * Fields whose rules are still open (nameIncludes, noReplay) throw until their cards land.
+ * Fields whose rules are still open (nameIncludes) throw until their cards land.
+ * #114 noReplay: only cards with no Replay. #112 rarity: the card's rarity is one of the listed ones.
  */
 export function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
-  for (const field of ['nameIncludes', 'noReplay'] as const) {
-    if (filter[field] !== undefined) throw new Error(`Card filter "${field}" is not simulated yet`);
-  }
+  if (filter.nameIncludes !== undefined) throw new Error('Card filter "nameIncludes" is not simulated yet');
   if (filter.rarity && (card.rarity === undefined || !filter.rarity.includes(card.rarity))) return false;
+  if (filter.noReplay && (card.replay ?? 0) > 0) return false;
   if (filter.types && !filter.types.includes(card.type)) return false;
   if (filter.notTypes?.includes(card.type)) return false;
   if (filter.cardId !== undefined && card.cardId !== filter.cardId) return false;
@@ -190,8 +202,8 @@ export function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
   return true;
 }
 
-/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand); the rest wait for #114. */
-const SIMULATED_TRIGGERS: readonly string[] = ['exhausted', 'drawn', 'turnEndInHand'];
+/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */
+const SIMULATED_TRIGGERS: readonly string[] = ['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust'];
 
 /** #108: per-hit damage an Attack adds to Thrash: its first attack effect's base damage plus its own bonus. */
 export function perHitBaseDamage(card: CardInstance): number {
@@ -230,6 +242,17 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'entropy',
   'intangible',
   'gambit',
+  // #110 temporary and next-turn powers
+  'strengthThisTurn',
+  'rage',
+  'flameBarrier',
+  'colossus',
+  'noBlockFromCards',
+  'retainHand',
+  'freeAttack',
+  'doubleAttack',
+  'nextCardToDrawTop',
+  'choking',
 ];
 
 /** #116 Hello World: a random Common card from the player's character. */
@@ -264,6 +287,8 @@ class Combat {
   private boulders: number[] = [];
   /** #135: Crimson Mantle copies played; each loses 1 HP a turn and adds its own Block. */
   private mantleCopies = 0;
+  /** #110: true while scheduled effects run: Block they gain is not changed by Dexterity or Frail. */
+  private unpowered = false;
   /** #116: uid for the next created card (the deck uses 0..n-1). */
   private nextUid: number;
   /** #116: pools already computed, keyed by pool + upgraded. */
@@ -371,6 +396,7 @@ class Combat {
     counters.hpLostThisTurn = 0;
     counters.cardsDrawnThisTurn = 0;
     counters.cardsExhaustedThisTurn = 0;
+    counters.attacksPlayedThisTurn = 0;
     if (!this.power('barricade')) {
       player.block = 0;
       log?.push({ t: 'blockReset', side: 'player' });
@@ -381,7 +407,34 @@ class Combat {
       if (!this.drawOne()) break;
       if (player.hp <= 0) return 'loss';
     }
+    // #110: effects scheduled for this turn's start (Outmaneuver, Relax, Toric Toughness, Prolong), after the draw.
+    const scheduled = this.runScheduled('turnStart');
+    if (scheduled) return scheduled;
     return this.turnStartPowers();
+  }
+
+  /**
+   * #110: run the scheduled effects due on this turn at `at`, in the order they were scheduled.
+   * Block they gain is not changed by Dexterity or Frail. Returns the outcome if one ended combat.
+   */
+  private runScheduled(at: 'turnStart' | 'turnEnd'): Outcome | null {
+    const { player, enemy } = this;
+    const due = (player.scheduled ?? []).filter((s) => s.turn === this.state.turn && s.at === at);
+    if (due.length === 0) return null;
+    player.scheduled = (player.scheduled ?? []).filter((s) => !due.includes(s));
+    for (const s of due) {
+      this.unpowered = true;
+      const died = this.resolveEffects('player', s.effects);
+      this.unpowered = false;
+      if (died === 'player' || player.hp <= 0) return 'loss';
+      if (died === 'enemy' || enemy.hp <= 0) return 'win';
+    }
+    return null;
+  }
+
+  /** #110: what a card costs right now (Enlightenment, Stomp, Unrelenting); null if unplayable. */
+  private costOf(card: CardInstance): number | null {
+    return cardCost(card, this.counters.attacksPlayedThisTurn, this.power('freeAttack') > 0);
   }
 
   /** #109: the current amount of a player power (0 when off). */
@@ -486,6 +539,8 @@ class Combat {
    * then Frail (×0.75, floored), minimum 0.
    */
   private cardBlock(amount: number, card: CardInstance): number {
+    // #110 Panic Button: no Block from cards while the power lasts.
+    if (this.power('noBlockFromCards') > 0) return 0;
     const fasten = card.name.includes(FASTEN_NAME) ? this.power('fasten') : 0;
     return blockGain(amount + this.power('dexterity') + fasten, this.player.debuffs.frail);
   }
@@ -496,41 +551,25 @@ class Combat {
    * 'win' when the enemy died, 'loss' when the player's own card dropped them to 0 HP.
    */
   private playCards(): Outcome | null {
-    const { player, enemy, log } = this;
+    const { player, enemy } = this;
     for (let decisions = 0; decisions < MAX_DECISIONS_PER_TURN; decisions++) {
       const decision = this.strategy.decide(this.view());
       if (decision.kind === 'endTurn') break;
       const idx = player.hand.findIndex((c) => c.uid === decision.uid);
       const card = idx >= 0 ? player.hand[idx] : undefined;
-      if (!card || !isPlayable(card, player.energy)) {
+      const cost = card ? this.costOf(card) : null;
+      if (!card || !isPlayable(cost === card.cost ? card : { ...card, cost }, player.energy)) {
         throw new Error(`Strategy tried to play illegal card uid ${decision.uid} on turn ${this.state.turn}`);
       }
       player.hand.splice(idx, 1);
+      // #110 Unrelenting: the next Attack played costs 0 (an X-cost Attack still gets X = all the energy, free).
+      const free = card.type === 'attack' && this.power('freeAttack') > 0;
+      if (free) this.applyPower('freeAttack', -1);
       // X-cost: X is all the energy available, and the card spends all of it.
       const x = card.xCost ? player.energy : 0;
-      player.energy -= card.xCost ? x : (card.cost as number);
-      if (log) {
-        const ev: GameEvent = { t: 'play', uid: card.uid, cardId: card.cardId, energyLeft: player.energy };
-        if (card.xCost) ev.x = x;
-        log.push(ev);
-      }
-      // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
-      const vigor = card.type === 'attack' ? this.power('vigor') : 0;
-      this.activeVigor = vigor;
-      const died = this.resolveEffects('player', card.effects, x, card);
-      this.activeVigor = 0;
-      if (vigor > 0) this.applyPower('vigor', -vigor);
+      player.energy -= free ? 0 : card.xCost ? x : (cost as number);
+      const died = this.playCard(card, x);
       if (died === 'player' || player.hp <= 0) return 'loss';
-      if (card.type === 'power') {
-        // #109: a played Power leaves the deck for the rest of combat (no discard, no exhaust pile).
-      } else if (card.keywords.includes('exhaust')) {
-        this.exhaustCard(card, 'keyword');
-      } else if (card.type === 'skill' && this.power('corruption')) {
-        // #109 Corruption: a played Skill is exhausted (Drum of Battle still gains its energy).
-        this.exhaustCard(card, 'power');
-      } else {
-        player.discardPile.push(card);
-      }
       if (died === 'enemy' || enemy.hp <= 0) return 'win';
       // #116 Calamity: after an Attack is played, add random Attack(s) to the hand.
       const calamity = card.type === 'attack' ? this.power('calamity') : 0;
@@ -546,15 +585,97 @@ class Combat {
     return null;
   }
 
+  /**
+   * #114: play a card that is already out of its pile and whose cost is paid or waived: log it,
+   * resolve its effects, play it again once per Replay (never used up, Trent #114 Q1; the cost is
+   * not paid again and X stays the same), then put it where a played card goes. `by` marks a card
+   * played by an effect or trigger rather than the strategy; `exhaust` sends it to the Exhaust pile
+   * (Havoc). Returns the side that died, if one did.
+   */
+  private playCard(card: CardInstance, x: number, by?: 'effect' | 'trigger', exhaust = false): Side | null {
+    const { player, enemy, log } = this;
+    const logPlay = (how?: 'effect' | 'replay' | 'trigger') => {
+      if (!log) return;
+      const ev: GameEvent = { t: 'play', uid: card.uid, cardId: card.cardId, energyLeft: player.energy };
+      if (card.xCost) ev.x = x;
+      if (how) ev.by = how;
+      log.push(ev);
+    };
+    logPlay(by);
+    if (card.type === 'attack') this.counters.attacksPlayedThisTurn++;
+    // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
+    const vigor = card.type === 'attack' ? this.power('vigor') : 0;
+    this.activeVigor = vigor;
+    // #110 powers that react to this play, read before its own effects can add to them.
+    const choking = this.power('choking');
+    const toDrawTop = this.power('nextCardToDrawTop') > 0;
+    const again = card.type === 'attack' && this.power('doubleAttack') > 0;
+    if (again) this.applyPower('doubleAttack', -1);
+    if (toDrawTop) this.applyPower('nextCardToDrawTop', -1);
+    // Rage: Block from the power, not the card (no Dexterity or Frail).
+    if (card.type === 'attack' && this.power('rage') > 0) this.gainPowerBlock(this.power('rage'));
+    // Choking: the enemy loses HP whenever a card is played (cards played after it, not itself).
+    if (choking > 0 && this.enemyLoseHp(choking)) {
+      this.activeVigor = 0;
+      return 'enemy';
+    }
+    let died = this.resolveEffects('player', card.effects, x, card);
+    this.activeVigor = 0;
+    if (vigor > 0) this.applyPower('vigor', -vigor);
+    // #110 One-Two Punch: the Attack is played one more time, like a Replay (never uses Replay up).
+    const replays = (card.replay ?? 0) + (again ? 1 : 0);
+    for (let left = replays - 1; left >= 0 && !died && player.hp > 0 && enemy.hp > 0; left--) {
+      log?.push({ t: 'replay', uid: card.uid, cardId: card.cardId, left });
+      logPlay('replay');
+      died = this.resolveEffects('player', card.effects, x, card);
+    }
+    if (died === 'player' || player.hp <= 0) return 'player';
+    if (card.type === 'power') {
+      // #109: a played Power leaves the deck for the rest of combat (no discard, no exhaust pile).
+    } else if (exhaust) {
+      died = this.exhaustCard(card, 'effect') ?? died;
+    } else if (card.keywords.includes('exhaust')) {
+      died = this.exhaustCard(card, 'keyword') ?? died;
+    } else if (card.type === 'skill' && this.power('corruption')) {
+      // #109 Corruption: a played Skill is exhausted (Drum of Battle still gains its energy).
+      died = this.exhaustCard(card, 'power') ?? died;
+    } else if (toDrawTop) {
+      // #110 Rebound: the card goes on top of the draw pile (its end).
+      player.drawPile.push(card);
+      log?.push({ t: 'moved', uid: card.uid, cardId: card.cardId, from: 'hand', to: 'drawTop' });
+    } else {
+      player.discardPile.push(card);
+    }
+    return died ?? (enemy.hp <= 0 ? 'enemy' : null);
+  }
+
   /** What the strategy sees right now: current hand, energy and the enemy's intent. */
   private view(): StrategyView {
     const { player } = this;
     const { id: moveId, move } = this.currentMove();
+    const state = this.stateWithCosts();
     return {
-      state: this.state,
+      state,
       intent: this.intent(moveId, move),
-      playable: player.hand.filter((c) => isPlayable(c, player.energy)),
+      playable: state.player.hand.filter((c) => isPlayable(c, player.energy)),
     };
+  }
+
+  /**
+   * #110: the state a strategy sees. Cards in hand whose cost is not their plain `cost` right now
+   * (Enlightenment, Stomp, Unrelenting) are shown as copies with the current cost, so strategies
+   * and isPlayable read one number. The real cards (same uids) are untouched.
+   */
+  private stateWithCosts(): CombatState {
+    const { player } = this;
+    let changed = false;
+    const hand = player.hand.map((c) => {
+      const cost = this.costOf(c);
+      if (cost === c.cost) return c;
+      changed = true;
+      return { ...c, cost };
+    });
+    return changed ? { ...this.state, player: { ...player, hand } } : this.state;
   }
 
   /** #115: the intent the player sees: a Stunned enemy does nothing; Intangible makes every hit 1. */
@@ -571,21 +692,30 @@ class Combat {
     return (this.enemy.powers?.stun ?? 0) > 0;
   }
 
-  /** Plating Block (#109); Ethereal exhausts first (even if Retain), Retain stays, the rest is discarded; then player debuffs tick. */
+  /**
+   * Plating Block (#109); Ethereal exhausts first (even if Retain), Retain stays, the rest is discarded;
+   * then the Exhaust-pile triggers (#114 Howl from Beyond); then player debuffs tick.
+   * Returns the outcome if a trigger ended combat.
+   */
   private endPlayerTurn(): Outcome | null {
     const { player, log } = this;
     // #109 Plating: gain Block equal to it at the end of your turn.
     const plating = this.power('plating');
     if (plating > 0) this.gainPowerBlock(plating);
+    // #110: The Bomb and other end-of-turn scheduled effects.
+    const scheduled = this.runScheduled('turnEnd');
+    if (scheduled) return scheduled;
     // #115: curses and statuses in hand act (Burn, Bad Luck), before the hand is discarded.
     for (const card of [...player.hand]) {
       if (this.runJunkTriggers(card, 'turnEndInHand')) return 'loss';
     }
+    // #110 Equilibrium, Salvo: the whole hand is retained this turn (Ethereal cards still exhaust).
+    const retainHand = this.power('retainHand') > 0;
     const retained: CardInstance[] = [];
     for (const card of player.hand) {
       if (card.keywords.includes('ethereal')) {
         this.exhaustCard(card, 'ethereal');
-      } else if (card.keywords.includes('retain')) {
+      } else if (card.keywords.includes('retain') || retainHand) {
         retained.push(card);
       } else {
         player.discardPile.push(card);
@@ -593,6 +723,9 @@ class Combat {
       }
     }
     player.hand = retained;
+    this.endTurnPowers();
+    const died = this.turnEndExhaustTriggers();
+    if (died) return died === 'player' || player.hp <= 0 ? 'loss' : 'win';
     // Battle Trance's no-draw lasts for the rest of this turn only.
     if (player.powers?.noDraw) {
       delete player.powers.noDraw;
@@ -602,6 +735,45 @@ class Combat {
     this.tickDebuffs('player');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'player' });
     return null;
+  }
+
+  /**
+   * #110: "this turn" effects end with the player's turn: Strength gained this turn is removed, and
+   * Rage, Choking, One-Two Punch, Rebound, Retain Hand and cost changes for the turn are cleared.
+   */
+  private endTurnPowers(): void {
+    const { player, log } = this;
+    const temporary = this.power('strengthThisTurn');
+    if (temporary > 0) {
+      player.strength -= temporary;
+      log?.push({ t: 'strength', side: 'player', amount: -temporary, total: player.strength });
+    }
+    for (const id of [
+      'strengthThisTurn',
+      'rage',
+      'choking',
+      'doubleAttack',
+      'nextCardToDrawTop',
+      'retainHand',
+    ] as const) {
+      if (this.power(id) > 0) this.applyPower(id, -this.power(id));
+    }
+    for (const pile of [player.hand, player.drawPile, player.discardPile, player.exhaustPile]) {
+      for (const c of pile) delete c.costThisTurn;
+    }
+  }
+
+  /**
+   * #110: after the enemy's move, the powers that cover "the enemy turn that follows" end: Flame
+   * Barrier, the enemy's temporary Strength loss; Colossus and Panic Button's no-Block go down by 1.
+   */
+  private endEnemyTurnPowers(): void {
+    for (const id of ['colossus', 'noBlockFromCards'] as const) {
+      if (this.power(id) > 0) this.applyPower(id, -1);
+    }
+    if (this.power('flameBarrier') > 0) this.applyPower('flameBarrier', -this.power('flameBarrier'));
+    const loss = this.enemy.powers?.strengthLossThisTurn ?? 0;
+    if (loss > 0) this.applyEnemyPower('strengthLossThisTurn', -loss);
   }
 
   /** Block resets, Poison, the move, pattern advance, then enemy debuffs tick. Returns the outcome if combat ended. */
@@ -634,6 +806,7 @@ class Combat {
     if (died === 'enemy' || enemy.hp <= 0) return 'win';
     // #115 Intangible lasts through the enemy's next move, then goes down by 1.
     if (this.power('intangible') > 0) this.applyPower('intangible', -1);
+    this.endEnemyTurnPowers();
     // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
     this.tickDebuffs('enemy');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'enemy' });
@@ -697,8 +870,11 @@ class Combat {
           break;
         case 'gainBlock': {
           // #109: Block from a card gets Dexterity and Fasten; other Block (enemy moves, triggers) does not.
-          const amt =
-            source === 'player' && card ? this.cardBlock(e.amount, card) : blockGain(e.amount, self.debuffs.frail);
+          const amt = this.unpowered
+            ? e.amount
+            : source === 'player' && card
+              ? this.cardBlock(e.amount, card)
+              : blockGain(e.amount, self.debuffs.frail);
           self.block += amt;
           log?.push({ t: 'block', side: source, amount: amt, total: self.block });
           break;
@@ -751,13 +927,40 @@ class Combat {
           if (source !== 'player' || !SIMULATED_POWER_IDS.includes(e.power)) {
             throw new Error(`Effect "applyPower" is not simulated yet (power "${e.power}")`);
           }
+          // #110: Strength "this turn" is real Strength now, taken back at the end of the turn.
+          if (e.power === 'strengthThisTurn') {
+            player.strength += e.amount;
+            log?.push({ t: 'strength', side: 'player', amount: e.amount, total: player.strength });
+          }
           this.applyPower(e.power, e.amount);
           break;
         case 'applyEnemyPower':
-          if (source !== 'player' || e.power !== 'stun') {
+          if (source !== 'player' || (e.power !== 'stun' && e.power !== 'strengthLossThisTurn')) {
             throw new Error(`Effect "applyEnemyPower" is not simulated yet (power "${e.power}")`);
           }
-          this.applyEnemyPower('stun', e.amount);
+          this.applyEnemyPower(e.power, e.amount);
+          break;
+        case 'schedule':
+          if (source !== 'player') throw new Error('Effect "schedule" is not simulated yet on enemy moves');
+          (player.scheduled ??= []).push({
+            turn: this.state.turn + e.delay,
+            at: e.at ?? 'turnStart',
+            effects: e.effects.map((fx) => ({ ...fx })),
+            ...(card ? { sourceUid: card.uid } : {}),
+          });
+          break;
+        case 'dealDamage':
+          // The Bomb: fixed damage (no Strength, Weak, Vigor); the enemy's Block absorbs it.
+          if (source !== 'player') throw new Error('Effect "dealDamage" is not simulated yet on enemy moves');
+          if (this.powerDamage(e.amount)) died = 'enemy';
+          break;
+        case 'enemyLoseHp':
+          if (source !== 'player') throw new Error('Effect "enemyLoseHp" is not simulated yet on enemy moves');
+          if (this.enemyLoseHp(e.amount)) died = 'enemy';
+          break;
+        case 'setCost':
+          if (source !== 'player') throw new Error('Effect "setCost" is not simulated yet on enemy moves');
+          this.setCost(e);
           break;
         case 'heal':
         case 'gainMaxHp':
@@ -819,10 +1022,20 @@ class Combat {
           died = this.resolveEffects(source, e.else ?? [], x, card);
           break;
         }
+        case 'playCards':
+          if (source !== 'player') throw new Error('Effect "playCards" is not simulated yet on enemy moves');
+          died = this.playFromPile(e, x);
+          break;
+        case 'addReplay':
+          if (source !== 'player') throw new Error('Effect "addReplay" is not simulated yet on enemy moves');
+          this.addReplay(e);
+          break;
         case 'script':
-          if (source === 'player' && e.id === 'primalForcePlus') count = this.primalForcePlus();
+          if (source === 'player' && e.id === 'playSelf') died = this.playSelf(card);
+          else if (source === 'player' && e.id === 'primalForcePlus') count = this.primalForcePlus();
           else if (source === 'player' && e.id === 'fiendFire') died = this.fiendFire(e.values?.[0] ?? 0);
           else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
+          else if (source === 'player' && e.id === 'prolong') this.prolong();
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
@@ -1104,10 +1317,8 @@ class Combat {
     if (c.damageBonus !== undefined) next.damageBonus = c.damageBonus;
     if (c.replay !== undefined) next.replay = c.replay;
     this.applyCostPowersTo(next);
-    if (c.costThisCombat !== undefined) {
-      next.cost = c.cost;
-      next.costThisCombat = c.costThisCombat;
-    }
+    if (c.costThisCombat !== undefined) next.costThisCombat = c.costThisCombat;
+    if (c.costThisTurn !== undefined) next.costThisTurn = c.costThisTurn;
     if (c.freeThisTurn) {
       this.freeBackup.set(c.uid, next.cost);
       next.cost = 0;
@@ -1115,6 +1326,225 @@ class Combat {
     }
     pile[pile.indexOf(c)] = next;
     this.log?.push({ t: 'upgraded', uid: c.uid, cardId: c.cardId });
+  }
+
+  /** #110: the enemy loses HP directly (ignores Block and modifiers). Returns true if it died. */
+  private enemyLoseHp(amount: number): boolean {
+    const { enemy } = this;
+    enemy.hp -= amount;
+    this.log?.push({ t: 'loseHp', side: 'enemy', amount, hpAfter: Math.max(enemy.hp, 0) });
+    return enemy.hp <= 0;
+  }
+
+  /**
+   * #110 Enlightenment: set the cost of the cards in `e.piles` (matching the filter) for this turn
+   * or the rest of combat. Unplayable and X-cost cards are skipped; `onlyIfHigher` leaves cards
+   * that already cost that much or less.
+   */
+  private setCost(e: Extract<Effect, { type: 'setCost' }>): void {
+    const p = this.player;
+    for (const name of e.piles) {
+      const pile = name === 'exhaust' ? p.exhaustPile : this.pile(name);
+      for (const c of pile) {
+        if (c.cost === null || c.xCost) continue;
+        if (e.filter && !matchesFilter(c, e.filter)) continue;
+        const current = cardCost(c, this.counters.attacksPlayedThisTurn, false) as number;
+        if (e.onlyIfHigher && current <= e.cost) continue;
+        if (e.duration === 'turn') c.costThisTurn = e.cost;
+        else c.costThisCombat = e.cost;
+        this.log?.push({ t: 'costChanged', uid: c.uid, cardId: c.cardId, cost: e.cost, duration: e.duration });
+      }
+    }
+  }
+
+  /** #110 Prolong: next turn, gain Block equal to the Block you have right now. */
+  private prolong(): void {
+    const { player } = this;
+    if (player.block <= 0) return;
+    (player.scheduled ??= []).push({
+      turn: this.state.turn + 1,
+      at: 'turnStart',
+      effects: [{ type: 'gainBlock', amount: player.block }],
+    });
+  }
+
+  /** True when a card can be played at all, whatever the energy: it has a cost and is not Unplayable. */
+  private canPlayFree(card: CardInstance): boolean {
+    return card.cost !== null && !card.keywords.includes('unplayable');
+  }
+
+  /**
+   * #114 `playCards`: play cards from a pile without paying their cost (Havoc, Cascade,
+   * Catastrophe, Beat Down). `count` cards, or count × (X + xBonus) for `xTimes`, X being the X of
+   * the card being played. 'top' plays the top card of the pile (the end of the array), one at a
+   * time, reshuffling the discard pile into an empty draw pile first. 'random' picks all its
+   * cards up front, without repeats, among the cards that can be played (an Unplayable card is
+   * never picked), so a card that comes back to the pile is not picked twice.
+   * A top card that can't be played (a curse, a status) is not played: it is exhausted when the
+   * effect exhausts, otherwise discarded. An X-cost card played this way gets X = the energy left,
+   * and doesn't spend it. A card played this way counts as any played card (Replay, Exhaust,
+   * Corruption, Powers); `exhaust` sends it to the Exhaust pile instead of the discard pile.
+   */
+  private playFromPile(e: Extract<Effect, { type: 'playCards' }>, x: number): Side | null {
+    const { player } = this;
+    const total = e.xTimes ? e.count * Math.max(0, x + (e.xBonus ?? 0)) : e.count;
+    const matches = (c: CardInstance) => !e.filter || matchesFilter(c, e.filter);
+    let picks: CardInstance[] | null = null;
+    if (e.mode === 'random') {
+      const pool = this.pile(e.from).filter((c) => this.canPlayFree(c) && matches(c));
+      picks = [];
+      for (let i = 0; i < total && pool.length > 0; i++) {
+        picks.push(pool.splice(this.rng.int(0, pool.length - 1), 1)[0]!);
+      }
+    }
+    for (let i = 0; i < total; i++) {
+      let pile = this.pile(e.from);
+      let card: CardInstance | undefined;
+      if (picks) {
+        card = picks[i];
+        if (!card) break;
+      } else {
+        if (e.from === 'draw' && pile.length === 0) {
+          this.reshuffleDiscard();
+          pile = this.pile(e.from);
+        }
+        for (let j = pile.length - 1; j >= 0 && !card; j--) if (matches(pile[j]!)) card = pile[j];
+        if (!card) break;
+      }
+      const at = pile.indexOf(card);
+      if (at < 0) continue;
+      pile.splice(at, 1);
+      if (!this.canPlayFree(card)) {
+        if (e.exhaust) {
+          const died = this.exhaustCard(card, 'effect');
+          if (died) return died;
+        } else {
+          player.discardPile.push(card);
+        }
+        continue;
+      }
+      const died = this.playCard(card, card.xCost ? player.energy : 0, 'effect', e.exhaust);
+      if (died) return died;
+    }
+    return null;
+  }
+
+  /** #114 `script` playSelf (Howl from Beyond): play this card from the Exhaust pile for free; it then goes where a played card goes (the discard pile). */
+  private playSelf(card: CardInstance | undefined): Side | null {
+    const { player } = this;
+    const at = card ? player.exhaustPile.indexOf(card) : -1;
+    if (!card || at < 0) return null;
+    player.exhaustPile.splice(at, 1);
+    return this.playCard(card, card.xCost ? player.energy : 0, 'trigger');
+  }
+
+  /**
+   * #114 `turnEndInExhaust`: at the end of the player's turn, each card in the Exhaust pile with
+   * this trigger runs its effects (Howl from Beyond plays itself), once per card, in the order
+   * the cards were exhausted.
+   */
+  private turnEndExhaustTriggers(): Side | null {
+    const { player } = this;
+    for (const card of [...player.exhaustPile]) {
+      for (const t of card.triggers ?? []) {
+        if (t.when !== 'turnEndInExhaust' || !player.exhaustPile.includes(card)) continue;
+        const died = this.resolveEffects('player', t.effects, 0, card);
+        if (died) return died;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Choose `n` of `candidates` for an effect that picks cards from a pile: every one ('all'),
+   * at random (seeded Rng), the top ones (the end of the pile), or Strategy.choose.
+   */
+  private selectCards(
+    candidates: CardInstance[],
+    mode: SelectMode,
+    n: number,
+    request: Omit<ChoiceRequest, 'options' | 'min' | 'max'>,
+  ): CardInstance[] {
+    const count = Math.min(n, candidates.length);
+    switch (mode) {
+      case 'all':
+        return candidates;
+      case 'top':
+        return candidates.slice(candidates.length - count).reverse();
+      case 'random': {
+        const pool = [...candidates];
+        const picked: CardInstance[] = [];
+        for (let i = 0; i < count; i++) picked.push(pool.splice(this.rng.int(0, pool.length - 1), 1)[0]!);
+        return picked;
+      }
+      case 'choose':
+        if (count === 0) return [];
+        // Every candidate must be taken: no choice to make.
+        if (count === candidates.length) return [...candidates];
+        return this.choose({ ...request, options: candidates, min: count, max: count }, candidates);
+    }
+  }
+
+  /**
+   * #114 `addReplay`: the picked card(s) of the pile gain `amount` Replay (Hidden Gem: one random
+   * draw-pile card without Replay). It stays for the rest of combat and is never used up.
+   */
+  private addReplay(e: Extract<Effect, { type: 'addReplay' }>): void {
+    const candidates = this.pile(e.from).filter((c) => !e.filter || matchesFilter(c, e.filter));
+    const request = { purpose: 'replay' as const, from: e.from };
+    for (const c of this.selectCards(candidates, e.mode, 1, request)) c.replay = (c.replay ?? 0) + e.amount;
+  }
+
+  /**
+   * #114 `addCards` for sources `self` and `copyOf`: put `count` copies of a card in `to`: of the
+   * card being played (`self`, Anger) or of a card picked from a pile (`copyOf`, Dual Wield: one
+   * card, `count` copies). A copy keeps the card's upgrade, damage bonus, Replay and cost for the
+   * rest of combat, but not "this turn" costs. Returns how many cards were created.
+   */
+  private addCopies(e: Extract<Effect, { type: 'addCards' }>, card: CardInstance | undefined): number {
+    const { source } = e;
+    if (
+      (source.kind !== 'self' && source.kind !== 'copyOf') ||
+      e.options !== undefined ||
+      e.upgraded ||
+      e.freeThisTurn ||
+      e.costThisCombat !== undefined
+    ) {
+      throw new Error(`Effect "addCards" is not simulated yet (source "${source.kind}")`);
+    }
+    let originals: CardInstance[];
+    if (source.kind === 'self') {
+      if (!card) throw new Error('Effect "addCards" with source "self" needs a card');
+      originals = [card];
+    } else {
+      const candidates = this.pile(source.from).filter((c) => !source.filter || matchesFilter(c, source.filter));
+      const request: Omit<ChoiceRequest, 'options' | 'min' | 'max'> = { purpose: 'copy', from: source.from, to: e.to };
+      if (card) {
+        request.sourceUid = card.uid;
+        request.sourceCardId = card.cardId;
+      }
+      originals = this.selectCards(candidates, source.mode, 1, request);
+    }
+    let made = 0;
+    for (const original of originals) {
+      for (let i = 0; i < e.count; i++, made++) {
+        const copy: CardInstance = {
+          ...original,
+          uid: this.nextUid++,
+          keywords: [...original.keywords],
+          effects: original.effects.map((fx) => ({ ...fx })),
+          generated: true,
+        };
+        if (original.triggers) {
+          copy.triggers = original.triggers.map((t) => ({ when: t.when, effects: [...t.effects] }));
+        }
+        delete copy.costThisTurn;
+        delete copy.freeThisTurn;
+        const to = this.placeCard(copy, e.to);
+        this.log?.push({ t: 'generated', uid: copy.uid, cardId: copy.cardId, to, source: source.kind });
+      }
+    }
+    return made;
   }
 
   /** #116: the cards a pool can produce for this character (cached). */
@@ -1171,12 +1601,10 @@ class Combat {
     return dest;
   }
 
-  /** #116 `addCards` (sources `random` and `card`). Returns how many cards were created. */
+  /** `addCards`: #114 copies (self, copyOf), #116 sources `random` and `card`. Returns how many cards were created. */
   private addCards(e: Extract<Effect, { type: 'addCards' }>, card?: CardInstance): number {
     const { source } = e;
-    if (source.kind !== 'random' && source.kind !== 'card') {
-      throw new Error(`Effect "addCards" is not simulated yet (source "${source.kind}")`);
-    }
+    if (source.kind === 'self' || source.kind === 'copyOf') return this.addCopies(e, card);
     const upgraded = e.upgraded === true;
     let made = 0;
     for (let i = 0; i < e.count; i++) {
@@ -1335,8 +1763,8 @@ class Combat {
     this.log?.push({ t: 'maxHp', amount: applied, maxHpAfter: maxHp, hpAfter: player.hp });
   }
 
-  /** #115: change the enemy's Stun (negative to use it up); it is removed at 0. */
-  private applyEnemyPower(power: 'stun', amount: number): void {
+  /** #110/#115: change an enemy power (Stun, temporary Strength loss; negative to use it up); it is removed at 0. */
+  private applyEnemyPower(power: EnemyPowerId, amount: number): void {
     const { enemy, log } = this;
     const powers = (enemy.powers ??= {});
     const total = (powers[power] ?? 0) + amount;
@@ -1463,7 +1891,11 @@ class Combat {
     const cruelty = target === 'enemy' ? this.power('cruelty') : 0;
     // #4 Shrink is on the player only (v1), so only the player's attacks shrink.
     const shrink = source === 'player' ? (this.player.shrink ?? 0) : 0;
-    let perHit = attackDamage(base, a.strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink);
+    // #110: the enemy's Strength is lowered through its turn by Mangle / Dark Shackles (0 damage at worst),
+    // and Colossus cuts what a Vulnerable enemy deals.
+    const strength = source === 'enemy' ? a.strength - (this.enemy.powers?.strengthLossThisTurn ?? 0) : a.strength;
+    const reduce = source === 'enemy' ? colossusReduction(this.player.powers, this.enemy.debuffs) : 0;
+    let perHit = attackDamage(base, strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink, reduce);
     // #115 Intangible: every hit on the player is 1 (a 0-damage hit stays 0).
     if (target === 'player' && this.power('intangible') > 0) perHit = Math.min(perHit, 1);
     for (let h = 0; h < hits; h++) {
@@ -1476,7 +1908,8 @@ class Combat {
       // #115 The Gambit: unblocked attack damage from the enemy loses the combat.
       if (target === 'player' && hpLoss > 0 && this.power('gambit') > 0) t.hp = 0;
       if (t.hp <= 0) return target;
-      const thorns = target === 'player' ? this.power('thorns') : 0;
+      // Thorns and #110 Flame Barrier hit back after every hit, even one reduced to 0 damage.
+      const thorns = target === 'player' ? this.power('thorns') + this.power('flameBarrier') : 0;
       if (thorns > 0 && this.powerDamage(thorns)) return source;
     }
     return null;
@@ -1488,19 +1921,24 @@ class Combat {
     this.log?.push({ t: 'debuff', side, kind, amount, total: f.debuffs[kind] });
   }
 
+  /** Shuffle the discard pile into the (empty) draw pile. Returns false when the discard pile is empty. */
+  private reshuffleDiscard(): boolean {
+    const { player } = this;
+    if (player.discardPile.length === 0) return false;
+    player.drawPile = player.discardPile;
+    player.discardPile = [];
+    this.rng.shuffle(player.drawPile);
+    this.log?.push({ t: 'shuffle', reason: 'reshuffle', count: player.drawPile.length });
+    return true;
+  }
+
   /**
    * Draw one card, reshuffling the discard pile if the draw pile is empty. Returns the card
    * (in hand, or discarded when the hand is full), or null when both piles are empty.
    */
   private drawOne(): CardInstance | null {
     const { player, log } = this;
-    if (player.drawPile.length === 0) {
-      if (player.discardPile.length === 0) return null;
-      player.drawPile = player.discardPile;
-      player.discardPile = [];
-      this.rng.shuffle(player.drawPile);
-      log?.push({ t: 'shuffle', reason: 'reshuffle', count: player.drawPile.length });
-    }
+    if (player.drawPile.length === 0 && !this.reshuffleDiscard()) return null;
     const card = player.drawPile.pop() as CardInstance;
     log?.push({ t: 'draw', uid: card.uid, cardId: card.cardId });
     this.counters.cardsDrawnThisTurn++;

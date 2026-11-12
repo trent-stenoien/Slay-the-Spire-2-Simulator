@@ -41,14 +41,86 @@ function xCostPlayable(card: Card, energy: number): boolean {
   return !card.xCost || energy > 0;
 }
 
-/** v1: an attack is any card with an `attack` effect (Bash included). */
+/**
+ * v1: an attack is any card with an `attack` effect (Bash included). #114 (Trent): Cascade, an
+ * X-cost card that plays the top X cards of the draw pile, is played with the X-cost attacks;
+ * its damage counts as 0, so it comes after every other X-cost attack and after every other attack.
+ */
 export function isAttackCard(card: Card): boolean {
-  return card.effects.some((e) => e.type === 'attack');
+  return card.effects.some((e) => e.type === 'attack') || isCascade(card);
 }
 
 /** v1: a block card is any card with a `gainBlock` effect. */
 export function isBlockCard(card: Card): boolean {
   return card.effects.some((e) => e.type === 'gainBlock');
+}
+
+/** #114: Cascade, an X-cost card that plays the top X cards of the draw pile. */
+export function isCascade(card: Card): boolean {
+  return !!card.xCost && card.effects.some((e) => e.type === 'playCards' && e.xTimes === true);
+}
+
+/** #114: Havoc, which plays the top card of the draw pile and exhausts it. Played early (Trent). */
+export function isHavoc(card: Card): boolean {
+  return card.effects.some(
+    (e) => e.type === 'playCards' && e.from === 'draw' && e.mode === 'top' && e.exhaust === true,
+  );
+}
+
+/**
+ * #114: a support card: plays other cards from a pile (Catastrophe, Beat Down), gives Replay
+ * (Hidden Gem) or copies a card (Dual Wield), without being an attack, Block or Power card.
+ * The orchestrator's default, not a rule from Trent: played once the groups are done, with the
+ * leftover energy, when it has something to act on.
+ */
+export function isSupportCard(card: Card): boolean {
+  return (
+    !isAttackCard(card) &&
+    !isBlockCard(card) &&
+    !isPowerCard(card) &&
+    !isHavoc(card) &&
+    card.effects.some(
+      (e) => e.type === 'playCards' || e.type === 'addReplay' || (e.type === 'addCards' && e.source.kind === 'copyOf'),
+    )
+  );
+}
+
+function pileOf(view: StrategyView, name: PileName): readonly Card[] {
+  const p = view.state.player;
+  return name === 'hand' ? p.hand : name === 'draw' ? p.drawPile : name === 'discard' ? p.discardPile : p.exhaustPile;
+}
+
+/** #114: true when one of the card's play / Replay / copy effects has a card to act on right now. */
+function hasPlayTarget(view: StrategyView, card: Card): boolean {
+  const others = (name: PileName, f?: DeepReadonly<CardFilter>) =>
+    pileOf(view, name).filter((c) => c.uid !== card.uid && (!f || filterMatches(c, f)));
+  return card.effects.some((e) => {
+    if (e.type === 'playCards') {
+      if (e.from === 'draw' && e.mode === 'top')
+        return pileOf(view, 'draw').length + pileOf(view, 'discard').length > 0;
+      return others(e.from, e.filter).some((c) => c.cost !== null && !c.keywords.includes('unplayable'));
+    }
+    if (e.type === 'addReplay') return others(e.from, e.filter).length > 0;
+    if (e.type === 'addCards' && e.source.kind === 'copyOf') return others(e.source.from, e.source.filter).length > 0;
+    return false;
+  });
+}
+
+/** #114: the view without Havoc, Cascade and support cards that have no card to act on (nothing to play, copy or give Replay). */
+function withoutIdle(view: StrategyView): StrategyView {
+  const idle = (c: Card) => (isHavoc(c) || isCascade(c) || isSupportCard(c)) && !hasPlayTarget(view, c);
+  if (!view.playable.some(idle)) return view;
+  return { ...view, playable: view.playable.filter((c) => !idle(c)) };
+}
+
+/** Havoc, when affordable and the draw pile or discard pile has a card (played early, Trent #114 Q2). */
+function pickHavoc(view: StrategyView): Card | undefined {
+  return best(view.playable.filter(isHavoc), () => []);
+}
+
+/** #114: the support card to play with leftover energy: the cheapest, ties to the lowest uid. */
+function pickSupport(view: StrategyView): Card | undefined {
+  return best(view.playable.filter(isSupportCard), (c) => [-(c.cost ?? 0)]);
 }
 
 function appliesVulnerable(card: Card): boolean {
@@ -374,6 +446,12 @@ export function chooseExhaust(
   config: StrategyConfig = GREEDY_CONFIG,
   played?: Card,
 ): ChoiceResponse {
+  // #114: copying a card (Dual Wield) or giving it Replay takes the best cards first, not the worst.
+  if (request.purpose === 'copy' || request.purpose === 'replay') {
+    const worth = (c: Card) => (isPowerCard(c) ? powerValue(c) : cardValue(c));
+    const ranked = [...request.options].sort((a, b) => worth(b) - worth(a) || a.uid - b.uid);
+    return { uids: ranked.slice(0, request.max).map((c) => c.uid) };
+  }
   const upTo = request.max > request.min;
   const ordered = upTo ? purityOrder(request.options, config, view) : exhaustOrder(request.options, view, config);
   const picked =
@@ -607,6 +685,7 @@ function filterMatches(card: Card, f: DeepReadonly<CardFilter>): boolean {
   if (f.notTypes?.includes(card.type)) return false;
   if (f.cardId !== undefined && card.cardId !== f.cardId) return false;
   if (f.upgraded !== undefined && card.upgraded !== f.upgraded) return false;
+  if (f.noReplay && (card.replay ?? 0) > 0) return false;
   return true;
 }
 
@@ -1109,6 +1188,108 @@ function maxBlockWith(blocks: readonly Card[], energy: number): number {
   return best[energy]!;
 }
 
+// ---------------------------------------------------------------------------
+// #110 temporary and next-turn effects (Trent's defaults)
+// ---------------------------------------------------------------------------
+
+const appliesPower = (c: Card, power: PowerId): boolean =>
+  c.effects.some((e) => e.type === 'applyPower' && e.power === power);
+
+/** Panic Button: big Block now, but no Block from cards for 2 turns. */
+export function isPanicButton(c: Card): boolean {
+  return appliesPower(c, 'noBlockFromCards');
+}
+
+/**
+ * A card that only pays off when an Attack follows: temporary Strength (Feeding Frenzy), Rage,
+ * One-Two Punch. Setup Strike is not one: it is an Attack and always counts as one (its damage is
+ * 7, whatever follows).
+ */
+export function isAttackBooster(c: Card): boolean {
+  return !isAttackCard(c) && (['strengthThisTurn', 'rage', 'doubleAttack'] as const).some((p) => appliesPower(c, p));
+}
+
+/** Dark Shackles: a non-Attack that lowers the enemy's Strength this turn (Mangle is an Attack). */
+export function isEnemyWeakener(c: Card): boolean {
+  return !isAttackCard(c) && c.effects.some((e) => e.type === 'applyEnemyPower' && e.power === 'strengthLossThisTurn');
+}
+
+/** A card in no group whose payoff comes later (Outmaneuver, Prolong, The Bomb). */
+function isUtilityCard(c: Card): boolean {
+  return (
+    !isAttackCard(c) &&
+    !isBlockCard(c) &&
+    !isPowerCard(c) &&
+    !isAttackBooster(c) &&
+    !isEnemyWeakener(c) &&
+    c.effects.some((e) => e.type === 'schedule' || (e.type === 'script' && e.id === 'prolong'))
+  );
+}
+
+/** A card whose only effects are Block. */
+const isPureBlock = (c: Card): boolean => c.effects.length > 0 && c.effects.every((e) => e.type === 'gainBlock');
+
+/**
+ * #110: the view with the cards a strategy holds back removed from `playable`: Panic Button
+ * (see pickPanic) always, and cards that only gain Block while Panic Button stops Block from cards.
+ */
+function withoutHeldBack(view: StrategyView): StrategyView {
+  const noBlock = (view.state.player.powers?.noBlockFromCards ?? 0) > 0;
+  const held = (c: Card) => isPanicButton(c) || (noBlock && isPureBlock(c));
+  if (!view.playable.some(held)) return view;
+  return { ...view, playable: view.playable.filter((c) => !held(c)) };
+}
+
+/**
+ * #110 (Trent): Panic Button is a last resort: played only after everything else, and only when
+ * the enemy's attack would still kill (unblocked damage at least the player's HP).
+ */
+function pickPanic(view: StrategyView): Card | undefined {
+  const p = view.state.player;
+  if ((p.powers?.noBlockFromCards ?? 0) > 0) return undefined;
+  if (view.intent.totalIncoming - p.block < p.hp) return undefined;
+  return best(view.playable.filter(isPanicButton), () => []);
+}
+
+/** #110 (Trent): Dark Shackles only when the enemy is attacking; played before Block so the Block need drops. */
+function pickShackles(view: StrategyView): Card | undefined {
+  if (view.intent.totalIncoming <= 0) return undefined;
+  return best(view.playable.filter(isEnemyWeakener), (c) => [-(c.cost ?? 0)]);
+}
+
+/**
+ * #110 (Trent): an Attack booster is played before the Attacks, only if an Attack will follow:
+ * one other Attack in hand that the energy left after the booster still pays for.
+ */
+function pickBooster(view: StrategyView): Card | undefined {
+  const energy = view.state.player.energy;
+  const followed = (b: Card) =>
+    view.playable.some(
+      (a) =>
+        a.uid !== b.uid &&
+        isAttackCard(a) &&
+        (a.xCost ? energy - (b.cost ?? 0) > 0 : (a.cost ?? 0) <= energy - (b.cost ?? 0)),
+    );
+  return best(
+    view.playable.filter((c) => isAttackBooster(c) && followed(c)),
+    (c) => [-(c.cost ?? 0)],
+  );
+}
+
+/**
+ * Cards in no group with a later payoff (The Bomb, Outmaneuver, Prolong) are played with leftover
+ * energy once everything else is done; Prolong only with Block to carry over, and last.
+ * Not a rule from Trent: without it these cards would never be played.
+ */
+function pickUtility(view: StrategyView): Card | undefined {
+  const block = view.state.player.block;
+  const prolong = (c: Card) => c.effects.some((e) => e.type === 'script');
+  return best(
+    view.playable.filter((c) => isUtilityCard(c) && (!prolong(c) || block > 0)),
+    (c) => [prolong(c) ? 0 : 1],
+  );
+}
+
 /** #107: Battle Trance, once no other draw card in hand is playable (so every other draw comes first). */
 function pickTrance(view: StrategyView): Card | undefined {
   const trance = best(view.playable.filter(stopsDrawing), () => []);
@@ -1153,7 +1334,7 @@ function pickZeroCostDraw(view: StrategyView): Card | undefined {
  * #112: a "tutor" (Secret Technique, Secret Weapon, Wish, Anointed) puts draw-pile cards in the
  * hand; Apotheosis upgrades every card. Neither is an Attack or Block card, so no group plays them.
  */
-function pickUtility(view: StrategyView): Card | undefined {
+function pickFetchOrUpgrade(view: StrategyView): Card | undefined {
   const p = view.state.player;
   const fits = (c: Card, f: DeepReadonly<CardFilter> | undefined) =>
     !f ||
@@ -1190,16 +1371,22 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   if (heal) return heal;
   const zero = pickZeroCostDraw(view);
   if (zero) return zero;
-  const utility = pickUtility(view);
-  if (utility) return utility;
+  const fetched = pickFetchOrUpgrade(view);
+  if (fetched) return fetched;
   if (config.order[0] === 'attack') {
     const tremble = pickPlayFirst(view);
     if (tremble) return tremble;
   }
+  const havoc = pickHavoc(view);
+  if (havoc) return havoc;
   const enabler = pickExhaustEnabler(view, config);
   if (enabler) return enabler;
   const energy = best(view.playable.filter(isNetEnergyCard), (c) => [netEnergy(c)]);
   if (energy && view.state.player.hand.some((c) => c.uid !== energy.uid && wantsEnergy(c))) return energy;
+  const shackles = pickShackles(view);
+  if (shackles) return shackles;
+  const booster = pickBooster(view);
+  if (booster) return booster;
   const pure = pickPureDraw(view);
   if (
     pure &&
@@ -1387,7 +1574,12 @@ export function blockIsLast(config: StrategyConfig): boolean {
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
-  return decideWith(withoutGuardBroken(withoutLethal(withoutNeverPlayed(raw)), config), config, false);
+  const view = withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config);
+  const d = decideWith(view, config, false);
+  if (d.kind !== 'endTurn') return d;
+  // #110: Panic Button is the last resort, once nothing else is left to play.
+  const panic = pickPanic(raw);
+  return panic ? play(panic) : d;
 }
 
 function decideWith(view: StrategyView, config: StrategyConfig, planning: boolean): Decision {
@@ -1446,7 +1638,11 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   if (blk) return play(blk);
   const trance = drawing ? pickTrance(view) : undefined;
   if (trance) return play(trance);
+  const utility = planning ? undefined : pickUtility(view);
+  if (utility) return play(utility);
   if (planning) return END;
+  const support = pickSupport(view);
+  if (support) return play(support);
   const preferBlock = config.order.indexOf('block') < config.order.indexOf('attack');
   const last = pickLast(view, preferBlock);
   if (last) return play(last);

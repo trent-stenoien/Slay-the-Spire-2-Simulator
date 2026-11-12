@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 9,
       "hits": 1
+    },
+    {
+      "type": "applyPower",
+      "power": "nextCardToDrawTop",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 12,
         "hits": 1
+      },
+      {
+        "type": "applyPower",
+        "power": "nextCardToDrawTop",
+        "amount": 1
       }
     ]
   },
   "description": "Deal 9 damage. / Put the next card you play this turn on top of your Draw Pile.",
   "upgradedDescription": "Deal 12 damage. / Put the next card you play this turn on top of your Draw Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

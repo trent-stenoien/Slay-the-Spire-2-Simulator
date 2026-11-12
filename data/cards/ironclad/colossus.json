@@ -13,6 +13,11 @@
     {
       "type": "gainBlock",
       "amount": 4
+    },
+    {
+      "type": "applyPower",
+      "power": "colossus",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -20,12 +25,17 @@
       {
         "type": "gainBlock",
         "amount": 7
+      },
+      {
+        "type": "applyPower",
+        "power": "colossus",
+        "amount": 1
       }
     ]
   },
   "description": "Gain 4 Block. / You receive 50% less damage from Vulnerable enemies this turn.",
   "upgradedDescription": "Gain 7 Block. / You receive 50% less damage from Vulnerable enemies this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

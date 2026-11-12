@@ -7,8 +7,11 @@ import {
   SIMULATED_POWERS,
   SIMULATED_FILTER_FIELDS,
   SIMULATED_REPEAT_COUNTERS,
+  SIMULATED_COST_COUNTERS,
   SIMULATED_ENEMY_POWERS,
   SIMULATED_SCRIPTS,
+  SIMULATED_CARD_SOURCES,
+  UNSIMULATED_ADD_CARDS_FIELDS,
   SIMULATED_TRIGGERS,
   UNSIMULATED_EFFECTS,
   UNSIMULATED_CARD_FIELDS,
@@ -75,6 +78,7 @@ function unsimulatedPool(source: unknown): string | undefined {
 function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'applyPower') return SIMULATED_POWERS.has(String(e.power)) ? undefined : name;
   if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
+  if (name === 'schedule') return unsimulatedIn(e.effects);
   if (name === 'applyEnemyPower') return SIMULATED_ENEMY_POWERS.has(String(e.power)) ? undefined : name;
   // #104: only "if Fatal" (the previous attack killed the enemy) is simulated, with simulated branches.
   if (name === 'conditional') {
@@ -84,6 +88,11 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
   if (name === 'addCards') {
     const kind = isObj(e.source) ? String(e.source.kind) : '';
+    // #114: a copy of the card itself or of a picked card, without the #116 fields.
+    if (SIMULATED_CARD_SOURCES.has(kind)) {
+      if (UNSIMULATED_ADD_CARDS_FIELDS.some((f) => has(e, f))) return name;
+      return unsimulatedFilter(isObj(e.source) ? e.source.filter : undefined, 'addCards.source.filter');
+    }
     if (kind !== 'random' && kind !== 'card') return 'addCards.source.' + kind;
     return unsimulatedPool(e.source);
   }
@@ -102,6 +111,10 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
     return unsimulatedFilter(e.filter, 'moveCards.filter');
   }
   if (name === 'moveSelf') return e.when === 'nextTurnStart' ? undefined : 'moveSelf.now';
+  if (name === 'playCards' || name === 'addReplay') {
+    if (e.from === 'exhaust') return `${name}.from.exhaust`;
+    return unsimulatedFilter(e.filter, `${name}.filter`);
+  }
   if (UNSIMULATED_EFFECTS.has(name)) return name;
   // #4: Shrink is simulated on enemy moves only (it Shrinks the player).
   if (name === 'applyShrink') return name;
@@ -152,6 +165,7 @@ function checkSimulatable(r: Reporter, c: Obj): void {
       unsupported(field);
     }
   }
+  if (isObj(c.costLessPer) && !SIMULATED_COST_COUNTERS.has(String(c.costLessPer.per))) unsupported('costLessPer');
   if (c.starCost !== null) r.add('simulated', 'is true but the card has a Star cost');
   if (c.xStarCost === true) r.add('simulated', 'is true but X-Star cards are not simulated');
   if (c.xCost === true) {

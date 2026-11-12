@@ -5,7 +5,7 @@ import { fixture, errorsOf } from './dataTestHelpers';
 import { SIMULATED_POWERS } from './validate/lists';
 import { SIMULATED_POWER_IDS } from '../engine/combat';
 
-/** Contract effects the engine simulates now (#106, #107, #108, #116); a simulated card may use them. */
+/** Contract effects the engine simulates now (#106, #107, #108, #110, #114, #115, #116); a simulated card may use them. */
 const SIMULATED = [
   'loseHp',
   'draw',
@@ -16,6 +16,13 @@ const SIMULATED = [
   'loseMaxHp',
   'addCards',
   'transformCards',
+  'applyEnemyPower',
+  'schedule',
+  'dealDamage',
+  'enemyLoseHp',
+  'setCost',
+  'playCards',
+  'addReplay',
   'moveCards',
   'moveSelf',
   'upgradeCards',
@@ -66,8 +73,10 @@ describe('#105 contract shapes', () => {
       to: 'hand',
     });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"cardPool\.otherCharacters"/)]);
+    // #114: copies (self, copyOf) are simulated, but not with the #116 fields.
     d.cards.strike.effects.at(-1).source = { kind: 'self' };
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"addCards\.source\.self"/)]);
+    d.cards.strike.effects.at(-1).options = 2;
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"addCards"/)]);
     d.cards.strike.effects.pop();
     d.cards.strike.effects.push({
       type: 'transformCards',
@@ -135,7 +144,7 @@ describe('#105 contract shapes', () => {
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"applyPower"/)]);
   });
 
-  it('#108: repeat only per lastEffectCount with simulated inner effects; script only fiendFire / thrash', () => {
+  it('#108: repeat only per lastEffectCount with simulated inner effects; script only fiendFire / thrash / prolong', () => {
     const d = fixture();
     d.cards.strike.effects.push(
       { type: 'exhaustCards', mode: 'all', filter: { notTypes: ['attack'] } },
@@ -149,13 +158,44 @@ describe('#105 contract shapes', () => {
       per: 'lastEffectCount',
       effects: [
         { type: 'draw', amount: 1 },
-        { type: 'dealDamage', amount: 1 },
+        { type: 'applyPower', power: 'rupture', amount: 1 },
       ],
     });
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"dealDamage"/)]);
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"applyPower"/)]);
     d.cards.strike.effects.pop();
     d.cards.strike.effects.push({ type: 'script', id: 'perfectedStrike' });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"script"/)]);
+  });
+
+  it('#114: addCards is simulated for self / copyOf sources, but not with the #116 fields', () => {
+    const d = fixture();
+    const self = { type: 'addCards', source: { kind: 'self' }, count: 1, to: 'discard' };
+    const copy = { type: 'addCards', source: { kind: 'copyOf', from: 'hand', mode: 'choose' }, count: 2, to: 'hand' };
+    d.cards.strike.effects.push(structuredClone(self), structuredClone(copy));
+    expect(errorsOf(d)).toEqual([]);
+    for (const bad of [
+      { ...self, upgraded: true },
+      { ...self, freeThisTurn: true },
+      { ...copy, options: 3 },
+    ]) {
+      const e = fixture();
+      e.cards.strike.effects.push(structuredClone(bad));
+      expect(errorsOf(e)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"addCards"/)]);
+    }
+  });
+
+  it('#114: playCards and addReplay are simulated except from the exhaust pile or with an unmatched filter field', () => {
+    const d = fixture();
+    d.cards.strike.effects.push(
+      { type: 'playCards', from: 'discard', mode: 'random', count: 3, filter: { types: ['attack'] } },
+      { type: 'addReplay', amount: 2, from: 'draw', mode: 'random', filter: { noReplay: true } },
+    );
+    expect(errorsOf(d)).toEqual([]);
+    d.cards.strike.effects.at(-2).from = 'exhaust';
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"playCards\.from\.exhaust"/)]);
+    d.cards.strike.effects.at(-2).from = 'draw';
+    d.cards.strike.effects.at(-1).filter = { nameIncludes: 'Strike' };
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"addReplay\.filter\.nameIncludes"/)]);
   });
 
   it('#108: rejects exhaustCards from the exhaust pile or with an unmatched filter field on a simulated card', () => {
@@ -205,14 +245,11 @@ describe('#105 contract shapes', () => {
     expect(errorsOf(d)).toEqual([]);
   });
 
-  it('accepts triggers, playableIf and costLessPer on unsimulated cards and rejects them on simulated ones', () => {
+  it('accepts playableIf and costLessPer on unsimulated cards and rejects them on simulated ones', () => {
     const d = fixture();
-    d.cards.strike.triggers = [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }];
-    d.cards.strike.upgraded.triggers = [{ when: 'drawn', effects: [] }];
     d.cards.defend.playableIf = { kind: 'handAll', filter: { types: ['attack'] } };
-    d.cards.bash.costLessPer = { per: 'attacksPlayedThisTurn', amount: 1 };
+    d.cards.bash.costLessPer = { per: 'cardsPlayedThisTurn', amount: 1 };
     const errs = errorsOf(d);
-    expect(errs).toContainEqual(expect.stringMatching(/cards\/strike.*"simulated".*"triggers"/));
     expect(errs).toContainEqual(expect.stringMatching(/cards\/defend.*"simulated".*"playableIf"/));
     expect(errs).toContainEqual(expect.stringMatching(/cards\/bash.*"simulated".*"costLessPer"/));
     d.cards.strike.simulated = false;

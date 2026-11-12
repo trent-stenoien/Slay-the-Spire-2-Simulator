@@ -27,9 +27,13 @@
       }
     ]
   },
+  "costLessPer": {
+    "per": "attacksPlayedThisTurn",
+    "amount": 1
+  },
   "description": "Deal 12 damage to ALL enemies. / Costs 1 less [E] for each Attack played this turn.",
   "upgradedDescription": "Deal 15 damage to ALL enemies. / Costs 1 less [E] for each Attack played this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

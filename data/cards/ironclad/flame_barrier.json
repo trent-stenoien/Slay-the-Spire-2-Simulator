@@ -13,6 +13,11 @@
     {
       "type": "gainBlock",
       "amount": 12
+    },
+    {
+      "type": "applyPower",
+      "power": "flameBarrier",
+      "amount": 4
     }
   ],
   "upgraded": {
@@ -20,12 +25,17 @@
       {
         "type": "gainBlock",
         "amount": 16
+      },
+      {
+        "type": "applyPower",
+        "power": "flameBarrier",
+        "amount": 6
       }
     ]
   },
   "description": "Gain 12 Block. / Whenever you are attacked this turn, deal 4 damage back.",
   "upgradedDescription": "Gain 16 Block. / Whenever you are attacked this turn, deal 6 damage back.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

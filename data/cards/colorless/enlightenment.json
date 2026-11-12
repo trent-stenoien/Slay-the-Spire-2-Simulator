@@ -11,11 +11,33 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "setCost",
+      "piles": [
+        "hand"
+      ],
+      "cost": 1,
+      "duration": "turn",
+      "onlyIfHigher": true
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "setCost",
+        "piles": [
+          "hand"
+        ],
+        "cost": 1,
+        "duration": "combat",
+        "onlyIfHigher": true
+      }
+    ]
+  },
   "description": "Reduce the cost of ALL cards in your Hand to 1 this turn. / Exhaust.",
   "upgradedDescription": "Reduce the cost of ALL cards in your Hand to 1 this combat. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
