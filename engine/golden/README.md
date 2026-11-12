@@ -43,7 +43,8 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
     `plating`, `flameBarrier`, …; enemy: `artifact`, `slippery`, `strengthPerTurn`, …; absent = 0).
     Every field is optional; an unknown field fails the consistency test.
 - `result`: `{ "outcome": "win" | "loss", "turns", "finalHp", "hpLost" }`. `finalHp` is after
-  end-of-combat heals (Burning Blood); `hpLost` is `startHp - finalHp` and may be negative.
+  end-of-combat heals (Burning Blood); `hpLost` is `startHp - finalHp - overheal` and may be negative: every heal counts in full, so a heal
+  past Max HP lowers it (lose 5, heal 8 gives -3, #205).
 - `knownDiffs` (optional): `[{ "diff": "<exact mismatch line>", "reason" }]`. A record that disagrees
   with the engine is committed as a documented finding instead of forcing the engine. Each listed
   diff must still occur (a fixed one fails as "stale knownDiff"); any other mismatch still fails.

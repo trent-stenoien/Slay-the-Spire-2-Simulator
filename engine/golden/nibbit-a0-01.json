@@ -1,6 +1,6 @@
 {
   "combat": "nibbit-a0-01",
-  "source": "Played by hand in the real game; recorded on issue #177 (Combat 1)",
+  "source": "Played by hand in the real game; recorded on issue #177 (Combat 1). Note: Trent's final HP is 77, before the +6 Burning Blood heal; finalHp 80 is after it (capped at Max HP).",
   "gameVersion": "v0.107.1",
   "character": "ironclad",
   "ascension": 0,
@@ -11,6 +11,7 @@
   ],
   "enemy": { "id": "nibbit", "startHp": 46 },
   "player": { "startHp": 80, "maxHp": 80 },
+  "relics": [{ "id": "burning_blood" }],
   "turns": [
     {
       "hand": ["strike", "strike", "defend", "defend", "bash"],
@@ -37,5 +38,5 @@
       "enemyHpAfterEachPlay": [7, 0]
     }
   ],
-  "result": { "outcome": "win", "turns": 4, "finalHp": 77, "hpLost": 3 }
+  "result": { "outcome": "win", "turns": 4, "finalHp": 80, "hpLost": -3 }
 }
