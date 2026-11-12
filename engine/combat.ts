@@ -472,7 +472,27 @@ class Combat {
     for (const [power, amount] of Object.entries(enemyDef.startPowers ?? {}) as [EnemyPowerId, number][]) {
       if (amount > 0) this.applyEnemyPower(power, amount);
     }
+    this.applyPlayerStart(config.playerStart);
     this.log?.push({ t: 'shuffle', reason: 'start', count: deck.length });
+  }
+
+  /**
+   * #210: statuses the player starts the combat with (golden fixtures): Strength, debuffs and
+   * powers, applied as if gained before the first turn (before combatStart relic hooks).
+   */
+  private applyPlayerStart(start: CombatConfig['playerStart']): void {
+    if (!start) return;
+    const { player } = this;
+    if (start.strength) {
+      player.strength += start.strength;
+      this.log?.push({ t: 'strength', side: 'player', amount: start.strength, total: player.strength });
+    }
+    for (const [kind, amount] of Object.entries(start.debuffs ?? {}) as [DebuffKind, number][]) {
+      if (amount > 0) this.applyDebuff('player', kind, amount);
+    }
+    for (const [power, amount] of Object.entries(start.powers ?? {}) as [PowerId, number][]) {
+      if (amount > 0) this.applyPower(power, amount);
+    }
   }
 
   /** #204: the potion ids in slot order; an unknown id is a setup error. */

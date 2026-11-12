@@ -1,14 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
 import { gameData } from '../../data/index';
-import { simulateCombat } from '../combat';
+import { SIMULATED_POWER_IDS, simulateCombat } from '../combat';
 import { GREEDY_CONFIG } from '../strategies';
-import type { CombatConfig, DebuffKind, Strategy, StrategyView } from '../types';
+import { makeEnemy } from '../testFixtures';
+import type {
+  CardInstance,
+  ChoiceRequest,
+  ChoiceResponse,
+  CombatConfig,
+  DeepReadonly,
+  EnemyPowerId,
+  GameData,
+  GameEvent,
+  PotionUse,
+  Strategy,
+  StrategyView,
+} from '../types';
 
 /** Test-side control of the engine's Rng: forced enemy HP roll and forced draw order. */
 const control = vi.hoisted(() => ({
   enemyHp: 0,
   rolled: false,
-  /** Card ids still to be drawn, in draw order. */
+  /** Card refs ("id" or "id+" for upgraded) still to be drawn, in draw order. */
   demand: [] as string[],
   error: null as string | null,
 }));
@@ -29,15 +42,18 @@ vi.mock('../rng', async (importOriginal) => {
           }
           return rng.int(min, max);
         },
-        // Order the pile so that popping from the end follows the recorded hands.
-        shuffle: <T extends { cardId: string }>(items: T[]): T[] => {
+        // Order the pile so that popping from the end follows the recorded draws.
+        shuffle: <T extends { cardId: string; upgraded?: boolean }>(items: T[]): T[] => {
           const wanted = control.demand.splice(0, items.length);
           const rest = [...items];
           const ordered: T[] = [];
-          for (const id of wanted) {
-            const i = rest.findIndex((c) => c.cardId === id);
+          for (const ref of wanted) {
+            const { id, upgraded } = parseRef(ref);
+            // Prefer the exact upgrade state; a card upgraded later (in the draw pile) still matches by id.
+            let i = rest.findIndex((c) => c.cardId === id && (c.upgraded ?? false) === upgraded);
+            if (i < 0) i = rest.findIndex((c) => c.cardId === id);
             if (i < 0) {
-              control.error ??= `recorded hands need ${id} but the pile being shuffled does not have it`;
+              control.error ??= `recorded draws need ${ref} but the pile being shuffled does not have it`;
               break;
             }
             ordered.push(rest.splice(i, 1)[0]!);
@@ -52,33 +68,59 @@ vi.mock('../rng', async (importOriginal) => {
   };
 });
 
-type Side = Partial<Record<'hp' | 'block' | 'strength' | 'shrink' | DebuffKind, number>>;
+/** A card in a fixture: its id, with "+" appended when upgraded ("strike+"). */
+type CardRef = string;
+function parseRef(ref: CardRef): { id: string; upgraded: boolean } {
+  return ref.endsWith('+') ? { id: ref.slice(0, -1), upgraded: true } : { id: ref, upgraded: false };
+}
+const refOf = (c: DeepReadonly<CardInstance>): CardRef => c.cardId + (c.upgraded ? '+' : '');
+const matches = (c: DeepReadonly<CardInstance>, ref: CardRef) => refOf(c) === ref;
+
+const ENEMY_POWERS: EnemyPowerId[] = ['strengthLossThisTurn', 'stun', 'artifact', 'strengthPerTurn', 'slippery'];
+const BASE_FIELDS = ['hp', 'block', 'strength', 'shrink', 'energy', 'vulnerable', 'weak', 'frail', 'poison'];
+
+type Side = Record<string, number>;
 interface State {
   player?: Side;
   enemy?: Side;
 }
+interface Turn {
+  hand: CardRef[];
+  /** Cards drawn during the turn (Pommel Strike), in draw order. */
+  drawn?: CardRef[];
+  plays: CardRef[];
+  /** Potions used this turn: before play N (1-based; plays.length + 1 = before ending the turn). */
+  potions?: { potion: string; beforePlay: number }[];
+  /** Answers to Strategy.choose prompts this turn, in order (Armaments: which card to upgrade). */
+  choices?: { source?: string; pick: CardRef[] }[];
+  atStart?: State;
+  afterPlays?: State;
+  afterEnemy?: State;
+  enemyHpAfterEachPlay?: number[];
+}
 interface Fixture {
   combat: string;
+  source?: string;
   gameVersion: string;
   character: string;
   ascension: number;
   deck: { card: string; count: number; upgraded?: boolean }[];
   enemy: { id: string; startHp: number };
   player: { startHp: number; maxHp: number };
-  turns: {
-    hand: string[];
-    plays: string[];
-    atStart?: State;
-    afterPlays?: State;
-    afterEnemy?: State;
-    enemyHpAfterEachPlay?: number[];
-  }[];
+  relics?: { id: string; choice?: number }[];
+  potions?: string[];
+  playerStart?: CombatConfig['playerStart'];
+  turns: Turn[];
   result: { outcome: 'win' | 'loss'; turns: number; finalHp: number; hpLost: number };
+  /** Mismatches the record has with the engine, kept as documented findings. Each must still occur. */
+  knownDiffs?: { diff: string; reason: string }[];
+  /** Skip the replay (the fixture is still checked for consistency). */
+  skip?: string;
 }
 
 const files = import.meta.glob<Fixture>('./*.json', { eager: true, import: 'default' });
 
-/** Every field is read off a snapshot of the live state. */
+/** Every field is read off a snapshot of the live state; powers by id, absent = 0. */
 function snapshot(view: StrategyView): { player: Side; enemy: Side } {
   const { player, enemy } = view.state;
   return {
@@ -87,72 +129,165 @@ function snapshot(view: StrategyView): { player: Side; enemy: Side } {
       block: player.block,
       strength: player.strength,
       shrink: player.shrink ?? 0,
+      energy: player.energy,
       ...player.debuffs,
+      ...(player.powers as Side | undefined),
     },
-    enemy: { hp: enemy.hp, block: enemy.block, strength: enemy.strength, ...enemy.debuffs },
+    enemy: {
+      hp: enemy.hp,
+      block: enemy.block,
+      strength: enemy.strength,
+      poison: enemy.poison,
+      ...enemy.debuffs,
+      ...(enemy.powers as Side | undefined),
+    },
   };
 }
 
-function replay(fx: Fixture) {
-  const mismatches: string[] = [];
-  const startMaxHp = fx.player.maxHp;
-  const miss = (turn: number | string, stage: string, field: string, expected: unknown, actual: unknown) =>
-    mismatches.push(`${fx.combat} turn ${turn} ${stage}: ${field}: expected ${expected}, engine ${actual}`);
+/** Fields a fixture state may name; anything else is a typo. */
+function checkFields(fx: Fixture): string[] {
+  const allowed = {
+    player: new Set<string>([...BASE_FIELDS, ...SIMULATED_POWER_IDS]),
+    enemy: new Set<string>([...BASE_FIELDS, ...ENEMY_POWERS]),
+  };
+  const bad: string[] = [];
+  fx.turns.forEach((t, i) => {
+    for (const stage of ['atStart', 'afterPlays', 'afterEnemy'] as const) {
+      for (const who of ['player', 'enemy'] as const) {
+        for (const f of Object.keys(t[stage]?.[who] ?? {})) {
+          if (!allowed[who].has(f)) bad.push(`turn ${i + 1} ${stage}.${who}.${f}`);
+        }
+      }
+    }
+  });
+  return bad;
+}
 
-  /** Compare the recorded fields; player HP is compared as loss from the starting HP. */
+/** Log events that put a card into, or take one out of, the draw pile other than by a draw or shuffle. */
+function drawPileChanges(log: readonly GameEvent[]): { turn: number; text: string }[] {
+  let turn = 0;
+  const out: { turn: number; text: string }[] = [];
+  for (const e of log) {
+    if (e.t === 'turnStart' && e.side === 'player') turn = e.turn;
+    const into = (e.t === 'generated' || e.t === 'moved') && e.to.startsWith('draw');
+    const outOf = e.t === 'moved' && e.from === 'draw';
+    if (into || outOf) {
+      const where = e.t === 'moved' ? `moved from ${e.from} to ${e.to}` : `added to ${e.to} (${e.source})`;
+      out.push({ turn, text: `${e.cardId} ${where}` });
+    }
+  }
+  return out;
+}
+
+/** Replays a fixture through the engine; returns every mismatch, one line each. */
+function replay(fx: Fixture, data: GameData = gameData): string[] {
+  const mismatches: string[] = [];
+  const miss = (turn: number | string, stage: string, field: string, expected: unknown, actual: unknown) =>
+    mismatches.push(`turn ${turn} ${stage}: ${field}: expected ${expected}, engine ${actual}`);
+  let aborted: string | null = null;
+  const abort = (msg: string) => {
+    aborted ??= msg;
+  };
+
   const compare = (turn: number, stage: string, want: State | undefined, got: { player: Side; enemy: Side }) => {
     for (const who of ['player', 'enemy'] as const) {
       for (const [field, value] of Object.entries(want?.[who] ?? {})) {
-        if (field === 'hp' && who === 'player') {
-          const expectedLoss = fx.player.startHp - value;
-          const engineLoss = startMaxHp - (got.player.hp as number);
-          if (expectedLoss !== engineLoss) miss(turn, stage, 'player HP lost from start', expectedLoss, engineLoss);
-        } else {
-          const actual = got[who][field as keyof Side];
-          if (actual !== value) miss(turn, stage, `${who}.${field}`, value, actual);
-        }
+        const actual = got[who][field] ?? 0;
+        if (actual !== value) miss(turn, stage, `${who}.${field}`, value, actual);
       }
     }
   };
 
-  const queue: string[] = [];
+  const queue: CardRef[] = [];
+  let choices: NonNullable<Turn['choices']> = [];
   let turn = 0;
   let step = 0;
-  const seen = new Set<number>();
-  /** Snapshots after each play of a turn, and the last one seen. */
+  /** A play was just made: the next call reads the enemy HP after it. */
+  let pending = false;
+  /** uids in hand when each turn's first decision came (the turn's draw). */
+  const startHands: Record<number, Set<number>> = {};
   const afterEach: Record<number, number[]> = {};
+  const usedPotions = new Set<string>();
+
+  /** Turn bookkeeping on the first call of each turn, and the enemy HP after the last play. */
+  const observe = (view: StrategyView): Turn | null => {
+    const t = view.state.turn;
+    if (pending && t === turn) (afterEach[turn] ??= []).push(view.state.enemy.hp);
+    pending = false;
+    const plan = fx.turns[t - 1];
+    if (!plan) {
+      abort(`engine reached turn ${t} but the fixture has ${fx.turns.length} turns`);
+      return null;
+    }
+    if (t !== turn) {
+      const snap = snapshot(view);
+      if (t > 1) compare(t - 1, 'after enemy move', fx.turns[t - 2]!.afterEnemy, snap);
+      turn = t;
+      step = 0;
+      pending = false;
+      queue.splice(0, queue.length, ...plan.plays);
+      choices = [...(plan.choices ?? [])];
+      startHands[t] = new Set(view.state.player.hand.map((c) => c.uid));
+      const hand = view.state.player.hand.map(refOf).sort();
+      const want = [...plan.hand].sort();
+      if (hand.join() !== want.join()) miss(t, 'draw', 'hand', want.join(' '), hand.join(' '));
+      compare(t, 'start', plan.atStart, snap);
+    }
+    return plan;
+  };
 
   const strategy: Strategy = {
-    decide(view) {
-      const t = view.state.turn;
-      const snap = snapshot(view);
-      const plan = fx.turns[t - 1];
-      if (!plan) throw new Error(`${fx.combat}: engine reached turn ${t} but the fixture has ${fx.turns.length} turns`);
-      if (!seen.has(t)) {
-        // First decision of a turn: the previous enemy move is done and this turn's hand is drawn.
-        if (t > 1) compare(t - 1, 'after enemy move', fx.turns[t - 2]!.afterEnemy, snap);
-        seen.add(t);
-        turn = t;
-        step = 0;
-        queue.splice(0, queue.length, ...plan.plays);
-        const hand = view.state.player.hand.map((c) => c.cardId).sort();
-        const want = [...plan.hand].sort();
-        if (hand.join() !== want.join()) miss(t, 'draw', 'hand', want.join(' '), hand.join(' '));
-        compare(t, 'start', plan.atStart, snap);
-      } else {
-        (afterEach[turn] ??= []).push(snap.enemy.hp as number);
+    usePotion(view): PotionUse | null {
+      if (aborted) return null;
+      const plan = observe(view);
+      const use = plan?.potions?.find((p, i) => p.beforePlay === step + 1 && !usedPotions.has(`${turn}:${i}`));
+      if (!plan || !use) return null;
+      usedPotions.add(`${turn}:${plan.potions!.indexOf(use)}`);
+      const slot = (view.state.player.potions ?? []).indexOf(use.potion);
+      if (slot < 0) {
+        abort(`turn ${turn} before play ${step + 1}: potion ${use.potion} is not held`);
+        return null;
       }
+      return { slot };
+    },
+    decide(view) {
+      if (aborted) return { kind: 'endTurn' };
+      const plan = observe(view);
+      if (!plan) return { kind: 'endTurn' };
       const want = queue.shift();
       if (want === undefined) {
-        compare(t, 'after plays', plan.afterPlays, snap);
+        compare(turn, 'after plays', plan.afterPlays, snapshot(view));
         return { kind: 'endTurn' };
       }
-      const card = view.playable.find((c) => c.cardId === want);
+      const card = view.playable.find((c) => matches(c, want));
       if (!card) {
-        throw new Error(`${fx.combat} turn ${t} play ${step + 1}: ${want} is not playable in the engine`);
+        const hand = view.state.player.hand.map(refOf).join(' ');
+        abort(`turn ${turn} play ${step + 1}: ${want} is not playable in the engine (hand: ${hand})`);
+        return { kind: 'endTurn' };
       }
       step++;
+      pending = true;
       return { kind: 'play', uid: card.uid };
+    },
+    choose(_view, request: ChoiceRequest): ChoiceResponse {
+      const what = `${request.purpose} for ${request.sourceCardId ?? request.sourcePower ?? '?'}`;
+      const options = request.options.map(refOf).join(' ');
+      const answer = aborted ? undefined : choices.shift();
+      if (!aborted && !answer) {
+        abort(`turn ${turn}: Strategy.choose asked (${what}; options ${options}) but the fixture has no choice left`);
+      }
+      if (answer?.source !== undefined && answer.source !== request.sourceCardId) {
+        abort(`turn ${turn}: choice for ${answer.source} but the engine asked ${what}`);
+      }
+      const uids: number[] = [];
+      for (const ref of answer?.pick ?? []) {
+        const c = request.options.find((o) => matches(o, ref) && !uids.includes(o.uid));
+        if (!c) abort(`turn ${turn}: choice ${ref} is not among the options (${what}; options ${options})`);
+        else uids.push(c.uid);
+      }
+      // After an abort, answer with the first legal pick so the run can finish.
+      if (aborted) return { uids: request.options.slice(0, request.min).map((o) => o.uid) };
+      return { uids };
     },
   };
 
@@ -163,19 +298,50 @@ function replay(fx: Fixture) {
     ascension: fx.ascension,
     strategy: GREEDY_CONFIG,
     seed: 1,
+    startHp: fx.player.startHp,
+    ...(fx.relics
+      ? { relics: fx.relics.map((r) => ({ relicId: r.id, ...(r.choice ? { choice: r.choice } : {}) })) }
+      : {}),
+    ...(fx.potions ? { potions: fx.potions } : {}),
+    ...(fx.playerStart ? { playerStart: fx.playerStart } : {}),
   };
 
   control.enemyHp = fx.enemy.startHp;
   control.rolled = false;
   control.error = null;
-  control.demand = fx.turns.flatMap((t) => t.hand);
+  control.demand = fx.turns.flatMap((t) => [...t.hand, ...(t.drawn ?? [])]);
 
-  const character = gameData.characters[fx.character];
-  expect(character?.maxHp, `${fx.combat}: fixture player.maxHp vs data`).toBe(fx.player.maxHp);
-  expect(gameData.manifest.gameVersion, `${fx.combat}: fixture gameVersion vs data manifest`).toBe(fx.gameVersion);
+  const result = simulateCombat(data, config, strategy, { log: true });
+  const log = result.log ?? [];
+  if (control.error) mismatches.push(`draw order: ${control.error}`);
+  if (aborted) mismatches.push(`replay stopped: ${aborted}`);
 
-  const result = simulateCombat(gameData, config, strategy);
-  if (control.error) throw new Error(`${fx.combat}: ${control.error}`);
+  // Cards drawn after each turn's first decision (mid-turn draws).
+  let at = 0;
+  const midDraws: Record<number, CardRef[]> = {};
+  for (const e of log) {
+    if (e.t === 'turnStart' && e.side === 'player') at = e.turn;
+    if (e.t === 'draw' && startHands[at] && !startHands[at]!.has(e.uid)) {
+      (midDraws[at] ??= []).push(e.cardId);
+    }
+  }
+  const lastTurn = Math.min(fx.turns.length, Object.keys(startHands).length);
+  for (let t = 1; t <= lastTurn; t++) {
+    const want = (fx.turns[t - 1]!.drawn ?? []).map((r) => parseRef(r).id).join(' ') || '(none)';
+    const got = (midDraws[t] ?? []).join(' ') || '(none)';
+    if (want !== got) miss(t, 'mid-turn', 'drawn', want, got);
+  }
+
+  // A card put into (or taken from) the draw pile between shuffles shifts the forced order.
+  for (const c of drawPileChanges(log)) {
+    if (c.turn < fx.turns.length || (fx.turns[c.turn - 1]?.drawn?.length ?? 0) > 0) {
+      mismatches.push(
+        `turn ${c.turn}: ${c.text}; the shuffle mock cannot force later draws (state it in knownDiffs or skip)`,
+      );
+    }
+  }
+
+  if (aborted) return mismatches;
 
   // The combat ended on a turn: check what is known from the result for that turn.
   const endTurn = result.turns;
@@ -184,26 +350,48 @@ function replay(fx: Fixture) {
     if (lastPlan.afterPlays?.enemy?.hp !== undefined && lastPlan.afterPlays.enemy.hp !== result.enemyHpRemaining) {
       miss(endTurn, 'after plays', 'enemy.hp', lastPlan.afterPlays.enemy.hp, result.enemyHpRemaining);
     }
-    // The final play's enemy HP is the result's.
     (afterEach[endTurn] ??= []).push(result.enemyHpRemaining);
   }
 
   fx.turns.forEach((plan, i) => {
-    const expected = plan.enemyHpAfterEachPlay;
-    if (!expected) return;
-    const got = afterEach[i + 1] ?? [];
-    expected.forEach((hp, k) => {
-      if (got[k] !== hp) miss(i + 1, `after play ${k + 1}`, 'enemy.hp', hp, got[k]);
+    plan.enemyHpAfterEachPlay?.forEach((hp, k) => {
+      const got = afterEach[i + 1]?.[k];
+      if (got !== hp) miss(i + 1, `after play ${k + 1}`, 'enemy.hp', hp, got);
     });
   });
 
-  if (fx.turns.length !== result.turns) {
+  if (fx.turns.length !== result.turns)
     miss('-', 'result', 'turns in fixture vs engine', fx.turns.length, result.turns);
-  }
   if (result.outcome !== fx.result.outcome) miss('-', 'result', 'outcome', fx.result.outcome, result.outcome);
   if (result.turns !== fx.result.turns) miss('-', 'result', 'turns', fx.result.turns, result.turns);
-  if (result.hpLost !== fx.result.hpLost) miss('-', 'result', 'HP lost from start', fx.result.hpLost, result.hpLost);
+  if (result.hpLost !== fx.result.hpLost) miss('-', 'result', 'hpLost', fx.result.hpLost, result.hpLost);
   return mismatches;
+}
+
+/** Mismatches not listed in knownDiffs, and knownDiffs that no longer occur. */
+function unexplained(fx: Fixture, mismatches: string[]): string[] {
+  const known = fx.knownDiffs ?? [];
+  const extra = mismatches.filter((m) => !known.some((k) => k.diff === m));
+  const stale = known.filter((k) => !mismatches.includes(k.diff)).map((k) => `stale knownDiff (fixed?): ${k.diff}`);
+  return [...extra, ...stale];
+}
+
+/** Checks that do not need the engine. */
+function consistency(fx: Fixture): void {
+  expect(fx.result.hpLost, 'result.hpLost = startHp - finalHp').toBe(fx.player.startHp - fx.result.finalHp);
+  expect(checkFields(fx), 'unknown state fields').toEqual([]);
+  for (const k of fx.knownDiffs ?? []) expect(k.reason, `knownDiff without reason: ${k.diff}`).toBeTruthy();
+  fx.turns.forEach((t, i) => {
+    if (t.afterEnemy?.player && 'block' in t.afterEnemy.player) {
+      throw new Error(`turn ${i + 1}: afterEnemy.player.block cannot be checked (Block resets at turn start)`);
+    }
+    for (const p of t.potions ?? []) {
+      if (!(fx.potions ?? []).includes(p.potion)) throw new Error(`turn ${i + 1}: potion ${p.potion} not in potions`);
+      if (p.beforePlay < 1 || p.beforePlay > t.plays.length + 1) {
+        throw new Error(`turn ${i + 1}: potion beforePlay ${p.beforePlay} is outside 1..${t.plays.length + 1}`);
+      }
+    }
+  });
 }
 
 describe('golden combats', () => {
@@ -217,18 +405,175 @@ describe('golden combats', () => {
     describe(fx.combat, () => {
       it('is named after its file and is self-consistent', () => {
         expect(path).toBe(`./${fx.combat}.json`);
-        expect(fx.result.hpLost, 'result.hpLost = startHp - finalHp').toBe(fx.player.startHp - fx.result.finalHp);
-        for (const t of fx.turns) {
-          if (t.afterEnemy?.player && 'block' in t.afterEnemy.player) {
-            throw new Error(`${fx.combat}: afterEnemy.player.block cannot be checked (Block resets at turn start)`);
-          }
-        }
+        consistency(fx);
+        const character = gameData.characters[fx.character];
+        expect(character?.maxHp, 'fixture player.maxHp vs data').toBe(fx.player.maxHp);
+        expect(gameData.manifest.gameVersion, 'fixture gameVersion vs data manifest').toBe(fx.gameVersion);
       });
 
-      it('matches the engine turn by turn', () => {
-        const mismatches = replay(fx);
-        expect(mismatches, mismatches.join('\n')).toEqual([]);
+      it.skipIf(!!fx.skip)(`matches the engine turn by turn${fx.skip ? ` (skipped: ${fx.skip})` : ''}`, () => {
+        const left = unexplained(fx, replay(fx));
+        expect(left, left.join('\n')).toEqual([]);
       });
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Synthetic fixtures: each exercises one harness feature (#210). Not real combats.
+// ---------------------------------------------------------------------------
+
+const base = (over: Partial<Fixture>): Fixture => ({
+  combat: 'synthetic',
+  gameVersion: gameData.manifest.gameVersion,
+  character: 'ironclad',
+  ascension: 0,
+  deck: [
+    { card: 'strike', count: 5 },
+    { card: 'defend', count: 4 },
+    { card: 'bash', count: 1 },
+  ],
+  enemy: { id: 'nibbit', startHp: 20 },
+  player: { startHp: 80, maxHp: 80 },
+  turns: [],
+  result: { outcome: 'win', turns: 1, finalHp: 80, hpLost: 0 },
+  ...over,
+});
+
+/** Game data with test enemies: one that does nothing, one that adds Wounds to the discard / draw pile. */
+function testData(): GameData {
+  const data = structuredClone(gameData);
+  const add = (to: 'discard' | 'drawRandom') => ({
+    name: 'Add',
+    effects: [{ type: 'addCards' as const, source: { kind: 'card' as const, cardId: 'wound' }, count: 2, to }],
+  });
+  for (const e of [
+    makeEnemy('golden_wait', 99, { wait: { name: 'Wait', effects: [] } }),
+    makeEnemy('golden_wounds', 99, { add: add('discard') }),
+    makeEnemy('golden_wounds_draw', 99, { add: add('drawRandom') }),
+  ]) {
+    data.enemies[e.id] = e;
+  }
+  return data;
+}
+
+/** Relics with a choice, a potion before play 1, startHp below Max HP, playerStart, end-of-combat heal. */
+const relicsAndPotion = base({
+  player: { startHp: 50, maxHp: 80 },
+  relics: [{ id: 'vajra' }, { id: 'girya', choice: 2 }, { id: 'burning_blood' }],
+  potions: ['strength_potion'],
+  playerStart: { powers: { plating: 3 }, debuffs: { frail: 1 } },
+  turns: [
+    {
+      hand: ['strike', 'strike', 'strike', 'defend', 'defend'],
+      potions: [{ potion: 'strength_potion', beforePlay: 1 }],
+      // Plating drops by 1 at the start of each player turn, turn 1 included (engine rule).
+      atStart: { player: { hp: 50, strength: 3, plating: 2, frail: 1, energy: 3 } },
+      plays: ['strike', 'strike'],
+      enemyHpAfterEachPlay: [9, 0],
+    },
+  ],
+  // Burning Blood heals 6 after the win: HP lost from the start is negative.
+  result: { outcome: 'win', turns: 1, finalHp: 56, hpLost: -6 },
+});
+
+/** Armaments choice, Pommel Strike draws, Wounds added to the discard pile and drawn after a reshuffle. */
+const choicesAndDraws = base({
+  deck: [
+    { card: 'armaments', count: 1 },
+    { card: 'pommel_strike', count: 1 },
+    { card: 'strike', count: 4 },
+    { card: 'defend', count: 4 },
+  ],
+  enemy: { id: 'golden_wounds', startHp: 40 },
+  turns: [
+    {
+      hand: ['armaments', 'pommel_strike', 'strike', 'defend', 'defend'],
+      plays: ['armaments', 'pommel_strike', 'strike+'],
+      choices: [{ source: 'armaments', pick: ['strike'] }],
+      drawn: ['strike'],
+      afterPlays: { player: { block: 5 }, enemy: { hp: 22 } },
+    },
+    {
+      hand: ['strike', 'strike', 'defend', 'defend', 'wound'],
+      plays: ['strike', 'strike'],
+      afterPlays: { enemy: { hp: 10 } },
+    },
+    {
+      hand: ['strike+', 'pommel_strike', 'wound', 'armaments', 'defend'],
+      drawn: ['strike'],
+      plays: ['pommel_strike', 'strike+'],
+      enemyHpAfterEachPlay: [1, 0],
+    },
+  ],
+  result: { outcome: 'win', turns: 3, finalHp: 80, hpLost: 0 },
+});
+
+describe('golden harness (#210, synthetic fixtures)', () => {
+  it('relics with choices, a potion before play 1, startHp below Max HP, playerStart', () => {
+    consistency(relicsAndPotion);
+    expect(replay(relicsAndPotion)).toEqual([]);
+  });
+
+  it('a potion at the wrong point shows up as a mismatch', () => {
+    const late = structuredClone(relicsAndPotion);
+    late.turns[0]!.potions = [{ potion: 'strength_potion', beforePlay: 2 }];
+    expect(replay(late)).toContain('turn 1 after play 1: enemy.hp: expected 9, engine 11');
+  });
+
+  it('Armaments choice, mid-turn draws, Wounds added to the discard pile', () => {
+    consistency(choicesAndDraws);
+    expect(replay(choicesAndDraws, testData())).toEqual([]);
+  });
+
+  it('fails precisely when a choice is missing', () => {
+    const fx = structuredClone(choicesAndDraws);
+    delete fx.turns[0]!.choices;
+    expect(replay(fx, testData())[0]).toMatch(
+      /^replay stopped: turn 1: Strategy.choose asked \(upgrade for armaments; options .*\) but the fixture has no choice left$/,
+    );
+  });
+
+  it('fails precisely when a mid-turn draw is not recorded', () => {
+    const fx = structuredClone(choicesAndDraws);
+    delete fx.turns[2]!.drawn;
+    // Nothing forces the unrecorded draw, so the engine draws whatever is on top.
+    expect(replay(fx, testData())).toEqual([
+      expect.stringMatching(/^turn 3 mid-turn: drawn: expected \(none\), engine \w+$/),
+    ]);
+  });
+
+  it('fails precisely when a card goes into the draw pile between shuffles', () => {
+    const fx = base({
+      enemy: { id: 'golden_wounds_draw', startHp: 30 },
+      turns: [
+        { hand: ['strike', 'strike', 'strike', 'defend', 'defend'], plays: ['strike', 'strike', 'strike'] },
+        { hand: ['strike', 'strike', 'defend', 'defend', 'bash'], plays: ['bash', 'strike'] },
+      ],
+      result: { outcome: 'win', turns: 2, finalHp: 80, hpLost: 0 },
+    });
+    expect(replay(fx, testData())).toContain(
+      'turn 1: wound added to drawRandom (card); the shuffle mock cannot force later draws (state it in knownDiffs or skip)',
+    );
+  });
+
+  it('knownDiffs: listed mismatches pass, unlisted ones and stale entries fail', () => {
+    const fx = structuredClone(relicsAndPotion);
+    fx.turns[0]!.enemyHpAfterEachPlay = [8, 0];
+    const diff = 'turn 1 after play 1: enemy.hp: expected 8, engine 9';
+    expect(unexplained(fx, replay(fx))).toEqual([diff]);
+    fx.knownDiffs = [{ diff, reason: 'recorded 8; engine says 9 (finding for review)' }];
+    expect(unexplained(fx, replay(fx))).toEqual([]);
+    fx.turns[0]!.enemyHpAfterEachPlay = [9, 0];
+    expect(unexplained(fx, replay(fx))).toEqual([`stale knownDiff (fixed?): ${diff}`]);
+  });
+
+  it('rejects unknown state fields and potions outside the turn', () => {
+    const fx = structuredClone(relicsAndPotion);
+    fx.turns[0]!.atStart = { player: { platting: 2 } };
+    expect(() => consistency(fx)).toThrow(/unknown state fields/);
+    const late = structuredClone(relicsAndPotion);
+    late.turns[0]!.potions = [{ potion: 'strength_potion', beforePlay: 4 }];
+    expect(() => consistency(late)).toThrow(/beforePlay 4/);
+  });
 });

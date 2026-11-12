@@ -168,6 +168,11 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     when HP + Block of the enemy is at most 20 (a kill) or when the enemy has no Block, and only with
     no Slippery; and always when the enemy's coming attack could kill you (intent total at least HP +
     Block), so it is never held while dying.
+38. **Golden combats (#177, #210):** every fixture in `engine/golden/` replays through the engine
+    (start HP, relics, potions at a point in the turn, `playerStart` statuses, scripted choices,
+    mid-turn draws); mismatches fail unless listed in `knownDiffs` with a reason, and a listed one
+    that no longer occurs fails too. `CombatConfig.playerStart` gives the player Strength, debuffs and
+    powers before combatStart relics.
 
 ## Known failure points
 
