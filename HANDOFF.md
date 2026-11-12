@@ -1,23 +1,28 @@
-# Handoff (2026-11-09)
+# Handoff (2026-11-11)
 
-Read CLAUDE.md first. State: main at PR #142 merge + docs; 1029 tests pass. No agents running.
-Phase: building (user said "let's build"); confirm with the user before starting new cards.
+Read CLAUDE.md first. State: every v1 card is merged (last: #113, PR #168); 1432 tests pass. No agents running.
+Phase: building (Trent said "let's build" on 2026-11-11). Confirm with Trent before starting new cards.
 
 ## Next up
-- #143 Check scripts (compare-main, shot) — Ready. Do this first; later agents should use them.
-- #141 Deck-health guard follow-up:
-  - Build the answered rule: among damaging cards, exhaust the one with LOWER damage per energy
-    first (Bash before the last Strike).
-  - Still open (ask user): Scared Block (Block 0) dies in 64% of combats with starter + Burning Pact
-    + Purity + True Grit+; every death ends on a 5-card deck with 1 damaging card. Options:
-    1) min 2 damaging cards, 2) count only playable damage, 3) raise floor to 6–7 cards. Q3 a–d also open.
+- Get Trent's answers to the open questions below; turn any changes into new v1 cards.
+- Then run the full quality-review loop for v1 (test reviewer, test runner, readability), per CLAUDE.md.
 
-## Waiting on the user (Questions column)
-#4 Shrinker/Sludge, #11 Vulnerable meaning, #15/#21 (on hold), #78 two-strategy percentile
-lines/band blend, #104 quick wins, #110–#117 mechanic groups, #122 Compare follow-ups,
-#127 draw follow-ups, #135 Q2–Q4 (user testing). #81 on hold.
+## Open questions for Trent (on Done cards)
+- #104 Alchemize is never played: should strategies play it, and when?
+- #110 Enlightenment has no play rule. Fight Me needs an "enemy gains Strength" effect (contract change) — OK?
+- #111 Entrench's "double your Block" ignores Dexterity/Frail — right?
+- #112 Apotheosis is played first whenever something can be upgraded (2 of 3 energy) — OK?
+- #113 Cards drawn by Dark Embrace during the end-of-turn Ethereal exhaust stay in hand — discard them?
+- #114 Agent-chosen defaults for Catastrophe, Beat Down, Hidden Gem, Dual Wield; Howl from Beyond in exhaust tier 2?
+- #116 Random-card cards draw from the character's own pool only, not Colorless — right?
+
+## Working notes
+- Trent's preferences: minimal progress updates; link every PR/card; cheapest model that can do the job (Haiku, Sonnet, Opus only if needed).
+- Shared sub-agent rules: /home/claude/agent-rules.md (recreate from CLAUDE.md if the sandbox was reset).
+- Parallel agents each get their own `git worktree` (Agent isolation is not allowed here). Expect merge conflicts in engine/combat.ts, engine/strategies.ts and data/validate/*; have the agent merge origin/main and resolve.
+- `npm run shot -- results` can't show the chart (no simulation runs); agents wrote throwaway scripts instead. Possible small tooling card.
 
 ## Sandbox notes
 - GitHub: REST only (GraphQL blocked). Create issues with `gh api repos/.../issues`.
 - Board moves: add a `status: <column>` label; the board-sync Action does the rest.
-- Wiki pages: WebFetch works; Chrome may be unavailable.
+- Versions: `version: v1`, `v2`, `future`, `multiplayer` (new: multiplayer-only cards, e.g. #117).
