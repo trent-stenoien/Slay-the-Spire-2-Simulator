@@ -1,0 +1,193 @@
+{
+  "combat": "mawler-a0-01",
+  "source": "Played by hand in the real game; recorded on issue #200 (Combat 5)",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 0,
+  "deck": [
+    {
+      "card": "strike",
+      "count": 5
+    },
+    {
+      "card": "defend",
+      "count": 4
+    },
+    {
+      "card": "bash",
+      "count": 1
+    },
+    {
+      "card": "setup_strike",
+      "count": 1
+    },
+    {
+      "card": "inflame",
+      "count": 1
+    },
+    {
+      "card": "dismantle",
+      "count": 1
+    },
+    {
+      "card": "armaments",
+      "count": 1
+    }
+  ],
+  "enemy": {
+    "id": "mawler",
+    "startHp": 72
+  },
+  "player": {
+    "startHp": 79,
+    "maxHp": 80
+  },
+  "relics": [
+    {
+      "id": "burning_blood"
+    }
+  ],
+  "turns": [
+    {
+      "hand": ["strike", "strike", "strike", "strike", "dismantle"],
+      "plays": ["dismantle", "strike", "strike"],
+      "afterPlays": {
+        "enemy": {
+          "hp": 52
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 71
+        },
+        "enemy": {
+          "hp": 52
+        }
+      }
+    },
+    {
+      "hand": ["strike", "defend", "armaments", "setup_strike", "bash"],
+      "plays": ["armaments", "defend+", "setup_strike"],
+      "choices": [
+        {
+          "source": "armaments",
+          "pick": ["defend"]
+        }
+      ],
+      "afterPlays": {
+        "enemy": {
+          "hp": 45
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 70
+        },
+        "enemy": {
+          "hp": 45
+        }
+      }
+    },
+    {
+      "hand": ["defend", "defend", "defend", "inflame", "strike"],
+      "plays": ["inflame", "strike"],
+      "afterPlays": {
+        "player": {
+          "energy": 1,
+          "strength": 2
+        },
+        "enemy": {
+          "hp": 37
+        }
+      },
+      "afterEnemy": {
+        "enemy": {
+          "hp": 37
+        }
+      }
+    },
+    {
+      "hand": ["strike", "strike", "strike", "setup_strike", "armaments"],
+      "plays": ["armaments", "setup_strike+", "strike"],
+      "choices": [
+        {
+          "source": "armaments",
+          "pick": ["setup_strike"]
+        }
+      ],
+      "atStart": {
+        "player": {
+          "hp": 70,
+          "vulnerable": 3,
+          "strength": 2
+        }
+      },
+      "enemyHpAfterEachPlay": [37, 26, 15],
+      "afterPlays": {
+        "player": {
+          "strength": 5,
+          "block": 5
+        },
+        "enemy": {
+          "hp": 15
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 54
+        },
+        "enemy": {
+          "hp": 15
+        }
+      }
+    },
+    {
+      "hand": ["strike", "defend+", "bash", "dismantle", "defend"],
+      "plays": ["bash", "dismantle"],
+      "atStart": {
+        "player": {
+          "hp": 54,
+          "vulnerable": 2,
+          "strength": 2
+        }
+      },
+      "enemyHpAfterEachPlay": [5, 0]
+    }
+  ],
+  "result": {
+    "outcome": "win",
+    "turns": 5,
+    "finalHp": 54,
+    "hpLost": 25
+  },
+  "knownDiffs": [
+    {
+      "diff": "turn 2 after enemy move: player.hp: expected 70, engine 71",
+      "reason": "Mawler's random move order is not scripted (pattern random, noRepeat). Record: claw, rip and tear, roar, rip and tear, claw. Engine rolls claw, roar, rip and tear, claw, ..., so enemy damage and Vulnerable timing differ."
+    },
+    {
+      "diff": "turn 4 start: player.hp: expected 70, engine 50",
+      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
+    },
+    {
+      "diff": "turn 4 start: player.vulnerable: expected 3, engine 2",
+      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
+    },
+    {
+      "diff": "turn 4 after enemy move: player.hp: expected 54, engine 43",
+      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
+    },
+    {
+      "diff": "turn 5 start: player.hp: expected 54, engine 43",
+      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
+    },
+    {
+      "diff": "turn 5 start: player.vulnerable: expected 2, engine 1",
+      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
+    },
+    {
+      "diff": "turn - result: hpLost: expected 25, engine 30",
+      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
+    }
+  ]
+}
