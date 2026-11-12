@@ -79,7 +79,9 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
 ## Conventions
 
 - Tests live next to code as `*.test.ts`. Every rule gets a test.
-- `npm test`, `npm run typecheck`, and `npm run build` must pass before handing back.
+- Run `npm run format` before committing. `npm run format:check`, `npm run lint`, `npm test`,
+  `npm run typecheck` and `npm run build` must pass before handing back.
+- The orchestrator merges a pull request only after its CI check has finished green.
 - Work on your own branch and request a merge; never touch `main`.
 - Design doc: https://claude.ai/artifact/D79XTt7hTXmws6JnNBGt7h
 
@@ -95,4 +97,5 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
 - Take few, small screenshots.
 - The full quality-review loop (test reviewer, test runner, readability) runs only after each
   major update, such as completing a version, not per card. It checks that every item in
-  `FEATURES.md` has a test. When a card settles a new rule, add it to `FEATURES.md`.
+  `FEATURES.md` has a test; the steps and pass conditions are in `docs/quality-loop.md`.
+  When a card settles a new rule, add it to `FEATURES.md`.
