@@ -29,6 +29,7 @@ import {
   type PileName,
   type PowerId,
   type Rng,
+  type SelectMode,
   type RunCombat,
   type Side,
   type Strategy,
@@ -174,12 +175,14 @@ function emptyCounters(): CombatCounters {
 
 /**
  * True when `card` matches every present field of `filter` (#107: Pillage's non-Attack stop rule).
- * Fields whose rules are still open (rarity, nameIncludes, noReplay) throw until their cards land.
+ * Fields whose rules are still open (rarity, nameIncludes) throw until their cards land.
+ * #114 noReplay: only cards with no Replay.
  */
 export function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
-  for (const field of ['rarity', 'nameIncludes', 'noReplay'] as const) {
+  for (const field of ['rarity', 'nameIncludes'] as const) {
     if (filter[field] !== undefined) throw new Error(`Card filter "${field}" is not simulated yet`);
   }
+  if (filter.noReplay && (card.replay ?? 0) > 0) return false;
   if (filter.types && !filter.types.includes(card.type)) return false;
   if (filter.notTypes?.includes(card.type)) return false;
   if (filter.cardId !== undefined && card.cardId !== filter.cardId) return false;
@@ -187,8 +190,8 @@ export function matchesFilter(card: CardInstance, filter: CardFilter): boolean {
   return true;
 }
 
-/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand); the rest wait for #114. */
-const SIMULATED_TRIGGERS: readonly string[] = ['exhausted', 'drawn', 'turnEndInHand'];
+/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */
+const SIMULATED_TRIGGERS: readonly string[] = ['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust'];
 
 /** #108: per-hit damage an Attack adds to Thrash: its first attack effect's base damage plus its own bonus. */
 export function perHitBaseDamage(card: CardInstance): number {
@@ -490,7 +493,7 @@ class Combat {
    * 'win' when the enemy died, 'loss' when the player's own card dropped them to 0 HP.
    */
   private playCards(): Outcome | null {
-    const { player, enemy, log } = this;
+    const { player, enemy } = this;
     for (let decisions = 0; decisions < MAX_DECISIONS_PER_TURN; decisions++) {
       const decision = this.strategy.decide(this.view());
       if (decision.kind === 'endTurn') break;
@@ -503,28 +506,8 @@ class Combat {
       // X-cost: X is all the energy available, and the card spends all of it.
       const x = card.xCost ? player.energy : 0;
       player.energy -= card.xCost ? x : (card.cost as number);
-      if (log) {
-        const ev: GameEvent = { t: 'play', uid: card.uid, cardId: card.cardId, energyLeft: player.energy };
-        if (card.xCost) ev.x = x;
-        log.push(ev);
-      }
-      // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
-      const vigor = card.type === 'attack' ? this.power('vigor') : 0;
-      this.activeVigor = vigor;
-      const died = this.resolveEffects('player', card.effects, x, card);
-      this.activeVigor = 0;
-      if (vigor > 0) this.applyPower('vigor', -vigor);
+      const died = this.playCard(card, x);
       if (died === 'player' || player.hp <= 0) return 'loss';
-      if (card.type === 'power') {
-        // #109: a played Power leaves the deck for the rest of combat (no discard, no exhaust pile).
-      } else if (card.keywords.includes('exhaust')) {
-        this.exhaustCard(card, 'keyword');
-      } else if (card.type === 'skill' && this.power('corruption')) {
-        // #109 Corruption: a played Skill is exhausted (Drum of Battle still gains its energy).
-        this.exhaustCard(card, 'power');
-      } else {
-        player.discardPile.push(card);
-      }
       if (died === 'enemy' || enemy.hp <= 0) return 'win';
       // #116 Calamity: after an Attack is played, add random Attack(s) to the hand.
       const calamity = card.type === 'attack' ? this.power('calamity') : 0;
@@ -538,6 +521,51 @@ class Combat {
       }
     }
     return null;
+  }
+
+  /**
+   * #114: play a card that is already out of its pile and whose cost is paid or waived: log it,
+   * resolve its effects, play it again once per Replay (never used up, Trent #114 Q1; the cost is
+   * not paid again and X stays the same), then put it where a played card goes. `by` marks a card
+   * played by an effect or trigger rather than the strategy; `exhaust` sends it to the Exhaust pile
+   * (Havoc). Returns the side that died, if one did.
+   */
+  private playCard(card: CardInstance, x: number, by?: 'effect' | 'trigger', exhaust = false): Side | null {
+    const { player, enemy, log } = this;
+    const logPlay = (how?: 'effect' | 'replay' | 'trigger') => {
+      if (!log) return;
+      const ev: GameEvent = { t: 'play', uid: card.uid, cardId: card.cardId, energyLeft: player.energy };
+      if (card.xCost) ev.x = x;
+      if (how) ev.by = how;
+      log.push(ev);
+    };
+    logPlay(by);
+    // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
+    const vigor = card.type === 'attack' ? this.power('vigor') : 0;
+    this.activeVigor = vigor;
+    let died = this.resolveEffects('player', card.effects, x, card);
+    this.activeVigor = 0;
+    if (vigor > 0) this.applyPower('vigor', -vigor);
+    const replays = card.replay ?? 0;
+    for (let left = replays - 1; left >= 0 && !died && player.hp > 0 && enemy.hp > 0; left--) {
+      log?.push({ t: 'replay', uid: card.uid, cardId: card.cardId, left });
+      logPlay('replay');
+      died = this.resolveEffects('player', card.effects, x, card);
+    }
+    if (died === 'player' || player.hp <= 0) return 'player';
+    if (card.type === 'power') {
+      // #109: a played Power leaves the deck for the rest of combat (no discard, no exhaust pile).
+    } else if (exhaust) {
+      died = this.exhaustCard(card, 'effect') ?? died;
+    } else if (card.keywords.includes('exhaust')) {
+      died = this.exhaustCard(card, 'keyword') ?? died;
+    } else if (card.type === 'skill' && this.power('corruption')) {
+      // #109 Corruption: a played Skill is exhausted (Drum of Battle still gains its energy).
+      died = this.exhaustCard(card, 'power') ?? died;
+    } else {
+      player.discardPile.push(card);
+    }
+    return died ?? (enemy.hp <= 0 ? 'enemy' : null);
   }
 
   /** What the strategy sees right now: current hand, energy and the enemy's intent. */
@@ -565,7 +593,11 @@ class Combat {
     return (this.enemy.powers?.stun ?? 0) > 0;
   }
 
-  /** Plating Block (#109); Ethereal exhausts first (even if Retain), Retain stays, the rest is discarded; then player debuffs tick. */
+  /**
+   * Plating Block (#109); Ethereal exhausts first (even if Retain), Retain stays, the rest is discarded;
+   * then the Exhaust-pile triggers (#114 Howl from Beyond); then player debuffs tick.
+   * Returns the outcome if a trigger ended combat.
+   */
   private endPlayerTurn(): Outcome | null {
     const { player, log } = this;
     // #109 Plating: gain Block equal to it at the end of your turn.
@@ -587,6 +619,8 @@ class Combat {
       }
     }
     player.hand = retained;
+    const died = this.turnEndExhaustTriggers();
+    if (died) return died === 'player' || player.hp <= 0 ? 'loss' : 'win';
     // Battle Trance's no-draw lasts for the rest of this turn only.
     if (player.powers?.noDraw) {
       delete player.powers.noDraw;
@@ -799,8 +833,17 @@ class Combat {
           died = this.resolveEffects(source, e.else ?? [], x, card);
           break;
         }
+        case 'playCards':
+          if (source !== 'player') throw new Error('Effect "playCards" is not simulated yet on enemy moves');
+          died = this.playFromPile(e, x);
+          break;
+        case 'addReplay':
+          if (source !== 'player') throw new Error('Effect "addReplay" is not simulated yet on enemy moves');
+          this.addReplay(e);
+          break;
         case 'script':
-          if (source === 'player' && e.id === 'primalForcePlus') count = this.primalForcePlus();
+          if (source === 'player' && e.id === 'playSelf') died = this.playSelf(card);
+          else if (source === 'player' && e.id === 'primalForcePlus') count = this.primalForcePlus();
           else if (source === 'player' && e.id === 'fiendFire') died = this.fiendFire(e.values?.[0] ?? 0);
           else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
@@ -958,6 +1001,185 @@ class Combat {
     return died;
   }
 
+  /** True when a card can be played at all, whatever the energy: it has a cost and is not Unplayable. */
+  private canPlayFree(card: CardInstance): boolean {
+    return card.cost !== null && !card.keywords.includes('unplayable');
+  }
+
+  /**
+   * #114 `playCards`: play cards from a pile without paying their cost (Havoc, Cascade,
+   * Catastrophe, Beat Down). `count` cards, or count × (X + xBonus) for `xTimes`, X being the X of
+   * the card being played. 'top' plays the top card of the pile (the end of the array), one at a
+   * time, reshuffling the discard pile into an empty draw pile first. 'random' picks all its
+   * cards up front, without repeats, among the cards that can be played (an Unplayable card is
+   * never picked), so a card that comes back to the pile is not picked twice.
+   * A top card that can't be played (a curse, a status) is not played: it is exhausted when the
+   * effect exhausts, otherwise discarded. An X-cost card played this way gets X = the energy left,
+   * and doesn't spend it. A card played this way counts as any played card (Replay, Exhaust,
+   * Corruption, Powers); `exhaust` sends it to the Exhaust pile instead of the discard pile.
+   */
+  private playFromPile(e: Extract<Effect, { type: 'playCards' }>, x: number): Side | null {
+    const { player } = this;
+    const total = e.xTimes ? e.count * Math.max(0, x + (e.xBonus ?? 0)) : e.count;
+    const matches = (c: CardInstance) => !e.filter || matchesFilter(c, e.filter);
+    let picks: CardInstance[] | null = null;
+    if (e.mode === 'random') {
+      const pool = this.pile(e.from).filter((c) => this.canPlayFree(c) && matches(c));
+      picks = [];
+      for (let i = 0; i < total && pool.length > 0; i++) {
+        picks.push(pool.splice(this.rng.int(0, pool.length - 1), 1)[0]!);
+      }
+    }
+    for (let i = 0; i < total; i++) {
+      let pile = this.pile(e.from);
+      let card: CardInstance | undefined;
+      if (picks) {
+        card = picks[i];
+        if (!card) break;
+      } else {
+        if (e.from === 'draw' && pile.length === 0) {
+          this.reshuffleDiscard();
+          pile = this.pile(e.from);
+        }
+        for (let j = pile.length - 1; j >= 0 && !card; j--) if (matches(pile[j]!)) card = pile[j];
+        if (!card) break;
+      }
+      const at = pile.indexOf(card);
+      if (at < 0) continue;
+      pile.splice(at, 1);
+      if (!this.canPlayFree(card)) {
+        if (e.exhaust) {
+          const died = this.exhaustCard(card, 'effect');
+          if (died) return died;
+        } else {
+          player.discardPile.push(card);
+        }
+        continue;
+      }
+      const died = this.playCard(card, card.xCost ? player.energy : 0, 'effect', e.exhaust);
+      if (died) return died;
+    }
+    return null;
+  }
+
+  /** #114 `script` playSelf (Howl from Beyond): play this card from the Exhaust pile for free; it then goes where a played card goes (the discard pile). */
+  private playSelf(card: CardInstance | undefined): Side | null {
+    const { player } = this;
+    const at = card ? player.exhaustPile.indexOf(card) : -1;
+    if (!card || at < 0) return null;
+    player.exhaustPile.splice(at, 1);
+    return this.playCard(card, card.xCost ? player.energy : 0, 'trigger');
+  }
+
+  /**
+   * #114 `turnEndInExhaust`: at the end of the player's turn, each card in the Exhaust pile with
+   * this trigger runs its effects (Howl from Beyond plays itself), once per card, in the order
+   * the cards were exhausted.
+   */
+  private turnEndExhaustTriggers(): Side | null {
+    const { player } = this;
+    for (const card of [...player.exhaustPile]) {
+      for (const t of card.triggers ?? []) {
+        if (t.when !== 'turnEndInExhaust' || !player.exhaustPile.includes(card)) continue;
+        const died = this.resolveEffects('player', t.effects, 0, card);
+        if (died) return died;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Choose `n` of `candidates` for an effect that picks cards from a pile: every one ('all'),
+   * at random (seeded Rng), the top ones (the end of the pile), or Strategy.choose.
+   */
+  private selectCards(
+    candidates: CardInstance[],
+    mode: SelectMode,
+    n: number,
+    request: Omit<ChoiceRequest, 'options' | 'min' | 'max'>,
+  ): CardInstance[] {
+    const count = Math.min(n, candidates.length);
+    switch (mode) {
+      case 'all':
+        return candidates;
+      case 'top':
+        return candidates.slice(candidates.length - count).reverse();
+      case 'random': {
+        const pool = [...candidates];
+        const picked: CardInstance[] = [];
+        for (let i = 0; i < count; i++) picked.push(pool.splice(this.rng.int(0, pool.length - 1), 1)[0]!);
+        return picked;
+      }
+      case 'choose':
+        if (count === 0) return [];
+        // Every candidate must be taken: no choice to make.
+        if (count === candidates.length) return [...candidates];
+        return this.choose({ ...request, options: candidates, min: count, max: count }, candidates);
+    }
+  }
+
+  /**
+   * #114 `addReplay`: the picked card(s) of the pile gain `amount` Replay (Hidden Gem: one random
+   * draw-pile card without Replay). It stays for the rest of combat and is never used up.
+   */
+  private addReplay(e: Extract<Effect, { type: 'addReplay' }>): void {
+    const candidates = this.pile(e.from).filter((c) => !e.filter || matchesFilter(c, e.filter));
+    const request = { purpose: 'replay' as const, from: e.from };
+    for (const c of this.selectCards(candidates, e.mode, 1, request)) c.replay = (c.replay ?? 0) + e.amount;
+  }
+
+  /**
+   * #114 `addCards` for sources `self` and `copyOf`: put `count` copies of a card in `to`: of the
+   * card being played (`self`, Anger) or of a card picked from a pile (`copyOf`, Dual Wield: one
+   * card, `count` copies). A copy keeps the card's upgrade, damage bonus, Replay and cost for the
+   * rest of combat, but not "this turn" costs. Returns how many cards were created.
+   */
+  private addCopies(e: Extract<Effect, { type: 'addCards' }>, card: CardInstance | undefined): number {
+    const { source } = e;
+    if (
+      (source.kind !== 'self' && source.kind !== 'copyOf') ||
+      e.options !== undefined ||
+      e.upgraded ||
+      e.freeThisTurn ||
+      e.costThisCombat !== undefined
+    ) {
+      throw new Error(`Effect "addCards" is not simulated yet (source "${source.kind}")`);
+    }
+    let originals: CardInstance[];
+    if (source.kind === 'self') {
+      if (!card) throw new Error('Effect "addCards" with source "self" needs a card');
+      originals = [card];
+    } else {
+      const candidates = this.pile(source.from).filter((c) => !source.filter || matchesFilter(c, source.filter));
+      const request: Omit<ChoiceRequest, 'options' | 'min' | 'max'> = { purpose: 'copy', from: source.from, to: e.to };
+      if (card) {
+        request.sourceUid = card.uid;
+        request.sourceCardId = card.cardId;
+      }
+      originals = this.selectCards(candidates, source.mode, 1, request);
+    }
+    let made = 0;
+    for (const original of originals) {
+      for (let i = 0; i < e.count; i++, made++) {
+        const copy: CardInstance = {
+          ...original,
+          uid: this.nextUid++,
+          keywords: [...original.keywords],
+          effects: original.effects.map((fx) => ({ ...fx })),
+          generated: true,
+        };
+        if (original.triggers) {
+          copy.triggers = original.triggers.map((t) => ({ when: t.when, effects: [...t.effects] }));
+        }
+        delete copy.costThisTurn;
+        delete copy.freeThisTurn;
+        const to = this.placeCard(copy, e.to);
+        this.log?.push({ t: 'generated', uid: copy.uid, cardId: copy.cardId, to, source: source.kind });
+      }
+    }
+    return made;
+  }
+
   /** #116: the cards a pool can produce for this character (cached). */
   private poolCards(pool: CardPool, upgraded: boolean): CardDef[] {
     const key = `${JSON.stringify(pool)}|${upgraded}`;
@@ -1012,12 +1234,10 @@ class Combat {
     return dest;
   }
 
-  /** #116 `addCards` (sources `random` and `card`). Returns how many cards were created. */
+  /** `addCards`: #114 copies (self, copyOf), #116 sources `random` and `card`. Returns how many cards were created. */
   private addCards(e: Extract<Effect, { type: 'addCards' }>, card?: CardInstance): number {
     const { source } = e;
-    if (source.kind !== 'random' && source.kind !== 'card') {
-      throw new Error(`Effect "addCards" is not simulated yet (source "${source.kind}")`);
-    }
+    if (source.kind === 'self' || source.kind === 'copyOf') return this.addCopies(e, card);
     const upgraded = e.upgraded === true;
     let made = 0;
     for (let i = 0; i < e.count; i++) {
@@ -1329,19 +1549,24 @@ class Combat {
     this.log?.push({ t: 'debuff', side, kind, amount, total: f.debuffs[kind] });
   }
 
+  /** Shuffle the discard pile into the (empty) draw pile. Returns false when the discard pile is empty. */
+  private reshuffleDiscard(): boolean {
+    const { player } = this;
+    if (player.discardPile.length === 0) return false;
+    player.drawPile = player.discardPile;
+    player.discardPile = [];
+    this.rng.shuffle(player.drawPile);
+    this.log?.push({ t: 'shuffle', reason: 'reshuffle', count: player.drawPile.length });
+    return true;
+  }
+
   /**
    * Draw one card, reshuffling the discard pile if the draw pile is empty. Returns the card
    * (in hand, or discarded when the hand is full), or null when both piles are empty.
    */
   private drawOne(): CardInstance | null {
     const { player, log } = this;
-    if (player.drawPile.length === 0) {
-      if (player.discardPile.length === 0) return null;
-      player.drawPile = player.discardPile;
-      player.discardPile = [];
-      this.rng.shuffle(player.drawPile);
-      log?.push({ t: 'shuffle', reason: 'reshuffle', count: player.drawPile.length });
-    }
+    if (player.drawPile.length === 0 && !this.reshuffleDiscard()) return null;
     const card = player.drawPile.pop() as CardInstance;
     log?.push({ t: 'draw', uid: card.uid, cardId: card.cardId });
     this.counters.cardsDrawnThisTurn++;

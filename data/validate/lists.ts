@@ -58,8 +58,8 @@ export const CONTRACT_EFFECTS = [
 
 /**
  * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
- * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion.  `applyEnemyPower` (stun only) and `conditional` (`fatal` only)
- * are checked by field in data/validate/cards.ts.
+ * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion, #114 playCards and addReplay.
+ * `applyEnemyPower` (stun only) and `conditional` (`fatal` only) are checked by field in data/validate/cards.ts.
  */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseHp',
@@ -73,6 +73,8 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseMaxHp',
   'gainGold',
   'gainPotion',
+  'playCards',
+  'addReplay',
 ]);
 
 /** #115: enemy powers the engine simulates (Whistle's Stun); strengthLossThisTurn waits for #110. */
@@ -84,11 +86,17 @@ export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun']);
  */
 export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount', 'handSize']);
 
-/** #108: `script` ids the engine runs (Fiend Fire, Thrash); other scripts are not simulated yet. */
-export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus']);
+/** `script` ids the engine runs (#108 Fiend Fire, Thrash; #116 primalForcePlus; #114 Howl from Beyond's playSelf). */
+export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus', 'playSelf']);
 
-/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand); turnEndInExhaust waits for #114. */
-export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'drawn', 'turnEndInHand']);
+/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */
+export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust']);
+
+/** #114: `addCards` sources that copy a card (Anger, Dual Wield); 'card' and 'random' are #116's. */
+export const SIMULATED_CARD_SOURCES = new Set<string>(['self', 'copyOf']);
+
+/** #114: `addCards` fields the engine does not run for copies (#116 sets them on the cards it creates). */
+export const UNSIMULATED_ADD_CARDS_FIELDS = ['options', 'upgraded', 'freeThisTurn', 'costThisCombat'] as const;
 
 export const UNSIMULATED_EFFECTS = new Set<string>(
   ['gainStars', ...CONTRACT_EFFECTS].filter((t) => !SIMULATED_CONTRACT_EFFECTS.has(t)),
@@ -123,8 +131,8 @@ export const SIMULATED_POWERS = new Set<string>([
   'gambit',
 ]);
 
-/** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */
-export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded']);
+/** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters, #114 noReplay); others are not simulated yet. */
+export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded', 'noReplay']);
 
 /** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS). */
 export const UNSIMULATED_CARD_FIELDS = ['playableIf', 'costLessPer'] as const;

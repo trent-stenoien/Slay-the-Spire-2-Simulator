@@ -40,7 +40,7 @@
   },
   "description": "Deal 18 damage to ALL enemies. / At the end of your turn, if this is in your Exhaust Pile, play it.",
   "upgradedDescription": "Deal 24 damage to ALL enemies. / At the end of your turn, if this is in your Exhaust Pile, play it.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
