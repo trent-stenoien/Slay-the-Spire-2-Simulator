@@ -9,13 +9,21 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "playCards",
+      "from": "draw",
+      "mode": "top",
+      "count": 1,
+      "exhaust": true
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Play the top card of your Draw Pile and Exhaust it.",
   "upgradedDescription": "Play the top card of your Draw Pile and Exhaust it.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

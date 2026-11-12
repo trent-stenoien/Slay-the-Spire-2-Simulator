@@ -9,11 +9,47 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "copyOf",
+        "from": "hand",
+        "mode": "choose",
+        "filter": {
+          "types": [
+            "attack",
+            "power"
+          ]
+        }
+      },
+      "count": 1,
+      "to": "hand"
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "copyOf",
+          "from": "hand",
+          "mode": "choose",
+          "filter": {
+            "types": [
+              "attack",
+              "power"
+            ]
+          }
+        },
+        "count": 2,
+        "to": "hand"
+      }
+    ]
+  },
   "description": "Choose an Attack or Power card. Add a copy of that card into your Hand.",
   "upgradedDescription": "Choose an Attack or Power card. Add 2 copies of that card into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

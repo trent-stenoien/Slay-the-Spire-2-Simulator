@@ -9,11 +9,39 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "schedule",
+      "delay": 2,
+      "at": "turnEnd",
+      "effects": [
+        {
+          "type": "dealDamage",
+          "amount": 40,
+          "allEnemies": true
+        }
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "schedule",
+        "delay": 2,
+        "at": "turnEnd",
+        "effects": [
+          {
+            "type": "dealDamage",
+            "amount": 50,
+            "allEnemies": true
+          }
+        ]
+      }
+    ]
+  },
   "description": "At the end of 3 turns, deal 40 damage to ALL enemies.",
   "upgradedDescription": "At the end of 3 turns, deal 50 damage to ALL enemies.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -152,14 +152,6 @@ describe('#108 Exhaust cards', () => {
       upgraded: { effects: [{ type: 'conditional', if: three, then: [atk(24, { allEnemies: true })] }] },
     });
   });
-
-  it('Howl from Beyond is recorded but waits for the end-of-turn replay from the exhaust pile (#114)', () => {
-    expect(c.howl_from_beyond).toMatchObject({
-      simulated: false,
-      effects: [atk(18, { allEnemies: true })],
-      triggers: [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }],
-    });
-  });
 });
 
 describe('#109 Powers', () => {
@@ -192,6 +184,54 @@ describe('#109 Powers', () => {
   ])('%s is a simulated Power; the upgrade only changes cost or keywords', (id, base, up) => {
     expect(c[id]).toMatchObject({ type: 'power', simulated: true, effects: base, upgraded: up });
     expect(c[id]!.upgraded!.effects).toBeUndefined();
+  });
+});
+
+describe('#114 Play other cards', () => {
+  const play = (extra: object) => ({ type: 'playCards', from: 'draw', mode: 'top', count: 1, ...extra });
+  const gem = (amount: number) => ({
+    type: 'addReplay',
+    amount,
+    from: 'draw',
+    mode: 'random',
+    filter: { noReplay: true },
+  });
+  const copyOfHand = (count: number) => ({
+    type: 'addCards',
+    source: { kind: 'copyOf', from: 'hand', mode: 'choose', filter: { types: ['attack', 'power'] } },
+    count,
+    to: 'hand',
+  });
+  const self = { type: 'addCards', source: { kind: 'self' }, count: 1, to: 'discard' };
+
+  it.each([
+    ['havoc', [play({ exhaust: true })], undefined],
+    ['cascade', [play({ xTimes: true })], [play({ xTimes: true, xBonus: 1 })]],
+    ['catastrophe', [play({ mode: 'random', count: 2 })], [play({ mode: 'random', count: 3 })]],
+    [
+      'beat_down',
+      [play({ from: 'discard', mode: 'random', count: 3, filter: { types: ['attack'] } })],
+      [play({ from: 'discard', mode: 'random', count: 4, filter: { types: ['attack'] } })],
+    ],
+    ['hidden_gem', [gem(2)], [gem(3)]],
+    ['anger', [atk(6), self], [atk(8), self]],
+    ['dual_wield', [copyOfHand(1)], [copyOfHand(2)]],
+  ])('%s is simulated', (id, base, up) => {
+    expect(c[id]).toMatchObject({ simulated: true, effects: base });
+    if (up) expect(c[id]).toMatchObject({ upgraded: { effects: up } });
+  });
+
+  it('Havoc only gets cheaper when upgraded', () => {
+    expect(c.havoc).toMatchObject({ cost: 1, upgraded: { cost: 0 } });
+    expect(c.havoc?.upgraded).not.toHaveProperty('effects');
+  });
+
+  it('Howl from Beyond plays itself from the Exhaust pile at the end of the turn; simulated', () => {
+    expect(c.howl_from_beyond).toMatchObject({
+      simulated: true,
+      effects: [atk(18, { allEnemies: true })],
+      triggers: [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }],
+    });
   });
 });
 

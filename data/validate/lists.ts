@@ -58,9 +58,10 @@ export const CONTRACT_EFFECTS = [
 
 /**
  * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
- * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion, #111 attackFrom,
- * gainBlockFrom, growDamage (their counters are checked by field). `applyEnemyPower` (stun only), `conditional`
- * and `repeat` are checked by field in data/validate/cards.ts.
+ * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion, #114 playCards and addReplay, #112 moveCards, moveSelf, upgradeCards,
+ * #110 schedule (with simulated inner effects), dealDamage, enemyLoseHp, setCost, #111 attackFrom, gainBlockFrom, growDamage
+ * (their counters are checked by field). `applyEnemyPower` (stun, strengthLossThisTurn), `conditional` and `repeat` are
+ * checked by field in data/validate/cards.ts.
  */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseHp',
@@ -69,6 +70,9 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'exhaustCards',
   'addCards',
   'transformCards',
+  'moveCards',
+  'moveSelf',
+  'upgradeCards',
   'heal',
   'gainMaxHp',
   'loseMaxHp',
@@ -77,10 +81,17 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'attackFrom',
   'gainBlockFrom',
   'growDamage',
+  // #110
+  'schedule',
+  'dealDamage',
+  'enemyLoseHp',
+  'setCost',
+  'playCards',
+  'addReplay',
 ]);
 
-/** #115: enemy powers the engine simulates (Whistle's Stun); strengthLossThisTurn waits for #110. */
-export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun']);
+/** #110/#115: enemy powers the engine simulates (Stun, temporary Strength loss). */
+export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun', 'strengthLossThisTurn']);
 
 /**
  * #108/#111: counters the engine reads for `repeat`, `conditional`, `attackFrom` and `gainBlockFrom`
@@ -102,11 +113,24 @@ export const SIMULATED_COUNTERS = new Set<string>([
   'lastAttackDamage',
 ]);
 
-/** #108/#111: `script` ids the engine runs (Fiend Fire, Thrash, Perfected Strike); other scripts are not simulated yet. */
-export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus', 'perfectedStrike']);
+/** `script` ids the engine runs (#108 Fiend Fire, Thrash; #116 primalForcePlus; #114 playSelf; #110 prolong; #111 perfectedStrike). */
+export const SIMULATED_SCRIPTS = new Set<string>([
+  'fiendFire',
+  'thrash',
+  'primalForcePlus',
+  'playSelf',
+  'prolong',
+  'perfectedStrike',
+]);
 
-/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand); turnEndInExhaust waits for #114. */
-export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'drawn', 'turnEndInHand']);
+/** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */
+export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust']);
+
+/** #114: `addCards` sources that copy a card (Anger, Dual Wield); 'card' and 'random' are #116's. */
+export const SIMULATED_CARD_SOURCES = new Set<string>(['self', 'copyOf']);
+
+/** #114: `addCards` fields the engine does not run for copies (#116 sets them on the cards it creates). */
+export const UNSIMULATED_ADD_CARDS_FIELDS = ['options', 'upgraded', 'freeThisTurn', 'costThisCombat'] as const;
 
 export const UNSIMULATED_EFFECTS = new Set<string>(
   ['gainStars', ...CONTRACT_EFFECTS].filter((t) => !SIMULATED_CONTRACT_EFFECTS.has(t)),
@@ -114,8 +138,8 @@ export const UNSIMULATED_EFFECTS = new Set<string>(
 
 /**
  * Powers the engine simulates (engine/combat.ts SIMULATED_POWER_IDS); a simulated card may apply
- * only these: #107 noDraw (Battle Trance) and the #109 simple powers. Temporary (#110) and
- * trigger powers (#113, #115, #116) are not simulated yet.
+ * only these: #107 noDraw (Battle Trance), the #109 simple powers and the #110 temporary powers.
+ * Trigger powers (#113, #116) are not simulated yet.
  */
 export const SIMULATED_POWERS = new Set<string>([
   'noDraw',
@@ -139,13 +163,34 @@ export const SIMULATED_POWERS = new Set<string>([
   'entropy',
   'intangible',
   'gambit',
+  // #110 temporary and next-turn powers
+  'strengthThisTurn',
+  'rage',
+  'flameBarrier',
+  'colossus',
+  'noBlockFromCards',
+  'retainHand',
+  'freeAttack',
+  'doubleAttack',
+  'nextCardToDrawTop',
+  'choking',
 ]);
 
-/** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters); others are not simulated yet. */
-export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded', 'nameIncludes']);
+/** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters, #114 noReplay); others are not simulated yet. */
+export const SIMULATED_FILTER_FIELDS = new Set<string>([
+  'types',
+  'notTypes',
+  'rarity',
+  'cardId',
+  'upgraded',
+  'noReplay',
+]);
 
-/** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS; `playableIf` is simulated, #111). */
-export const UNSIMULATED_CARD_FIELDS = ['costLessPer'] as const;
+/** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS; `costLessPer`: see SIMULATED_COST_COUNTERS; `playableIf` is simulated, #111). */
+export const UNSIMULATED_CARD_FIELDS: readonly string[] = [];
+
+/** #110: the counters `costLessPer` may use on a simulated card (Stomp: Attacks played this turn). */
+export const SIMULATED_COST_COUNTERS = new Set<string>(['attacksPlayedThisTurn']);
 
 export const PILES = ['hand', 'draw', 'discard', 'exhaust'] as const;
 

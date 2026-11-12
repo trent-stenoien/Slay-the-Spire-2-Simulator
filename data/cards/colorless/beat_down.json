@@ -9,11 +9,37 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "playCards",
+      "from": "discard",
+      "mode": "random",
+      "count": 3,
+      "filter": {
+        "types": [
+          "attack"
+        ]
+      }
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "playCards",
+        "from": "discard",
+        "mode": "random",
+        "count": 4,
+        "filter": {
+          "types": [
+            "attack"
+          ]
+        }
+      }
+    ]
+  },
   "description": "Play 3 random Attacks from your Discard Pile.",
   "upgradedDescription": "Play 4 random Attacks from your Discard Pile.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

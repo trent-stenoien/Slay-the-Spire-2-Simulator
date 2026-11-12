@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "strengthThisTurn",
+      "amount": 5
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "strengthThisTurn",
+        "amount": 7
+      }
+    ]
+  },
   "description": "Gain 5 Strength this turn.",
   "upgradedDescription": "Gain 7 Strength this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

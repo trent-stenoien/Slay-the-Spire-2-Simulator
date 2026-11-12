@@ -273,18 +273,6 @@ describe('#108 Drum of Battle (when exhausted)', () => {
       { when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 3 }] },
     ]);
   });
-
-  it('a deck card with a trigger the engine does not run yet throws', () => {
-    const d = data();
-    d.cards.howl = { ...cards.strike!, id: 'howl', triggers: [{ when: 'turnEndInExhaust', effects: [] }] };
-    expect(() =>
-      simulateCombat(
-        d,
-        cfg({ deck: deckOf(['howl', 1]) }),
-        scripted(() => []),
-      ),
-    ).toThrow(/trigger "turnEndInExhaust" is not simulated yet/);
-  });
 });
 
 describe('#108 Second Wind', () => {
@@ -386,14 +374,14 @@ describe('#108 Fiend Fire', () => {
 
   it('a script id the engine does not know is not simulated yet', () => {
     const d = data();
-    d.cards.probe = skill('probe', 'Pr', [{ type: 'script', id: 'playSelf' }]);
+    d.cards.probe = skill('probe', 'Pr', [{ type: 'script', id: 'unknownScript' }]);
     expect(() =>
       simulateCombat(
         d,
         cfg({ deck: deckOf(['probe', 5]) }),
         scripted((t) => (t === 1 ? ['probe'] : [])),
       ),
-    ).toThrow(/Effect "script" is not simulated yet \(id "playSelf"\)/);
+    ).toThrow(/Effect "script" is not simulated yet \(id "unknownScript"\)/);
   });
 });
 

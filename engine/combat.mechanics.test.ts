@@ -329,7 +329,7 @@ describe('#107 draw', () => {
     expect(turnEvents(r.log!, 2).filter((e) => e.t === 'draw')).toHaveLength(5);
   });
 
-  it('matchesFilter: types, notTypes, cardId, upgraded, nameIncludes; open fields throw', () => {
+  it('matchesFilter: types, notTypes, cardId, upgraded, nameIncludes', () => {
     const strike = makeCardInstance(cards.strike!, true, 0);
     expect(matchesFilter(strike, {})).toBe(true);
     expect(matchesFilter(strike, { notTypes: ['attack'] })).toBe(false);
@@ -337,7 +337,6 @@ describe('#107 draw', () => {
     expect(matchesFilter(strike, { upgraded: false })).toBe(false);
     expect(matchesFilter(strike, { nameIncludes: 'Strike' })).toBe(true);
     expect(matchesFilter(strike, { nameIncludes: 'strike' })).toBe(false);
-    expect(() => matchesFilter(strike, { rarity: ['common'] })).toThrow(/"rarity" is not simulated yet/);
   });
 
   it('lose HP and draw combats are deterministic', () => {

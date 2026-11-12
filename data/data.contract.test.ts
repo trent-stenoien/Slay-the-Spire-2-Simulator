@@ -5,7 +5,7 @@ import { fixture, errorsOf } from './dataTestHelpers';
 import { SIMULATED_POWERS } from './validate/lists';
 import { SIMULATED_POWER_IDS } from '../engine/combat';
 
-/** Contract effects the engine simulates now (#106, #107, #108, #111, #116); a simulated card may use them. */
+/** Contract effects the engine simulates now (#106, #107, #108, #110, #111, #114, #115, #116); a simulated card may use them. */
 const SIMULATED = [
   'loseHp',
   'draw',
@@ -22,6 +22,17 @@ const SIMULATED = [
   'gainBlockFrom',
   'growDamage',
   'script',
+  'script',
+  'applyEnemyPower',
+  'schedule',
+  'dealDamage',
+  'enemyLoseHp',
+  'setCost',
+  'playCards',
+  'addReplay',
+  'moveCards',
+  'moveSelf',
+  'upgradeCards',
 ];
 const UNSIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => !SIMULATED.includes(e.type));
 const SIMULATED_SAMPLES = CONTRACT_EFFECT_SAMPLES.filter((e) => SIMULATED.includes(e.type));
@@ -69,8 +80,10 @@ describe('#105 contract shapes', () => {
       to: 'hand',
     });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"cardPool\.otherCharacters"/)]);
+    // #114: copies (self, copyOf) are simulated, but not with the #116 fields.
     d.cards.strike.effects.at(-1).source = { kind: 'self' };
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"addCards\.source\.self"/)]);
+    d.cards.strike.effects.at(-1).options = 2;
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"addCards"/)]);
     d.cards.strike.effects.pop();
     d.cards.strike.effects.push({
       type: 'transformCards',
@@ -84,8 +97,10 @@ describe('#105 contract shapes', () => {
 
   it('rejects a drawUntil stop filter on a field the engine does not match yet', () => {
     const d = fixture();
-    d.cards.strike.effects.push({ type: 'drawUntil', stopOn: { types: ['skill'], rarity: ['rare'] } });
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"drawUntil\.stopOn\.rarity"/)]);
+    d.cards.strike.effects.push({ type: 'drawUntil', stopOn: { types: ['skill'], nameIncludes: 'Strike' } });
+    expect(errorsOf(d)).toEqual([
+      expect.stringMatching(/cards\/strike.*"simulated".*"drawUntil\.stopOn\.nameIncludes"/),
+    ]);
     d.cards.strike.effects.at(-1).stopOn = { notTypes: ['attack'] };
     expect(errorsOf(d)).toEqual([]);
   });
@@ -150,14 +165,14 @@ describe('#105 contract shapes', () => {
       per: 'lastEffectCount',
       effects: [
         { type: 'draw', amount: 1 },
-        { type: 'dealDamage', amount: 1 },
+        { type: 'applyPower', power: 'rupture', amount: 1 },
       ],
     });
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"dealDamage"/)]);
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"applyPower"/)]);
     d.cards.strike.effects.pop();
     d.cards.strike.effects.push({ type: 'script', id: 'perfectedStrike', values: [6, 2] });
     expect(errorsOf(d)).toEqual([]);
-    d.cards.strike.effects.push({ type: 'script', id: 'playSelf' });
+    d.cards.strike.effects.push({ type: 'script', id: 'unknownScript' });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"script"/)]);
   });
 
@@ -177,8 +192,37 @@ describe('#105 contract shapes', () => {
     d.cards.strike.effects.push({ type: 'gainBlockFrom', amount: 0, bonusPer: { per: 'discardPileSize', amount: 1 } });
     d.cards.strike.playableIf = { kind: 'handAll', filter: { types: ['attack'] } };
     expect(errorsOf(d)).toEqual([]);
-    d.cards.strike.playableIf = { kind: 'handAll', filter: { rarity: ['rare'] } };
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"conditional\.filter\.rarity"/)]);
+    d.cards.strike.playableIf = { kind: 'handAll', filter: { nameIncludes: 'Strike' } };
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"simulated".*"conditional\.filter\.nameIncludes"/)]);
+  });
+
+  it('#114: addCards is simulated for self / copyOf sources, but not with the #116 fields', () => {
+    const d = fixture();
+    const self = { type: 'addCards', source: { kind: 'self' }, count: 1, to: 'discard' };
+    const copy = { type: 'addCards', source: { kind: 'copyOf', from: 'hand', mode: 'choose' }, count: 2, to: 'hand' };
+    d.cards.strike.effects.push(structuredClone(self), structuredClone(copy));
+    expect(errorsOf(d)).toEqual([]);
+    for (const bad of [
+      { ...self, upgraded: true },
+      { ...self, freeThisTurn: true },
+      { ...copy, options: 3 },
+    ]) {
+      const e = fixture();
+      e.cards.strike.effects.push(structuredClone(bad));
+      expect(errorsOf(e)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"addCards"/)]);
+    }
+  });
+
+  it('#114: playCards and addReplay are simulated except from the exhaust pile or with an unmatched filter field', () => {
+    const d = fixture();
+    d.cards.strike.effects.push(
+      { type: 'playCards', from: 'discard', mode: 'random', count: 3, filter: { types: ['attack'] } },
+      { type: 'addReplay', amount: 2, from: 'draw', mode: 'random', filter: { noReplay: true } },
+    );
+    expect(errorsOf(d)).toEqual([]);
+    d.cards.strike.effects.at(-2).from = 'exhaust';
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"playCards\.from\.exhaust"/)]);
+    d.cards.strike.effects.at(-2).from = 'draw';
   });
 
   it('#108: rejects exhaustCards from the exhaust pile or with an unmatched filter field on a simulated card', () => {
@@ -186,18 +230,53 @@ describe('#105 contract shapes', () => {
     d.cards.strike.effects.push({ type: 'exhaustCards', from: 'exhaust', count: 1, mode: 'random' });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/"exhaustCards\.from\.exhaust"/)]);
     d.cards.strike.effects.at(-1).from = 'hand';
-    d.cards.strike.effects.at(-1).filter = { rarity: ['rare'] };
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/"exhaustCards\.filter\.rarity"/)]);
+    d.cards.strike.effects.at(-1).filter = { nameIncludes: 'Strike' };
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"exhaustCards\.filter\.nameIncludes"/)]);
   });
 
-  it('accepts triggers, playableIf and costLessPer on unsimulated cards and rejects them on simulated ones', () => {
+  it('#112: rejects moves to the exhaust pile, upgrade-on-move and an immediate moveSelf on a simulated card', () => {
     const d = fixture();
-    d.cards.strike.triggers = [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }];
-    d.cards.strike.upgraded.triggers = [{ when: 'drawn', effects: [] }];
+    d.cards.strike.effects.push({ type: 'moveCards', from: 'discard', to: 'exhaust', count: 1, mode: 'choose' });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"moveCards\.to\.exhaust"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({
+      type: 'moveCards',
+      from: 'discard',
+      to: 'hand',
+      count: 1,
+      mode: 'choose',
+      upgrade: true,
+    });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"moveCards\.upgrade"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({
+      type: 'moveCards',
+      from: 'draw',
+      to: 'hand',
+      mode: 'all',
+      filter: { nameIncludes: 'Strike' },
+    });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"moveCards\.filter\.nameIncludes"/)]);
+    d.cards.strike.effects.pop();
+    d.cards.strike.effects.push({ type: 'moveSelf', to: 'hand', when: 'now' });
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/"moveSelf\.now"/)]);
+  });
+
+  it('#112: accepts a rarity filter and the Anointed, Bolas and Armaments shapes on simulated cards', () => {
+    const d = fixture();
+    d.cards.strike.effects.push(
+      { type: 'moveCards', from: 'draw', to: 'hand', mode: 'all', filter: { rarity: ['rare'] } },
+      { type: 'moveSelf', to: 'hand', when: 'nextTurnStart' },
+      { type: 'upgradeCards', piles: ['hand'], count: 1, mode: 'choose' },
+    );
+    expect(errorsOf(d)).toEqual([]);
+  });
+
+  it('accepts playableIf and costLessPer on unsimulated cards and rejects them on simulated ones', () => {
+    const d = fixture();
     d.cards.defend.playableIf = { kind: 'counter', counter: 'cardsPlayedThisTurn', min: 1 };
-    d.cards.bash.costLessPer = { per: 'attacksPlayedThisTurn', amount: 1 };
+    d.cards.bash.costLessPer = { per: 'cardsPlayedThisTurn', amount: 1 };
     const errs = errorsOf(d);
-    expect(errs).toContainEqual(expect.stringMatching(/cards\/strike.*"simulated".*"triggers"/));
     expect(errs).toContainEqual(
       expect.stringMatching(/cards\/defend.*"simulated".*"conditional\.cardsPlayedThisTurn"/),
     );

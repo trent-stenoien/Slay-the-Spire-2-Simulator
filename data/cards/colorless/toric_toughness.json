@@ -13,6 +13,26 @@
     {
       "type": "gainBlock",
       "amount": 5
+    },
+    {
+      "type": "schedule",
+      "delay": 1,
+      "effects": [
+        {
+          "type": "gainBlock",
+          "amount": 5
+        }
+      ]
+    },
+    {
+      "type": "schedule",
+      "delay": 2,
+      "effects": [
+        {
+          "type": "gainBlock",
+          "amount": 5
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -20,12 +40,32 @@
       {
         "type": "gainBlock",
         "amount": 7
+      },
+      {
+        "type": "schedule",
+        "delay": 1,
+        "effects": [
+          {
+            "type": "gainBlock",
+            "amount": 7
+          }
+        ]
+      },
+      {
+        "type": "schedule",
+        "delay": 2,
+        "effects": [
+          {
+            "type": "gainBlock",
+            "amount": 7
+          }
+        ]
       }
     ]
   },
   "description": "Gain 5 Block. / Gain 5 Block at the start of the next 2 turns.",
   "upgradedDescription": "Gain 7 Block. / Gain 7 Block at the start of the next 2 turns.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

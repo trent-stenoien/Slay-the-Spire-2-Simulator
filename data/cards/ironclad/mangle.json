@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 20,
       "hits": 1
+    },
+    {
+      "type": "applyEnemyPower",
+      "power": "strengthLossThisTurn",
+      "amount": 10
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 26,
         "hits": 1
+      },
+      {
+        "type": "applyEnemyPower",
+        "power": "strengthLossThisTurn",
+        "amount": 15
       }
     ]
   },
   "description": "Deal 20 damage. / Enemy loses 10 Strength this turn.",
   "upgradedDescription": "Deal 26 damage. / Enemy loses 15 Strength this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

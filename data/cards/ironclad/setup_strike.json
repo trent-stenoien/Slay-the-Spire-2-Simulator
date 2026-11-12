@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 7,
       "hits": 1
+    },
+    {
+      "type": "applyPower",
+      "power": "strengthThisTurn",
+      "amount": 3
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 9,
         "hits": 1
+      },
+      {
+        "type": "applyPower",
+        "power": "strengthThisTurn",
+        "amount": 4
       }
     ]
   },
   "description": "Deal 7 damage. / Gain 3 Strength this turn.",
   "upgradedDescription": "Deal 9 damage. / Gain 4 Strength this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

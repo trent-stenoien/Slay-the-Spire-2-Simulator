@@ -6,10 +6,10 @@ import { cfg, deckOf, passive, scripted, withEnemy } from './combatTestHelpers';
 import type { CardDef } from './types';
 
 /**
- * Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards, #116 addCards and transformCards
- * (tested in combat.mechanics.test.ts / combat.exhaust.test.ts), #115 heal, gainMaxHp, loseMaxHp
- * (combat.statuses.test.ts), #111 conditional, repeat, attackFrom, gainBlockFrom, growDamage and the
- * perfectedStrike script (combat.conditional.test.ts).
+ * Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards, #116 addCards and
+ * transformCards, #115 heal, gainMaxHp, loseMaxHp (combat.statuses.test.ts), #114 playCards and addReplay
+ * (combat.playCards.test.ts), #110 applyEnemyPower, schedule, dealDamage, enemyLoseHp, setCost (combat.temporary.test.ts),
+ * #111 conditional, repeat, attackFrom, gainBlockFrom, growDamage and the perfectedStrike script (combat.conditional.test.ts).
  */
 const SIMULATED = [
   'loseHp',
@@ -27,6 +27,16 @@ const SIMULATED = [
   'gainBlockFrom',
   'growDamage',
   'script',
+  'applyEnemyPower',
+  'schedule',
+  'dealDamage',
+  'enemyLoseHp',
+  'setCost',
+  'playCards',
+  'addReplay',
+  'moveCards',
+  'moveSelf',
+  'upgradeCards',
 ];
 
 describe('#105 contract effects are not simulated yet', () => {
@@ -108,6 +118,7 @@ describe('#105 contract effects are not simulated yet', () => {
       'effects',
       'keywords',
       'name',
+      'rarity',
       'type',
       'uid',
       'upgraded',
