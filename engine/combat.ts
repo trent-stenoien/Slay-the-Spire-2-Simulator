@@ -1150,6 +1150,11 @@ class Combat {
           if (source !== 'player') throw new Error('Effect "enemyLoseHp" is not simulated yet on enemy moves');
           if (this.enemyLoseHp(e.amount)) died = 'enemy';
           break;
+        case 'enemyGainStrength':
+          if (source !== 'player') throw new Error('Effect "enemyGainStrength" is not simulated yet on enemy moves');
+          enemy.strength += e.amount;
+          log?.push({ t: 'strength', side: 'enemy', amount: e.amount, total: enemy.strength });
+          break;
         case 'setCost':
           if (source !== 'player') throw new Error('Effect "setCost" is not simulated yet on enemy moves');
           this.setCost(e);

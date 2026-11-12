@@ -75,6 +75,8 @@ export function effectText(e: Effect): string {
       return e.delay === 1 ? 'Next turn: special effect' : `In ${e.delay} turns: special effect`;
     case 'dealDamage':
       return `Deal ${e.amount} damage${e.allEnemies ? ' to ALL enemies' : ''}`;
+    case 'enemyGainStrength':
+      return `The enemy gains ${e.amount} Strength`;
     case 'enemyLoseHp':
       return `Enemy loses ${e.amount} HP`;
     case 'setCost':

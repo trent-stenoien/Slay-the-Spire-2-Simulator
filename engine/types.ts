@@ -54,6 +54,7 @@
  *                     `transformCards`; CardInstance.freeThisTurn / generated;
  *                     GameEvent `generated`, `transformed`; PowerId calamity,
  *                     helloWorld, entropy.
+ * #169 Enemy Strength — Effect `enemyGainStrength` (Fight Me!); reuses EnemyState.strength.
  * #104 Rewards       — Effect `gainGold`, `gainPotion`; CombatResult.rewards;
  *                     StrategySummary.avgGold / potionRate (Hand of Greed, Alchemize).
  * ---------------------------------------------------------------------------
@@ -151,6 +152,8 @@ export type Effect =
   | { type: 'dealDamage'; amount: number; allEnemies?: boolean }
   /** #110: the enemy loses `amount` HP directly (ignores Block and modifiers), like Poison damage. */
   | { type: 'enemyLoseHp'; amount: number }
+  /** #169: the enemy gains `amount` Strength (Fight Me!); works like player Strength (`gainStrength` on an enemy move). */
+  | { type: 'enemyGainStrength'; amount: number }
   /**
    * #110: set the cost of cards in `piles` to `cost` (Enlightenment) for this
    * turn (CardInstance.costThisTurn) or the rest of combat (costThisCombat).
