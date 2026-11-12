@@ -94,4 +94,5 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
   and `npm run shot -- <panel>` for UI (`setup|deck|strategies|results|log`; prints the PNG path), not ad-hoc scripts.
 - Take few, small screenshots.
 - The full quality-review loop (test reviewer, test runner, readability) runs only after each
-  major update, such as completing a version, not per card.
+  major update, such as completing a version, not per card. It checks that every item in
+  `FEATURES.md` has a test. When a card settles a new rule, add it to `FEATURES.md`.
