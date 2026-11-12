@@ -74,6 +74,14 @@ describe('Artifact (#203)', () => {
     expect(events(r.log, 'poisonDamage')).toEqual([]);
   });
 
+  it('a large Poison application uses exactly one stack', () => {
+    const data = artifactData({ artifact: 2 });
+    data.cards.venom!.effects = [{ type: 'applyPoison', amount: 50 }];
+    const r = run(data, ['venom'], [['venom', 1]]);
+    expect(negated(r.log)).toEqual([{ t: 'negated', side: 'enemy', status: 'poison', left: 1 }]);
+    expect(events(r.log, 'poison')).toEqual([]);
+  });
+
   it('does nothing without Artifact', () => {
     const r = run(artifactData(undefined), ['sap'], [['sap', 1]]);
     expect(negated(r.log)).toEqual([]);
