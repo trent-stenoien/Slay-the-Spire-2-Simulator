@@ -45,6 +45,5 @@
       "enemyHpAfterEachPlay": [38, 38, 6, 0]
     }
   ],
-  "result": { "outcome": "win", "turns": 3, "finalHp": 45, "hpLost": -5 },
-  "skip": "Byrdonis Egg (quest card, unplayable) is data-flagged simulated:false, so the engine refuses to build the deck. With the Egg swapped for a Defend (never played) in a throwaway copy, every recorded value matched (incl. Plating 4/3/2, Anchor 10, Artifact negating Weak, Vulnerable, damage, HP). Unskip once the Egg is simulated."
+  "result": { "outcome": "win", "turns": 3, "finalHp": 45, "hpLost": -5 }
 }
