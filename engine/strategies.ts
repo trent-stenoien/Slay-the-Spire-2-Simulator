@@ -194,6 +194,17 @@ function totalBaseDamage(card: Card, energy: number, state?: State): number {
   return sum;
 }
 
+/** #213: hits an attack card makes (X-cost: X = `energy`), for stripping Slippery stacks. */
+function attackHitCount(card: Card, energy: number): number {
+  const x = card.xCost ? energy : 0;
+  let hits = 0;
+  for (const e of card.effects) {
+    if (e.type === 'attack') hits += attackHits(e, x);
+    else if (e.type === 'attackFrom') hits += e.hits;
+  }
+  return hits;
+}
+
 /** #107: true for a card that draws cards (`draw` or `drawUntil`). */
 export function isDrawCard(card: Card): boolean {
   return card.effects.some((e) => e.type === 'draw' || e.type === 'drawUntil');
@@ -1147,13 +1158,20 @@ export function pickAttack(
 ): Card | undefined {
   const attacks = playable.filter((c) => isAttackCard(c) && xCostPlayable(c, energy));
   const vuln = (c: Card) => (appliesVulnerable(c) && vulnerableFirst(c, attacks, energy, enemyVulnerable) ? 1 : 0);
+  // #213 Slippery: each hit costs one stack and loses only 1 HP, so while it is up the card with the
+  // most hits goes first and a big single hit (least total damage first on a tie) waits.
+  const slippery = (state?.enemy.powers?.slippery ?? 0) > 0;
+  const rank = (c: Card, x: number) =>
+    slippery
+      ? [vuln(c), attackHitCount(c, energy), -totalBaseDamage(c, x, state), draws(c)]
+      : [vuln(c), totalBaseDamage(c, x, state), draws(c)];
   const other = best(
     attacks.filter((c) => !c.xCost),
-    (c) => [vuln(c), totalBaseDamage(c, energy, state), draws(c)],
+    (c) => rank(c, energy),
   );
   const x = best(
     attacks.filter((c) => c.xCost),
-    (c) => [vuln(c), totalBaseDamage(c, 1, state), draws(c)],
+    (c) => rank(c, 1),
   );
   if (!x || !other) return x ?? other;
   if (vuln(x) !== vuln(other)) return vuln(x) > vuln(other) ? x : other;

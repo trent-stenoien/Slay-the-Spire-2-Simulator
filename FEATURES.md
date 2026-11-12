@@ -30,7 +30,11 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    and doesn't stack. Sludge Spinner opens with Oil Spray, then picks at random with no repeats (the
    opener counts as the previous move). A Stunned enemy skips its move and deals no damage; its
    pattern still advances (#148 confirms). Enemy Strength gained from cards (Fight Me) works like
-   player Strength (#169).
+   player Strength (#169). Slippery N (#213, e.g. Inklet 1, Vantom 8): each time the enemy would lose
+   HP (an attack hit, Juggernaut / Thorns power damage, Poison, direct HP loss) it loses only 1 and
+   uses one stack, so a multi-hit attack uses one per hit; a fully blocked hit (0 HP loss) uses none;
+   Strength and Vulnerable don't matter. Poison counts as a loss (literal reading of the text). While
+   it is up, the attack with the most hits is played first and big single hits wait.
 10. **Statuses, curses and defensive effects (#115):** "Lose X HP" curses/statuses (Bad Luck, Beckon,
     Regret) ignore Block; "Take X damage" ones (Burn, Decay, Disintegration, Infection, Toxic, Wither)
     are blockable. Intangible makes every hit that turn 1, Poison included (Accelerant = 1 twice).

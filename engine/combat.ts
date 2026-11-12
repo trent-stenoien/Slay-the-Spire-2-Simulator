@@ -658,7 +658,7 @@ class Combat {
     const { enemy } = this;
     const blocked = Math.min(enemy.block, amount);
     enemy.block -= blocked;
-    const hpLoss = amount - blocked;
+    const hpLoss = this.slipperyLoss(amount - blocked);
     enemy.hp -= hpLoss;
     this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
     return enemy.hp <= 0;
@@ -975,7 +975,7 @@ class Combat {
     log?.push({ t: 'blockReset', side: 'enemy' });
     // Poison: HP loss equal to stacks (ignores Block and modifiers), then -1. A kill ends combat before the move.
     if (enemy.poison > 0) {
-      const amount = enemy.poison;
+      const amount = this.slipperyLoss(enemy.poison);
       enemy.hp -= amount;
       enemy.poison--;
       log?.push({ t: 'poisonDamage', amount, hpAfter: Math.max(enemy.hp, 0) });
@@ -1629,9 +1629,21 @@ class Combat {
     this.log?.push({ t: 'upgraded', uid: c.uid, cardId: c.cardId });
   }
 
-  /** #110: the enemy loses HP directly (ignores Block and modifiers). Returns true if it died. */
-  private enemyLoseHp(amount: number): boolean {
+  /**
+   * #213 Slippery: an HP loss of `amount` (> 0) on the enemy becomes 1 and uses one stack. Every loss
+   * counts (attack hit, power damage, Poison, direct HP loss); a loss of 0 (fully blocked) does not.
+   */
+  private slipperyLoss(amount: number): number {
     const { enemy } = this;
+    if (amount <= 0 || (enemy.powers?.slippery ?? 0) <= 0) return amount;
+    this.applyEnemyPower('slippery', -1);
+    return 1;
+  }
+
+  /** #110: the enemy loses HP directly (ignores Block and modifiers). Returns true if it died. */
+  private enemyLoseHp(requested: number): boolean {
+    const { enemy } = this;
+    const amount = this.slipperyLoss(requested);
     enemy.hp -= amount;
     this.log?.push({ t: 'loseHp', side: 'enemy', amount, hpAfter: Math.max(enemy.hp, 0) });
     return enemy.hp <= 0;
@@ -2219,7 +2231,8 @@ class Combat {
     for (let h = 0; h < hits; h++) {
       const blocked = Math.min(t.block, perHit);
       t.block -= blocked;
-      const hpLoss = perHit - blocked;
+      const raw = perHit - blocked;
+      const hpLoss = target === 'enemy' ? this.slipperyLoss(raw) : raw;
       t.hp -= hpLoss;
       this.log?.push({ t: 'damage', source, target, amount: perHit, blocked, hpLoss });
       if (source === 'player') this.lastAttackDamage += perHit;
