@@ -5,7 +5,7 @@ import { fixture, errorsOf } from './dataTestHelpers';
 import { SIMULATED_POWERS } from './validate/lists';
 import { SIMULATED_POWER_IDS } from '../engine/combat';
 
-/** Contract effects the engine simulates now (#106, #107, #108, #114, #115, #116); a simulated card may use them. */
+/** Contract effects the engine simulates now (#106, #107, #108, #110, #114, #115, #116); a simulated card may use them. */
 const SIMULATED = [
   'loseHp',
   'draw',
@@ -16,6 +16,11 @@ const SIMULATED = [
   'loseMaxHp',
   'addCards',
   'transformCards',
+  'applyEnemyPower',
+  'schedule',
+  'dealDamage',
+  'enemyLoseHp',
+  'setCost',
   'playCards',
   'addReplay',
 ];
@@ -134,7 +139,7 @@ describe('#105 contract shapes', () => {
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"applyPower"/)]);
   });
 
-  it('#108: repeat only per lastEffectCount with simulated inner effects; script only fiendFire / thrash', () => {
+  it('#108: repeat only per lastEffectCount with simulated inner effects; script only fiendFire / thrash / prolong', () => {
     const d = fixture();
     d.cards.strike.effects.push(
       { type: 'exhaustCards', mode: 'all', filter: { notTypes: ['attack'] } },
@@ -148,10 +153,10 @@ describe('#105 contract shapes', () => {
       per: 'lastEffectCount',
       effects: [
         { type: 'draw', amount: 1 },
-        { type: 'dealDamage', amount: 1 },
+        { type: 'moveCards', from: 'discard', to: 'hand', count: 1, mode: 'choose' },
       ],
     });
-    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"dealDamage"/)]);
+    expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"moveCards"/)]);
     d.cards.strike.effects.pop();
     d.cards.strike.effects.push({ type: 'script', id: 'perfectedStrike' });
     expect(errorsOf(d)).toEqual([expect.stringMatching(/cards\/strike.*"simulated".*"script"/)]);
@@ -200,7 +205,7 @@ describe('#105 contract shapes', () => {
   it('accepts playableIf and costLessPer on unsimulated cards and rejects them on simulated ones', () => {
     const d = fixture();
     d.cards.defend.playableIf = { kind: 'handAll', filter: { types: ['attack'] } };
-    d.cards.bash.costLessPer = { per: 'attacksPlayedThisTurn', amount: 1 };
+    d.cards.bash.costLessPer = { per: 'cardsPlayedThisTurn', amount: 1 };
     const errs = errorsOf(d);
     expect(errs).toContainEqual(expect.stringMatching(/cards\/defend.*"simulated".*"playableIf"/));
     expect(errs).toContainEqual(expect.stringMatching(/cards\/bash.*"simulated".*"costLessPer"/));

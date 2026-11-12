@@ -8,7 +8,8 @@ import type { CardDef } from './types';
 /**
  * Contract effects the engine simulates now: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards, #116 addCards and
  * transformCards, #115 heal, gainMaxHp, loseMaxHp (combat.statuses.test.ts), #114 playCards and addReplay
- * (combat.playCards.test.ts). The samples of repeat (a counter other than lastEffectCount) and script
+ * (combat.playCards.test.ts), #110 applyEnemyPower, schedule, dealDamage,
+ * enemyLoseHp, setCost (combat.temporary.test.ts). The samples of repeat (a counter other than lastEffectCount) and script
  * (an id other than fiendFire / thrash / primalForcePlus / playSelf) still throw.
  */
 const SIMULATED = [
@@ -21,6 +22,11 @@ const SIMULATED = [
   'loseMaxHp',
   'addCards',
   'transformCards',
+  'applyEnemyPower',
+  'schedule',
+  'dealDamage',
+  'enemyLoseHp',
+  'setCost',
   'playCards',
   'addReplay',
 ];

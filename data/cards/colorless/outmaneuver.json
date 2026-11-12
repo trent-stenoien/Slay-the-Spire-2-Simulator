@@ -9,11 +9,35 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "schedule",
+      "delay": 1,
+      "effects": [
+        {
+          "type": "gainEnergy",
+          "amount": 2
+        }
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "schedule",
+        "delay": 1,
+        "effects": [
+          {
+            "type": "gainEnergy",
+            "amount": 3
+          }
+        ]
+      }
+    ]
+  },
   "description": "Next turn, gain [E][E].",
   "upgradedDescription": "Next turn, gain [E][E][E].",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

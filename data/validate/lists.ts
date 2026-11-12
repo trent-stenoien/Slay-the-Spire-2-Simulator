@@ -58,8 +58,9 @@ export const CONTRACT_EFFECTS = [
 
 /**
  * Contract effects the engine simulates: #106 loseHp, #107 draw and drawUntil, #108 exhaustCards,
- * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion, #114 playCards and addReplay.
- * `applyEnemyPower` (stun only) and `conditional` (`fatal` only) are checked by field in data/validate/cards.ts.
+ * #116 addCards, transformCards, #115 heal, gainMaxHp, loseMaxHp, #104 gainGold / gainPotion, #114 playCards and addReplay,
+ * #110 schedule (with simulated inner effects), dealDamage, enemyLoseHp, setCost.  `applyEnemyPower` (stun, strengthLossThisTurn)
+ * and `conditional` (`fatal` only) are checked by field in data/validate/cards.ts.
  */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseHp',
@@ -73,12 +74,17 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseMaxHp',
   'gainGold',
   'gainPotion',
+  // #110
+  'schedule',
+  'dealDamage',
+  'enemyLoseHp',
+  'setCost',
   'playCards',
   'addReplay',
 ]);
 
-/** #115: enemy powers the engine simulates (Whistle's Stun); strengthLossThisTurn waits for #110. */
-export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun']);
+/** #110/#115: enemy powers the engine simulates (Stun, temporary Strength loss). */
+export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun', 'strengthLossThisTurn']);
 
 /**
  * #108: `repeat` stays unsimulated in general (#111), but a simulated card may repeat "for each
@@ -86,8 +92,8 @@ export const SIMULATED_ENEMY_POWERS = new Set<string>(['stun']);
  */
 export const SIMULATED_REPEAT_COUNTERS = new Set<string>(['lastEffectCount', 'handSize']);
 
-/** `script` ids the engine runs (#108 Fiend Fire, Thrash; #116 primalForcePlus; #114 Howl from Beyond's playSelf). */
-export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus', 'playSelf']);
+/** `script` ids the engine runs (#108 Fiend Fire, Thrash; #116 primalForcePlus; #114 playSelf; #110 prolong). */
+export const SIMULATED_SCRIPTS = new Set<string>(['fiendFire', 'thrash', 'primalForcePlus', 'playSelf', 'prolong']);
 
 /** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */
 export const SIMULATED_TRIGGERS = new Set<string>(['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust']);
@@ -104,8 +110,8 @@ export const UNSIMULATED_EFFECTS = new Set<string>(
 
 /**
  * Powers the engine simulates (engine/combat.ts SIMULATED_POWER_IDS); a simulated card may apply
- * only these: #107 noDraw (Battle Trance) and the #109 simple powers. Temporary (#110) and
- * trigger powers (#113, #115, #116) are not simulated yet.
+ * only these: #107 noDraw (Battle Trance), the #109 simple powers and the #110 temporary powers.
+ * Trigger powers (#113, #116) are not simulated yet.
  */
 export const SIMULATED_POWERS = new Set<string>([
   'noDraw',
@@ -129,13 +135,27 @@ export const SIMULATED_POWERS = new Set<string>([
   'entropy',
   'intangible',
   'gambit',
+  // #110 temporary and next-turn powers
+  'strengthThisTurn',
+  'rage',
+  'flameBarrier',
+  'colossus',
+  'noBlockFromCards',
+  'retainHand',
+  'freeAttack',
+  'doubleAttack',
+  'nextCardToDrawTop',
+  'choking',
 ]);
 
 /** CardFilter fields the engine matches on (#107 Pillage's `stopOn`, #108 exhaust filters, #114 noReplay); others are not simulated yet. */
 export const SIMULATED_FILTER_FIELDS = new Set<string>(['types', 'notTypes', 'cardId', 'upgraded', 'noReplay']);
 
-/** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS). */
-export const UNSIMULATED_CARD_FIELDS = ['playableIf', 'costLessPer'] as const;
+/** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS; `costLessPer`: see SIMULATED_COST_COUNTERS). */
+export const UNSIMULATED_CARD_FIELDS = ['playableIf'] as const;
+
+/** #110: the counters `costLessPer` may use on a simulated card (Stomp: Attacks played this turn). */
+export const SIMULATED_COST_COUNTERS = new Set<string>(['attacksPlayedThisTurn']);
 
 export const PILES = ['hand', 'draw', 'discard', 'exhaust'] as const;
 

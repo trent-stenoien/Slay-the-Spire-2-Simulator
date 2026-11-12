@@ -15,6 +15,20 @@
     {
       "type": "gainBlock",
       "amount": 16
+    },
+    {
+      "type": "schedule",
+      "delay": 1,
+      "effects": [
+        {
+          "type": "draw",
+          "amount": 2
+        },
+        {
+          "type": "gainEnergy",
+          "amount": 2
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -22,12 +36,26 @@
       {
         "type": "gainBlock",
         "amount": 18
+      },
+      {
+        "type": "schedule",
+        "delay": 1,
+        "effects": [
+          {
+            "type": "draw",
+            "amount": 3
+          },
+          {
+            "type": "gainEnergy",
+            "amount": 3
+          }
+        ]
       }
     ]
   },
   "description": "Gain 16 Block. / Next turn, draw 2 cards and gain [E][E]. / Exhaust.",
   "upgradedDescription": "Gain 18 Block. / Next turn, draw 3 cards and gain [E][E][E]. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 12,
       "hits": 1
+    },
+    {
+      "type": "applyPower",
+      "power": "retainHand",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 16,
         "hits": 1
+      },
+      {
+        "type": "applyPower",
+        "power": "retainHand",
+        "amount": 1
       }
     ]
   },
   "description": "Deal 12 damage. / Retain your Hand this turn.",
   "upgradedDescription": "Deal 16 damage. / Retain your Hand this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -1,7 +1,7 @@
 import { createRng } from './rng';
 import { cardPool, chooseGenerated } from './generate';
 import { patternMoveIds, patternPool, resolveEnemy } from './enemy';
-import { attackDamage, attackHits, blockGain, isPlayable } from './rules';
+import { COLOSSUS_REDUCTION, attackDamage, attackHits, blockGain, cardCost, isPlayable } from './rules';
 import { chooseExhaust, createStrategy } from './strategies';
 import {
   HAND_LIMIT,
@@ -23,6 +23,7 @@ import {
   type EnemyDef,
   type EnemyIntent,
   type EnemyMove,
+  type EnemyPowerId,
   type GameData,
   type GameEvent,
   type Outcome,
@@ -49,18 +50,27 @@ const DEBUFF_KINDS: readonly DebuffKind[] = ['vulnerable', 'weak', 'frail'];
 export function computeIntent(
   moveId: string,
   move: { name: string; effects: readonly Effect[] },
-  enemy: { strength: number; debuffs: Debuffs },
-  player: { debuffs: Debuffs },
+  enemy: { strength: number; debuffs: Debuffs; powers?: Partial<Record<EnemyPowerId, number>> },
+  player: { debuffs: Debuffs; powers?: Partial<Record<PowerId, number>> },
 ): EnemyIntent {
   const attacks: EnemyIntent['attacks'] = [];
   let totalIncoming = 0;
+  // #110: Mangle / Dark Shackles lower the enemy's Strength through the end of its turn.
+  const strength = enemy.strength - (enemy.powers?.strengthLossThisTurn ?? 0);
+  // #110: Colossus halves damage from a Vulnerable enemy.
+  const reduce = colossusReduction(player.powers, enemy.debuffs);
   for (const e of move.effects) {
     if (e.type !== 'attack') continue;
-    const dph = attackDamage(e.damage, enemy.strength, enemy.debuffs.weak, player.debuffs.vulnerable);
+    const dph = attackDamage(e.damage, strength, enemy.debuffs.weak, player.debuffs.vulnerable, 0, 0, reduce);
     attacks.push({ damagePerHit: dph, hits: e.hits });
     totalIncoming += dph * e.hits;
   }
   return { moveId, name: move.name, attacks, totalIncoming };
+}
+
+/** #110: the percent less damage a Vulnerable enemy deals while the player has Colossus (else 0). */
+function colossusReduction(powers: Partial<Record<PowerId, number>> | undefined, enemyDebuffs: Debuffs): number {
+  return (powers?.colossus ?? 0) > 0 && enemyDebuffs.vulnerable > 0 ? COLOSSUS_REDUCTION : 0;
 }
 
 /** Resolve a CardDef (optionally upgraded) into a CardInstance. */
@@ -90,6 +100,8 @@ export function makeCardInstance(def: CardDef, upgraded: boolean, uid: number): 
   // #108: the card's own triggers (Drum of Battle); an upgrade replaces the list.
   const triggers = up?.triggers ?? def.triggers;
   if (triggers) inst.triggers = triggers.map((t) => ({ when: t.when, effects: t.effects.map((e) => ({ ...e })) }));
+  // #110: Stomp's cost reduction.
+  if (def.costLessPer) inst.costLessPer = { ...def.costLessPer };
   return inst;
 }
 
@@ -230,6 +242,17 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'entropy',
   'intangible',
   'gambit',
+  // #110 temporary and next-turn powers
+  'strengthThisTurn',
+  'rage',
+  'flameBarrier',
+  'colossus',
+  'noBlockFromCards',
+  'retainHand',
+  'freeAttack',
+  'doubleAttack',
+  'nextCardToDrawTop',
+  'choking',
 ];
 
 /** #116 Hello World: a random Common card from the player's character. */
@@ -264,6 +287,8 @@ class Combat {
   private boulders: number[] = [];
   /** #135: Crimson Mantle copies played; each loses 1 HP a turn and adds its own Block. */
   private mantleCopies = 0;
+  /** #110: true while scheduled effects run: Block they gain is not changed by Dexterity or Frail. */
+  private unpowered = false;
   /** #116: uid for the next created card (the deck uses 0..n-1). */
   private nextUid: number;
   /** #116: pools already computed, keyed by pool + upgraded. */
@@ -369,6 +394,7 @@ class Combat {
     counters.hpLostThisTurn = 0;
     counters.cardsDrawnThisTurn = 0;
     counters.cardsExhaustedThisTurn = 0;
+    counters.attacksPlayedThisTurn = 0;
     if (!this.power('barricade')) {
       player.block = 0;
       log?.push({ t: 'blockReset', side: 'player' });
@@ -378,7 +404,34 @@ class Combat {
       if (!this.drawOne()) break;
       if (player.hp <= 0) return 'loss';
     }
+    // #110: effects scheduled for this turn's start (Outmaneuver, Relax, Toric Toughness, Prolong), after the draw.
+    const scheduled = this.runScheduled('turnStart');
+    if (scheduled) return scheduled;
     return this.turnStartPowers();
+  }
+
+  /**
+   * #110: run the scheduled effects due on this turn at `at`, in the order they were scheduled.
+   * Block they gain is not changed by Dexterity or Frail. Returns the outcome if one ended combat.
+   */
+  private runScheduled(at: 'turnStart' | 'turnEnd'): Outcome | null {
+    const { player, enemy } = this;
+    const due = (player.scheduled ?? []).filter((s) => s.turn === this.state.turn && s.at === at);
+    if (due.length === 0) return null;
+    player.scheduled = (player.scheduled ?? []).filter((s) => !due.includes(s));
+    for (const s of due) {
+      this.unpowered = true;
+      const died = this.resolveEffects('player', s.effects);
+      this.unpowered = false;
+      if (died === 'player' || player.hp <= 0) return 'loss';
+      if (died === 'enemy' || enemy.hp <= 0) return 'win';
+    }
+    return null;
+  }
+
+  /** #110: what a card costs right now (Enlightenment, Stomp, Unrelenting); null if unplayable. */
+  private costOf(card: CardInstance): number | null {
+    return cardCost(card, this.counters.attacksPlayedThisTurn, this.power('freeAttack') > 0);
   }
 
   /** #109: the current amount of a player power (0 when off). */
@@ -483,6 +536,8 @@ class Combat {
    * then Frail (×0.75, floored), minimum 0.
    */
   private cardBlock(amount: number, card: CardInstance): number {
+    // #110 Panic Button: no Block from cards while the power lasts.
+    if (this.power('noBlockFromCards') > 0) return 0;
     const fasten = card.name.includes(FASTEN_NAME) ? this.power('fasten') : 0;
     return blockGain(amount + this.power('dexterity') + fasten, this.player.debuffs.frail);
   }
@@ -499,13 +554,17 @@ class Combat {
       if (decision.kind === 'endTurn') break;
       const idx = player.hand.findIndex((c) => c.uid === decision.uid);
       const card = idx >= 0 ? player.hand[idx] : undefined;
-      if (!card || !isPlayable(card, player.energy)) {
+      const cost = card ? this.costOf(card) : null;
+      if (!card || !isPlayable(cost === card.cost ? card : { ...card, cost }, player.energy)) {
         throw new Error(`Strategy tried to play illegal card uid ${decision.uid} on turn ${this.state.turn}`);
       }
       player.hand.splice(idx, 1);
+      // #110 Unrelenting: the next Attack played costs 0 (an X-cost Attack still gets X = all the energy, free).
+      const free = card.type === 'attack' && this.power('freeAttack') > 0;
+      if (free) this.applyPower('freeAttack', -1);
       // X-cost: X is all the energy available, and the card spends all of it.
       const x = card.xCost ? player.energy : 0;
-      player.energy -= card.xCost ? x : (card.cost as number);
+      player.energy -= free ? 0 : card.xCost ? x : (cost as number);
       const died = this.playCard(card, x);
       if (died === 'player' || player.hp <= 0) return 'loss';
       if (died === 'enemy' || enemy.hp <= 0) return 'win';
@@ -540,13 +599,28 @@ class Combat {
       log.push(ev);
     };
     logPlay(by);
+    if (card.type === 'attack') this.counters.attacksPlayedThisTurn++;
     // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
     const vigor = card.type === 'attack' ? this.power('vigor') : 0;
     this.activeVigor = vigor;
+    // #110 powers that react to this play, read before its own effects can add to them.
+    const choking = this.power('choking');
+    const toDrawTop = this.power('nextCardToDrawTop') > 0;
+    const again = card.type === 'attack' && this.power('doubleAttack') > 0;
+    if (again) this.applyPower('doubleAttack', -1);
+    if (toDrawTop) this.applyPower('nextCardToDrawTop', -1);
+    // Rage: Block from the power, not the card (no Dexterity or Frail).
+    if (card.type === 'attack' && this.power('rage') > 0) this.gainPowerBlock(this.power('rage'));
+    // Choking: the enemy loses HP whenever a card is played (cards played after it, not itself).
+    if (choking > 0 && this.enemyLoseHp(choking)) {
+      this.activeVigor = 0;
+      return 'enemy';
+    }
     let died = this.resolveEffects('player', card.effects, x, card);
     this.activeVigor = 0;
     if (vigor > 0) this.applyPower('vigor', -vigor);
-    const replays = card.replay ?? 0;
+    // #110 One-Two Punch: the Attack is played one more time, like a Replay (never uses Replay up).
+    const replays = (card.replay ?? 0) + (again ? 1 : 0);
     for (let left = replays - 1; left >= 0 && !died && player.hp > 0 && enemy.hp > 0; left--) {
       log?.push({ t: 'replay', uid: card.uid, cardId: card.cardId, left });
       logPlay('replay');
@@ -562,6 +636,10 @@ class Combat {
     } else if (card.type === 'skill' && this.power('corruption')) {
       // #109 Corruption: a played Skill is exhausted (Drum of Battle still gains its energy).
       died = this.exhaustCard(card, 'power') ?? died;
+    } else if (toDrawTop) {
+      // #110 Rebound: the card goes on top of the draw pile (its end).
+      player.drawPile.push(card);
+      log?.push({ t: 'moved', uid: card.uid, cardId: card.cardId, from: 'hand', to: 'drawTop' });
     } else {
       player.discardPile.push(card);
     }
@@ -572,11 +650,29 @@ class Combat {
   private view(): StrategyView {
     const { player } = this;
     const { id: moveId, move } = this.currentMove();
+    const state = this.stateWithCosts();
     return {
-      state: this.state,
+      state,
       intent: this.intent(moveId, move),
-      playable: player.hand.filter((c) => isPlayable(c, player.energy)),
+      playable: state.player.hand.filter((c) => isPlayable(c, player.energy)),
     };
+  }
+
+  /**
+   * #110: the state a strategy sees. Cards in hand whose cost is not their plain `cost` right now
+   * (Enlightenment, Stomp, Unrelenting) are shown as copies with the current cost, so strategies
+   * and isPlayable read one number. The real cards (same uids) are untouched.
+   */
+  private stateWithCosts(): CombatState {
+    const { player } = this;
+    let changed = false;
+    const hand = player.hand.map((c) => {
+      const cost = this.costOf(c);
+      if (cost === c.cost) return c;
+      changed = true;
+      return { ...c, cost };
+    });
+    return changed ? { ...this.state, player: { ...player, hand } } : this.state;
   }
 
   /** #115: the intent the player sees: a Stunned enemy does nothing; Intangible makes every hit 1. */
@@ -603,15 +699,20 @@ class Combat {
     // #109 Plating: gain Block equal to it at the end of your turn.
     const plating = this.power('plating');
     if (plating > 0) this.gainPowerBlock(plating);
+    // #110: The Bomb and other end-of-turn scheduled effects.
+    const scheduled = this.runScheduled('turnEnd');
+    if (scheduled) return scheduled;
     // #115: curses and statuses in hand act (Burn, Bad Luck), before the hand is discarded.
     for (const card of [...player.hand]) {
       if (this.runJunkTriggers(card, 'turnEndInHand')) return 'loss';
     }
+    // #110 Equilibrium, Salvo: the whole hand is retained this turn (Ethereal cards still exhaust).
+    const retainHand = this.power('retainHand') > 0;
     const retained: CardInstance[] = [];
     for (const card of player.hand) {
       if (card.keywords.includes('ethereal')) {
         this.exhaustCard(card, 'ethereal');
-      } else if (card.keywords.includes('retain')) {
+      } else if (card.keywords.includes('retain') || retainHand) {
         retained.push(card);
       } else {
         player.discardPile.push(card);
@@ -619,6 +720,7 @@ class Combat {
       }
     }
     player.hand = retained;
+    this.endTurnPowers();
     const died = this.turnEndExhaustTriggers();
     if (died) return died === 'player' || player.hp <= 0 ? 'loss' : 'win';
     // Battle Trance's no-draw lasts for the rest of this turn only.
@@ -630,6 +732,45 @@ class Combat {
     this.tickDebuffs('player');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'player' });
     return null;
+  }
+
+  /**
+   * #110: "this turn" effects end with the player's turn: Strength gained this turn is removed, and
+   * Rage, Choking, One-Two Punch, Rebound, Retain Hand and cost changes for the turn are cleared.
+   */
+  private endTurnPowers(): void {
+    const { player, log } = this;
+    const temporary = this.power('strengthThisTurn');
+    if (temporary > 0) {
+      player.strength -= temporary;
+      log?.push({ t: 'strength', side: 'player', amount: -temporary, total: player.strength });
+    }
+    for (const id of [
+      'strengthThisTurn',
+      'rage',
+      'choking',
+      'doubleAttack',
+      'nextCardToDrawTop',
+      'retainHand',
+    ] as const) {
+      if (this.power(id) > 0) this.applyPower(id, -this.power(id));
+    }
+    for (const pile of [player.hand, player.drawPile, player.discardPile, player.exhaustPile]) {
+      for (const c of pile) delete c.costThisTurn;
+    }
+  }
+
+  /**
+   * #110: after the enemy's move, the powers that cover "the enemy turn that follows" end: Flame
+   * Barrier, the enemy's temporary Strength loss; Colossus and Panic Button's no-Block go down by 1.
+   */
+  private endEnemyTurnPowers(): void {
+    for (const id of ['colossus', 'noBlockFromCards'] as const) {
+      if (this.power(id) > 0) this.applyPower(id, -1);
+    }
+    if (this.power('flameBarrier') > 0) this.applyPower('flameBarrier', -this.power('flameBarrier'));
+    const loss = this.enemy.powers?.strengthLossThisTurn ?? 0;
+    if (loss > 0) this.applyEnemyPower('strengthLossThisTurn', -loss);
   }
 
   /** Block resets, Poison, the move, pattern advance, then enemy debuffs tick. Returns the outcome if combat ended. */
@@ -662,6 +803,7 @@ class Combat {
     if (died === 'enemy' || enemy.hp <= 0) return 'win';
     // #115 Intangible lasts through the enemy's next move, then goes down by 1.
     if (this.power('intangible') > 0) this.applyPower('intangible', -1);
+    this.endEnemyTurnPowers();
     // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
     this.tickDebuffs('enemy');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'enemy' });
@@ -725,8 +867,11 @@ class Combat {
           break;
         case 'gainBlock': {
           // #109: Block from a card gets Dexterity and Fasten; other Block (enemy moves, triggers) does not.
-          const amt =
-            source === 'player' && card ? this.cardBlock(e.amount, card) : blockGain(e.amount, self.debuffs.frail);
+          const amt = this.unpowered
+            ? e.amount
+            : source === 'player' && card
+              ? this.cardBlock(e.amount, card)
+              : blockGain(e.amount, self.debuffs.frail);
           self.block += amt;
           log?.push({ t: 'block', side: source, amount: amt, total: self.block });
           break;
@@ -779,13 +924,40 @@ class Combat {
           if (source !== 'player' || !SIMULATED_POWER_IDS.includes(e.power)) {
             throw new Error(`Effect "applyPower" is not simulated yet (power "${e.power}")`);
           }
+          // #110: Strength "this turn" is real Strength now, taken back at the end of the turn.
+          if (e.power === 'strengthThisTurn') {
+            player.strength += e.amount;
+            log?.push({ t: 'strength', side: 'player', amount: e.amount, total: player.strength });
+          }
           this.applyPower(e.power, e.amount);
           break;
         case 'applyEnemyPower':
-          if (source !== 'player' || e.power !== 'stun') {
+          if (source !== 'player' || (e.power !== 'stun' && e.power !== 'strengthLossThisTurn')) {
             throw new Error(`Effect "applyEnemyPower" is not simulated yet (power "${e.power}")`);
           }
-          this.applyEnemyPower('stun', e.amount);
+          this.applyEnemyPower(e.power, e.amount);
+          break;
+        case 'schedule':
+          if (source !== 'player') throw new Error('Effect "schedule" is not simulated yet on enemy moves');
+          (player.scheduled ??= []).push({
+            turn: this.state.turn + e.delay,
+            at: e.at ?? 'turnStart',
+            effects: e.effects.map((fx) => ({ ...fx })),
+            ...(card ? { sourceUid: card.uid } : {}),
+          });
+          break;
+        case 'dealDamage':
+          // The Bomb: fixed damage (no Strength, Weak, Vigor); the enemy's Block absorbs it.
+          if (source !== 'player') throw new Error('Effect "dealDamage" is not simulated yet on enemy moves');
+          if (this.powerDamage(e.amount)) died = 'enemy';
+          break;
+        case 'enemyLoseHp':
+          if (source !== 'player') throw new Error('Effect "enemyLoseHp" is not simulated yet on enemy moves');
+          if (this.enemyLoseHp(e.amount)) died = 'enemy';
+          break;
+        case 'setCost':
+          if (source !== 'player') throw new Error('Effect "setCost" is not simulated yet on enemy moves');
+          this.setCost(e);
           break;
         case 'heal':
         case 'gainMaxHp':
@@ -846,6 +1018,7 @@ class Combat {
           else if (source === 'player' && e.id === 'primalForcePlus') count = this.primalForcePlus();
           else if (source === 'player' && e.id === 'fiendFire') died = this.fiendFire(e.values?.[0] ?? 0);
           else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
+          else if (source === 'player' && e.id === 'prolong') this.prolong();
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
@@ -999,6 +1172,46 @@ class Combat {
     const { died } = this.exhaustAll('hand', [target]);
     if (card) card.damageBonus = (card.damageBonus ?? 0) + bonus;
     return died;
+  }
+
+  /** #110: the enemy loses HP directly (ignores Block and modifiers). Returns true if it died. */
+  private enemyLoseHp(amount: number): boolean {
+    const { enemy } = this;
+    enemy.hp -= amount;
+    this.log?.push({ t: 'loseHp', side: 'enemy', amount, hpAfter: Math.max(enemy.hp, 0) });
+    return enemy.hp <= 0;
+  }
+
+  /**
+   * #110 Enlightenment: set the cost of the cards in `e.piles` (matching the filter) for this turn
+   * or the rest of combat. Unplayable and X-cost cards are skipped; `onlyIfHigher` leaves cards
+   * that already cost that much or less.
+   */
+  private setCost(e: Extract<Effect, { type: 'setCost' }>): void {
+    const p = this.player;
+    for (const name of e.piles) {
+      const pile = name === 'exhaust' ? p.exhaustPile : this.pile(name);
+      for (const c of pile) {
+        if (c.cost === null || c.xCost) continue;
+        if (e.filter && !matchesFilter(c, e.filter)) continue;
+        const current = cardCost(c, this.counters.attacksPlayedThisTurn, false) as number;
+        if (e.onlyIfHigher && current <= e.cost) continue;
+        if (e.duration === 'turn') c.costThisTurn = e.cost;
+        else c.costThisCombat = e.cost;
+        this.log?.push({ t: 'costChanged', uid: c.uid, cardId: c.cardId, cost: e.cost, duration: e.duration });
+      }
+    }
+  }
+
+  /** #110 Prolong: next turn, gain Block equal to the Block you have right now. */
+  private prolong(): void {
+    const { player } = this;
+    if (player.block <= 0) return;
+    (player.scheduled ??= []).push({
+      turn: this.state.turn + 1,
+      at: 'turnStart',
+      effects: [{ type: 'gainBlock', amount: player.block }],
+    });
   }
 
   /** True when a card can be played at all, whatever the energy: it has a cost and is not Unplayable. */
@@ -1396,8 +1609,8 @@ class Combat {
     this.log?.push({ t: 'maxHp', amount: applied, maxHpAfter: maxHp, hpAfter: player.hp });
   }
 
-  /** #115: change the enemy's Stun (negative to use it up); it is removed at 0. */
-  private applyEnemyPower(power: 'stun', amount: number): void {
+  /** #110/#115: change an enemy power (Stun, temporary Strength loss; negative to use it up); it is removed at 0. */
+  private applyEnemyPower(power: EnemyPowerId, amount: number): void {
     const { enemy, log } = this;
     const powers = (enemy.powers ??= {});
     const total = (powers[power] ?? 0) + amount;
@@ -1524,7 +1737,11 @@ class Combat {
     const cruelty = target === 'enemy' ? this.power('cruelty') : 0;
     // #4 Shrink is on the player only (v1), so only the player's attacks shrink.
     const shrink = source === 'player' ? (this.player.shrink ?? 0) : 0;
-    let perHit = attackDamage(base, a.strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink);
+    // #110: the enemy's Strength is lowered through its turn by Mangle / Dark Shackles (0 damage at worst),
+    // and Colossus cuts what a Vulnerable enemy deals.
+    const strength = source === 'enemy' ? a.strength - (this.enemy.powers?.strengthLossThisTurn ?? 0) : a.strength;
+    const reduce = source === 'enemy' ? colossusReduction(this.player.powers, this.enemy.debuffs) : 0;
+    let perHit = attackDamage(base, strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink, reduce);
     // #115 Intangible: every hit on the player is 1 (a 0-damage hit stays 0).
     if (target === 'player' && this.power('intangible') > 0) perHit = Math.min(perHit, 1);
     for (let h = 0; h < hits; h++) {
@@ -1537,7 +1754,8 @@ class Combat {
       // #115 The Gambit: unblocked attack damage from the enemy loses the combat.
       if (target === 'player' && hpLoss > 0 && this.power('gambit') > 0) t.hp = 0;
       if (t.hp <= 0) return target;
-      const thorns = target === 'player' ? this.power('thorns') : 0;
+      // Thorns and #110 Flame Barrier hit back after every hit, even one reduced to 0 damage.
+      const thorns = target === 'player' ? this.power('thorns') + this.power('flameBarrier') : 0;
       if (thorns > 0 && this.powerDamage(thorns)) return source;
     }
     return null;

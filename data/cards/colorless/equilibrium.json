@@ -13,6 +13,11 @@
     {
       "type": "gainBlock",
       "amount": 13
+    },
+    {
+      "type": "applyPower",
+      "power": "retainHand",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -20,12 +25,17 @@
       {
         "type": "gainBlock",
         "amount": 16
+      },
+      {
+        "type": "applyPower",
+        "power": "retainHand",
+        "amount": 1
       }
     ]
   },
   "description": "Gain 13 Block. / Retain your Hand this turn.",
   "upgradedDescription": "Gain 16 Block. / Retain your Hand this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
