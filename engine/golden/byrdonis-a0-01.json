@@ -1,0 +1,135 @@
+{
+  "combat": "byrdonis-a0-01",
+  "source": "Played by hand in the real game; recorded on issue #201 (Combat 6). Note: Trent's recorded 30 HP (16 lost) is before the +6 Burning Blood heal; finalHp 36 is after it.",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 0,
+  "deck": [
+    {
+      "card": "strike",
+      "count": 5
+    },
+    {
+      "card": "defend",
+      "count": 4
+    },
+    {
+      "card": "bash",
+      "count": 1
+    },
+    {
+      "card": "setup_strike",
+      "count": 1
+    },
+    {
+      "card": "inflame",
+      "count": 1
+    },
+    {
+      "card": "dismantle",
+      "count": 1
+    },
+    {
+      "card": "armaments",
+      "count": 1,
+      "upgraded": true
+    },
+    {
+      "card": "uppercut",
+      "count": 1
+    },
+    {
+      "card": "rage",
+      "count": 1
+    }
+  ],
+  "enemy": {
+    "id": "byrdonis",
+    "startHp": 81
+  },
+  "player": {
+    "startHp": 46,
+    "maxHp": 80
+  },
+  "relics": [
+    {
+      "id": "burning_blood"
+    }
+  ],
+  "potions": ["strength_potion"],
+  "turns": [
+    {
+      "hand": ["strike", "defend", "defend", "inflame", "rage"],
+      "potions": [
+        {
+          "potion": "strength_potion",
+          "beforePlay": 1
+        }
+      ],
+      "plays": ["rage", "inflame", "defend", "strike"],
+      "enemyHpAfterEachPlay": [81, 81, 81, 71],
+      "afterPlays": {
+        "player": {
+          "block": 8,
+          "strength": 4
+        },
+        "enemy": {
+          "hp": 71
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 37
+        }
+      }
+    },
+    {
+      "hand": ["strike", "strike", "strike", "setup_strike", "armaments+"],
+      "atStart": {
+        "player": {
+          "hp": 37,
+          "strength": 4
+        },
+        "enemy": {
+          "strength": 1
+        }
+      },
+      "plays": ["armaments+", "setup_strike+", "strike+"],
+      "enemyHpAfterEachPlay": [71, 58, 42],
+      "afterPlays": {
+        "player": {
+          "block": 5,
+          "strength": 7
+        },
+        "enemy": {
+          "hp": 42
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 30
+        }
+      }
+    },
+    {
+      "hand": ["strike", "defend", "bash", "dismantle", "uppercut"],
+      "atStart": {
+        "player": {
+          "hp": 30,
+          "strength": 4
+        },
+        "enemy": {
+          "strength": 2
+        }
+      },
+      "plays": ["uppercut", "dismantle"],
+      "enemyHpAfterEachPlay": [25, 0]
+    }
+  ],
+  "result": {
+    "outcome": "win",
+    "turns": 3,
+    "finalHp": 36,
+    "hpLost": 10
+  }
+}
