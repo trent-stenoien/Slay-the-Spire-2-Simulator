@@ -102,6 +102,13 @@ export function checkRelic(r: Reporter, o: Obj): void {
   r.str(o, 'lastUpdateVersion');
   if (has(o, 'choice')) checkChoice(r, o.choice);
   const simulated = o.simulated === true;
-  r.arr(o, 'hooks')?.forEach((h, i) => checkHook(r, h, `hooks[${i}]`, has(o, 'choice'), simulated));
+  const hooks = r.arr(o, 'hooks');
+  hooks?.forEach((h, i) => checkHook(r, h, `hooks[${i}]`, has(o, 'choice'), simulated));
+  // #205: a choice is either an amount (Girya) or the starting count of a counting hook (Happy Flower).
+  const usesChoice = (h: unknown) =>
+    isObj(h) && (h.amountFromChoice === true || has(h, 'everyTurns') || has(h, 'everyCards'));
+  if (has(o, 'choice') && hooks && !hooks.some(usesChoice)) {
+    r.add('choice', 'needs a hook with "amountFromChoice", "everyTurns" or "everyCards"');
+  }
   if (has(o, 'modifiers')) r.arr(o, 'modifiers')?.forEach((m, i) => checkModifier(r, m, `modifiers[${i}]`));
 }

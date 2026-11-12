@@ -42,8 +42,8 @@ One JSON file per relic in `data/relics/<id>.json` (`RelicDef` in `engine/types.
 | Unblocked attack damage of 4 or less becomes 5 | modifier `minUnblockedAttack` 5 |
 | Energy conserved / hand not discarded / max N cards a turn / X + N / Dexterity without potions / no potions | `conserveEnergy` / `keepHand` / `cardsPerTurnLimit` / `xBonus` / `dexterityWithoutPotions` / `noPotions` |
 | Choice in setup (Girya) | `choice` + hook `"amountFromChoice": true` |
+| Counter that carries between combats (Happy Flower, Pollinous Core, Iron Club) | `choice` with values 0…N−1, default 0, on a relic with an `everyTurns` / `everyCards` hook: the starting count |
 | One-off rule | modifier `script` with an `id` from `RELIC_SCRIPTS` in `engine/relics.ts`: `ornamentalFan` (every 3rd Attack in a turn), `bellows`, `ghostSeed`, `confused` (Snecko Eye), `slingOfCourage` (Elites only) |
 
 Relic Block is not from a card: Dexterity and Frail don't change it. Hooks fire in the order the
-relics were picked. Relic counters that carry across combats in the game (Pollinous Core, Happy
-Flower) start at 0 in every simulated combat.
+relics were picked. Ghost Seed affects only basic (rarity `basic`) Strikes and Defends.

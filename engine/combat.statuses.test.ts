@@ -302,22 +302,29 @@ describe('#115 strategy: Not Yet', () => {
     return out;
   };
 
-  it('is played before the other plays when it would heal 8 or more', () => {
-    // The enemy hits for 20 on turn 1; turn 2 starts at 60/80, so Not Yet heals 10 first.
-    const r = logged(world(hitter(20)), createStrategy(blockFirstConfig(0)), config);
+  it('#205: is played with leftover energy even at full HP (every heal counts in full)', () => {
+    for (const config_ of [blockFirstConfig(0), GREEDY_CONFIG]) {
+      const r = logged(world(hitter(7)), createStrategy(config_), config);
+      expect(notYetTurns(r)).toEqual([1]);
+      expect(
+        events(r.log, 'play')
+          .map((e) => e.cardId)
+          .slice(0, 2),
+      ).toEqual(['strike', 'notyet']);
+      expect(events(r.log, 'heal')[0]).toMatchObject({ amount: 10, hpAfter: 80 });
+    }
+  });
+
+  it('#205: never takes energy the groups want (3 Strikes first, Not Yet waits)', () => {
+    const r = logged(world(hitter(7)), createStrategy(GREEDY_CONFIG), {
+      enemyId: 'hitter',
+      deck: deckOf(['notyet', 1], ['strike', 3]),
+    });
     expect(
       events(r.log, 'play')
         .map((e) => e.cardId)
         .slice(0, 3),
-    ).toEqual(['strike', 'notyet', 'strike']);
-    expect(events(r.log, 'heal')[0]).toMatchObject({ amount: 10 });
-  });
-
-  it('waits until at least 8 HP would be healed (7 missing is not enough)', () => {
-    // 7 damage a turn: turn 2 starts 7 missing (no), turn 3 starts 14 missing (yes, heals 10).
-    for (const config_ of [blockFirstConfig(0), GREEDY_CONFIG]) {
-      const r = logged(world(hitter(7)), createStrategy(config_), config);
-      expect(notYetTurns(r)[0]).toBe(3);
-    }
+    ).toEqual(['strike', 'strike', 'strike']);
+    expect(notYetTurns(r)).not.toContain(1);
   });
 });

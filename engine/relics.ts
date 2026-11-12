@@ -41,11 +41,27 @@ export function hookEffects(hook: RelicHook, choice: number | undefined): Effect
   return hook.effects.map((e) => ('amount' in e ? ({ ...e, amount: choice } as Effect) : e));
 }
 
+/**
+ * #205 (Trent): the count a relic's counter starts the combat at. In the game some counters carry
+ * from one combat to the next (Happy Flower, Pollinous Core, Iron Club); the setup choice of a relic
+ * whose hook counts (`everyTurns` / `everyCards`, without `amountFromChoice`) is that starting count.
+ * Default 0.
+ */
+export function startCount(relic: ActiveRelic, hook: RelicHook): number {
+  if (hook.amountFromChoice || (hook.everyTurns === undefined && hook.everyCards === undefined)) return 0;
+  return relic.choice ?? 0;
+}
+
 /** True when a turn-based hook's `turn` / `everyTurns` conditions hold on this player turn. */
-export function turnMatches(hook: RelicHook, turn: number): boolean {
+export function turnMatches(hook: RelicHook, turn: number, start = 0): boolean {
   if (hook.turn !== undefined && hook.turn !== turn) return false;
-  if (hook.everyTurns !== undefined && turn % hook.everyTurns !== 0) return false;
+  if (hook.everyTurns !== undefined && (turn + start) % hook.everyTurns !== 0) return false;
   return true;
+}
+
+/** Ghost Seed: the basic Strike and Defend cards (rarity basic, upgraded copies included). */
+export function isBasicStrikeOrDefend(card: { rarity?: string; name: string }): boolean {
+  return card.rarity === 'basic' && isStrikeOrDefend(card.name);
 }
 
 /** The hooks of every relic for `when`, in pick order. */

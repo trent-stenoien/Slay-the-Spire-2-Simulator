@@ -1521,8 +1521,6 @@ function pickFetchOrUpgrade(view: StrategyView): Card | undefined {
  * ranked within their group.
  */
 function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
-  const heal = pickNotYet(view);
-  if (heal) return heal;
   const zero = pickZeroCostDraw(view);
   if (zero) return zero;
   const enlightenment = best(view.playable.filter(isEnlightenment), () => []);
@@ -1554,19 +1552,15 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   return undefined;
 }
 
-/** #115: Not Yet is played first, but only when it would heal at least this much HP now. */
-export const NOT_YET_MIN_HEAL = 8;
-
-/** #115 (Trent): the playable healing card (Not Yet) that would restore the most HP, if at least NOT_YET_MIN_HEAL. */
+/**
+ * #205 (Trent): every heal counts in full in HP lost, so a healing card (Not Yet) is worth its whole
+ * heal whatever the current HP. It is played with the energy left once the groups are done (it never
+ * takes energy from an Attack or Block the strategy wants); the biggest heal first.
+ */
 function pickNotYet(view: StrategyView): Card | undefined {
-  const { hp, maxHp } = view.state.player;
-  const heals = (c: Card): number =>
-    Math.min(
-      c.effects.reduce((n, e) => n + (e.type === 'heal' ? e.amount : 0), 0),
-      maxHp - hp,
-    );
+  const heals = (c: Card): number => c.effects.reduce((n, e) => n + (e.type === 'heal' ? e.amount : 0), 0);
   return best(
-    view.playable.filter((c) => heals(c) >= NOT_YET_MIN_HEAL),
+    view.playable.filter((c) => heals(c) > 0),
     (c) => [heals(c)],
   );
 }
@@ -1797,6 +1791,8 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   if (blk) return play(blk);
   const trance = drawing ? pickTrance(view) : undefined;
   if (trance) return play(trance);
+  const heal = planning ? undefined : pickNotYet(view);
+  if (heal) return play(heal);
   const utility = planning ? undefined : pickUtility(view);
   if (utility) return play(utility);
   if (planning) return END;

@@ -23,6 +23,7 @@ const hit = (damage: number, hits = 1): Effect => ({ type: 'attack', damage, hit
 const extra: Record<string, CardDef> = {
   jab: card('jab', 'Jb', [hit(1)], { type: 'attack' }),
   ouch5: card('ouch5', 'O5', [{ type: 'loseHp', amount: 5 }]),
+  twinstrike: card('twinstrike', 'Tw', [hit(1)], { type: 'attack', name: 'Twin Strike', rarity: 'common', cost: 9 }),
   ouch1: card('ouch1', 'O1', [{ type: 'loseHp', amount: 1 }]),
   potion: card('potion', 'Pn', [{ type: 'gainPotion' }]),
   xhit: card('xhit', 'Xh', [{ type: 'attack', damage: 1, hits: 1, xTimes: true }], { type: 'attack', xCost: true }),
@@ -36,6 +37,7 @@ function world(): GameData {
   const d = withEnemy(makeGameData(), dummy(), weak, hitter(8));
   Object.assign(d.cards, extra);
   d.relics = structuredClone(gameData.relics);
+  d.potions = structuredClone(gameData.potions);
   return d;
 }
 
@@ -205,9 +207,12 @@ describe('#205 start-of-combat relics', () => {
   });
 
   it('Oddly Smooth Stone: +1 Dexterity; Belt Buckle: +2 Dexterity with no potions', () => {
-    const block = (id: string) => events(quickWin(relics(id), ['defend']).log, 'block').at(-1)!.amount;
+    const block = (id: string, extra: Partial<CombatConfig> = {}) =>
+      events(quickWin({ ...relics(id), ...extra }, ['defend']).log, 'block').at(-1)!.amount;
     expect(block('oddly_smooth_stone')).toBe(6);
     expect(block('belt_buckle')).toBe(7);
+    // A potion held turns Belt Buckle off.
+    expect(block('belt_buckle', { potions: ['fire_potion'] })).toBe(5);
   });
 
   it('Akabeko: 8 Vigor on the first Attack', () => {
@@ -354,13 +359,40 @@ describe('#205 turn relics', () => {
     expect(turns(['velvet_choker']).views[0]!.state.player.energy).toBe(4);
   });
 
-  it('Runic Pyramid keeps the hand; Ghost Seed exhausts Strikes and Defends left in hand', () => {
+  it('Runic Pyramid keeps the hand; Ghost Seed exhausts only basic Strikes and Defends left in hand', () => {
     const kept = turns(['runic_pyramid']).views;
     expect(kept[1]!.state.player.hand.length).toBe(10);
-    const ghost = turns(['ghost_seed'], deckOf(['strike', 3], ['defend', 2], ['ouch1', 5])).views;
-    expect(ghost[1]!.state.player.exhaustPile.length).toBe(
-      ghost[0]!.state.player.hand.filter((c) => c.cardId !== 'ouch1').length,
-    );
+    const ghost = turns(['ghost_seed'], deckOf(['strike', 3], ['defend', 2], ['twinstrike', 5])).views;
+    const exhausted = ghost[1]!.state.player.exhaustPile;
+    expect(exhausted.length).toBe(ghost[0]!.state.player.hand.filter((c) => c.cardId !== 'twinstrike').length);
+    expect(exhausted.some((c) => c.cardId === 'twinstrike')).toBe(false);
+  });
+
+  it('carried counters start at the setup count (Happy Flower 2 → turns 1, 4; Pollinous Core 3 → turn 1)', () => {
+    const at = (relicId: string, choice: number) => {
+      const { strategy, views } = spy();
+      simulateCombat(
+        world(),
+        cfg({ enemyId: 'dummy', deck: deckOf(['defend', 10]), relics: [{ relicId, choice }] }),
+        strategy,
+      );
+      return views;
+    };
+    expect(
+      at('happy_flower', 2)
+        .slice(0, 4)
+        .map((v) => v.state.player.energy),
+    ).toEqual([4, 3, 3, 4]);
+    expect(
+      at('happy_flower', 0)
+        .slice(0, 3)
+        .map((v) => v.state.player.energy),
+    ).toEqual([3, 3, 4]);
+    expect(
+      at('pollinous_core', 3)
+        .slice(0, 2)
+        .map((v) => v.state.player.hand.length),
+    ).toEqual([7, 5]);
   });
 
   it('Bellows upgrades the first hand only', () => {
@@ -388,6 +420,17 @@ describe('#205 card-play relics', () => {
       )
       .filter((e) => e.t === 'play');
     expect(playsBefore).toHaveLength(3);
+  });
+
+  it('Iron Club with 3 cards already counted draws on the first card played', () => {
+    const r = logged(world(), play(['jab']), {
+      enemyId: 'dummy',
+      deck: deckOf(['jab', 12]),
+      relics: [{ relicId: 'iron_club', choice: 3 }],
+    });
+    const firstPlay = r.log!.findIndex((e) => e.t === 'play');
+    expect(r.log!.findIndex((e) => e.t === 'relic')).toBeGreaterThan(firstPlay);
+    expect(events(r.log, 'relic')).toHaveLength(1);
   });
 
   it('Iron Club draws 1 on every 4th card played this combat', () => {

@@ -16,6 +16,11 @@
       ]
     }
   ],
+  "choice": {
+    "label": "Turns counted",
+    "values": [0, 1, 2, 3],
+    "default": 0
+  },
   "description": "Every 4 turns, draw 2 additional cards.",
   "simulated": true,
   "lastUpdateVersion": "v0.107.1"

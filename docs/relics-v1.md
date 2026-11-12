@@ -22,7 +22,7 @@ wiki): none changes these relics' text, so the list text is main-release. Indivi
 | Strike Dummy | Cards containing “Strike” deal 3 additional damage. | yes | Also applies to Perfected Strike's script attack. |
 | Akabeko | At the start of each combat, gain 8 Vigor. | yes |  |
 | Horn Cleat | At the start of your 2nd turn, gain 14 Block. | yes |  |
-| Beating Remnant | You cannot lose more than 20 HP in a single turn. | yes | "A single turn": player's and enemy's turns counted separately (open question). |
+| Beating Remnant | You cannot lose more than 20 HP in a single turn. | yes | "A single turn": player's and enemy's turns counted separately (Trent confirmed). |
 | Bellows | The first Hand you draw each combat is Upgraded. | yes | Script, after the other turn-1 hooks (Bag of Preparation's cards are upgraded too). |
 | Captain's Wheel | At the start of your 3rd turn, gain 18 Block. | yes |  |
 | Chandelier | At the start of your 3rd turn, gain 3 Energy. | yes |  |
@@ -30,17 +30,17 @@ wiki): none changes these relics' text, so the list text is main-release. Indivi
 | Stone Calendar | At the end of turn 7, deal 52 damage to ALL enemies. | yes |  |
 | Tungsten Rod | Whenever you would lose HP, lose 1 less. | yes |  |
 | Sai | At the start of your turn, gain 7 Block. | yes |  |
-| Iron Club | Every 4 cards you play, draw 1 card. | yes | Counter starts at 0 each combat. |
+| Iron Club | Every 4 cards you play, draw 1 card. | yes | Setup sets the starting card count (0–3, default 0). |
 | Runic Pyramid | At the end of your turn, you no longer discard your Hand. | yes |  |
 | Bread | At the start of your first turn, lose 2 Energy. At the start of all other turns, gain 1 Energy. | yes | Every turn +1, turn 1 also −3 (`loseEnergy`, #206). |
 | Sozu | Gain 1 Energy at the start of each turn. You can no longer obtain Potions. | yes | `noPotions` blocks gainPotion rewards (Alchemize); potion slots are #204's. |
 | Velvet Choker | Gain 1 Energy at the start of each turn. You cannot play more than 6 cards per turn. | yes |  |
-| Belt Buckle | While you have no Potions, you have 2 additional Dexterity. | yes | Reads PlayerState.potions (none until #204 lands → always +2). |
+| Belt Buckle | While you have no Potions, you have 2 additional Dexterity. | yes | Off while any potion slot is filled (#204). |
 | Chemical X | The effects of your cost X cards are increased by 2. | yes | X + 2 for effects; energy spent unchanged. |
-| Ghost Seed | Strikes and Defends gain Ethereal. | yes | Script: name contains Strike/Defend exhausts at end of turn (generated copies too). |
+| Ghost Seed | Strikes and Defends gain Ethereal. | yes | Script: basic Strike/Defend (rarity basic, upgraded too) exhaust at end of turn (Trent). |
 | Sling of Courage | Start each Elite combat with 2 Strength. | yes | Script: only vs `difficulty: elite`. |
-| Pollinous Core | Every 4 turns, draw 2 additional cards. | yes | Counter starts at 0 each combat (game carries it across combats). |
-| Happy Flower | Every 3 turns, gain 1 Energy. | yes | Counter starts at 0 each combat (game carries it across combats). |
+| Pollinous Core | Every 4 turns, draw 2 additional cards. | yes | Setup sets the starting turn count (0–3, default 0); the game carries it across combats. |
+| Happy Flower | Every 3 turns, gain 1 Energy. | yes | Setup sets the starting turn count (0–2, default 0); the game carries it across combats. |
 | Snecko Eye | At the start of your turn, draw 2 additional cards. Start each combat Confused. | yes | Script `confused`: drawn card costs random 0–3 for the combat. |
 | Sword of Jade | Start each combat with 3 Strength. | yes |  |
 | The Boot | Whenever you would deal 4 or less unblocked attack damage, increase it to 5. | yes |  |
@@ -49,6 +49,6 @@ wiki): none changes these relics' text, so the list text is main-release. Indivi
 | Strike Dummy??? | Cards containing “Strike” deal 1 additional damage. | yes |  |
 | Anchor??? | Start each combat with 4 Block. | yes |  |
 | Blood Vial??? | At the start of each combat, heal 1 HP. | yes |  |
-| Happy Flower??? | Every 5 turns, gain 1 Energy. | yes |  |
+| Happy Flower??? | Every 5 turns, gain 1 Energy. | yes | Setup sets the starting turn count (0–4). |
 | Orichalcum??? | If you end your turn without Block, gain 3 Block. | yes |  |
 | Byrdpip | Upon pickup, gain the card Byrd Swoop. A Byrdpip will accompany you in battles. | not entered | Companion attacker; no type for it. |

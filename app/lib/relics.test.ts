@@ -30,6 +30,15 @@ describe('#205 relic setup', () => {
     expect(decodeRelics(gameData, text)).toEqual({ ok: true, relics });
     expect(decodeRelics(gameData, 'Gy')).toEqual({ ok: true, relics: [{ relicId: 'girya', choice: 1 }] });
     expect(decodeRelics(gameData, '')).toEqual({ ok: true, relics: [] });
+    expect(encodeRelics(gameData, [{ relicId: 'happy_flower', choice: 2 }])).toBe('HF2');
+    expect(decodeRelics(gameData, 'HF2,IB0')).toEqual({
+      ok: true,
+      relics: [
+        { relicId: 'happy_flower', choice: 2 },
+        { relicId: 'iron_club', choice: 0 },
+      ],
+    });
+    expect(decodeRelics(gameData, 'HF3').ok).toBe(false);
     for (const bad of ['Zz', 'Gy4', 'Vj2', 'Vj,Vj']) expect(decodeRelics(gameData, bad).ok).toBe(false);
   });
 

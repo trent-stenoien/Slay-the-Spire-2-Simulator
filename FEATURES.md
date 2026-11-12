@@ -84,20 +84,22 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     combat with" Block, Energy, Plating or extra draw happens on turn 1 after the Block reset (Anchor 10
     Block on turn 1 only; Gorget's 4 Plating gives 4 Block at the end of turn 1). Relic Block ignores
     Dexterity and Frail. Ornamental Fan counts Attacks per turn (every 3rd); Iron Club counts cards per
-    combat (every 4th). Happy Flower / Pollinous Core fire on turns 3, 6… / 4, 8… (counters start at 0
-    each combat). Tungsten Rod takes 1 off every HP loss, then Beating Remnant caps HP lost at 20 per
-    turn (the player's turn and the enemy's turn count separately). The Boot raises unblocked attack
+    combat (every 4th). Happy Flower / Pollinous Core fire on turns 3, 6… / 4, 8… and Iron Club on
+    every 4th card; their counters carry between combats in the game, so Setup sets the starting
+    count (default 0, URL `HF2`; Happy Flower 2 → turns 1, 4…). Tungsten Rod takes 1 off every HP loss, then Beating Remnant caps HP lost at 20 per
+    turn (the player's turn and the enemy's turn count separately, Trent confirmed). The Boot raises unblocked attack
     damage of 1–4 to 5. Snecko Eye: +2 draw, and each drawn card costs a random 0–3 (seeded Rng).
-    Ghost Seed: cards named Strike/Defend exhaust at end of turn like Ethereal. Sling of Courage: only
-    against `elite` enemies. Velvet Choker: no 7th card a turn. Girya's Strength (1–3) is chosen in Setup.
+    Ghost Seed: the basic Strike and Defend (upgraded too) exhaust at end of turn like Ethereal.
+    Belt Buckle's +2 Dexterity is off while a potion slot is filled. Sling of Courage: only
+    against `elite` enemies. Velvet Choker: no 7th card a turn. Girya's Strength (1–3, default 1) is chosen in Setup.
     The Ironclad has Burning Blood by default; relics are in the URL (`r`).
 
 ## Strategy behaviour
 
 18. **Ordered groups:** Attack / Block / Powers in the chosen order; "allow X through" applies only to
     Block. Defaults: Greedy Damage (Attack, Powers, Block), Scared Block (Block 0, Powers, Attack).
-19. **Play order:** 0-cost draw first, then Enlightenment (always played, #169); Not Yet first when it
-    would heal 8+ (#115); Apotheosis right away when something can be upgraded and tutors when the draw
+19. **Play order:** 0-cost draw first, then Enlightenment (always played, #169); Not Yet (any healing card)
+    with the energy left after the groups, at any HP, since every heal counts in full (#205); Apotheosis right away when something can be upgraded and tutors when the draw
     pile has a card to fetch (#112); net-energy cards (Bloodletting) before pure draw; 1+ cost pure
     draw only when the top group can't be filled, then re-plan, and skipped when the turn already
     spends all its energy (X-cost cards and expensive Powers count), except for Block-first strategies

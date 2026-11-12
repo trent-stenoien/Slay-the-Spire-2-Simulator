@@ -16,6 +16,11 @@
       ]
     }
   ],
+  "choice": {
+    "label": "Turns counted",
+    "values": [0, 1, 2],
+    "default": 0
+  },
   "description": "Every 3 turns, gain 1 Energy.",
   "simulated": true,
   "lastUpdateVersion": "v0.107.1"

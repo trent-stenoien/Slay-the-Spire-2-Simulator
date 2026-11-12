@@ -24,7 +24,8 @@ import {
   hookEffects,
   hooksFor,
   hpLossCap,
-  isStrikeOrDefend,
+  isBasicStrikeOrDefend,
+  startCount,
   minUnblockedAttack,
   modifiersOf,
   modifierTotal,
@@ -995,7 +996,7 @@ class Combat {
     const handNow = player.hand;
     player.hand = retained;
     for (const card of handNow) {
-      if (card.keywords.includes('ethereal') || (ghostSeed && isStrikeOrDefend(card.name))) {
+      if (card.keywords.includes('ethereal') || (ghostSeed && isBasicStrikeOrDefend(card))) {
         const died = this.exhaustCard(card, 'ethereal');
         if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
       } else if (card.keywords.includes('retain') || retainHand) {
@@ -2526,7 +2527,7 @@ class Combat {
   /** Every hook for `when` whose turn conditions hold this turn, in pick order. */
   private relicHooks(when: 'combatStart' | 'turnStart' | 'turnEnd'): Outcome | null {
     for (const { relic, hook } of hooksFor(this.relics, when)) {
-      if (when !== 'combatStart' && !turnMatches(hook, this.state.turn)) continue;
+      if (when !== 'combatStart' && !turnMatches(hook, this.state.turn, startCount(relic, hook))) continue;
       const out = this.relicOutcome(this.resolveRelic(relic, hookEffects(hook, relic.choice)));
       if (out) return out;
     }
@@ -2568,7 +2569,7 @@ class Combat {
       if (hook.filter && !matchesFilter(card, hook.filter)) continue;
       if (hook.everyCards !== undefined) {
         const counters = (this.player.relicCounters ??= {});
-        const n = (counters[relic.def.id] ?? 0) + 1;
+        const n = (counters[relic.def.id] ?? startCount(relic, hook)) + 1;
         counters[relic.def.id] = n;
         if (n % hook.everyCards !== 0) continue;
       }
