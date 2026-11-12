@@ -16,7 +16,18 @@
   "upgraded": null,
   "description": "Unplayable. / Ethereal. / Whenever you draw this card, lose [E].",
   "upgradedDescription": null,
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
-  "lastUpdateVersion": "v0.107.1"
+  "lastUpdateVersion": "v0.107.1",
+  "triggers": [
+    {
+      "when": "drawn",
+      "effects": [
+        {
+          "type": "loseEnergy",
+          "amount": 1
+        }
+      ]
+    }
+  ]
 }
