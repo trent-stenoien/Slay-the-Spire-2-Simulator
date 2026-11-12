@@ -18,6 +18,10 @@
     {
       "type": "gainStrength",
       "amount": 3
+    },
+    {
+      "type": "enemyGainStrength",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -30,12 +34,16 @@
       {
         "type": "gainStrength",
         "amount": 4
+      },
+      {
+        "type": "enemyGainStrength",
+        "amount": 1
       }
     ]
   },
   "description": "Deal 5 damage twice. / Gain 3 Strength. / The enemy gains 1 Strength.",
   "upgradedDescription": "Deal 6 damage twice. / Gain 4 Strength. / The enemy gains 1 Strength.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

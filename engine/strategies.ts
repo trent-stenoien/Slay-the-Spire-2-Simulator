@@ -151,6 +151,14 @@ function withoutIdle(view: StrategyView): StrategyView {
   return { ...view, playable: view.playable.filter((c) => !idle(c)) };
 }
 
+/**
+ * #169 (Trent): Enlightenment, a 0-cost card that sets the cost of the cards in hand. Always played, early
+ * (the only exception would be a cost to playing cards, e.g. Tainted, not in v1).
+ */
+export function isEnlightenment(card: Card): boolean {
+  return !card.xCost && card.cost === 0 && card.effects.some((e) => e.type === 'setCost' && e.piles.includes('hand'));
+}
+
 /** Havoc, when affordable and the draw pile or discard pile has a card (played early, Trent #114 Q2). */
 function pickHavoc(view: StrategyView): Card | undefined {
   return best(view.playable.filter(isHavoc), () => []);
@@ -1485,7 +1493,7 @@ function pickFetchOrUpgrade(view: StrategyView): Card | undefined {
 }
 
 /**
- * Plays made before the groups, in this order: a 0-cost draw card (#132); a tutor or Apotheosis (#112); Tremble when Attack
+ * Plays made before the groups, in this order: a 0-cost draw card (#132); Enlightenment (#169); a tutor or Apotheosis (#112); Tremble when Attack
  * ranks first (it is first within the Attack group, and Attack is the top priority); a Brand /
  * Burning Pact / Purity worth playing (#108); a card that nets energy (#22), as long as some other
  * card in hand could use it (#127: before any pure draw card); then a pure draw card when the
@@ -1498,6 +1506,8 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   if (heal) return heal;
   const zero = pickZeroCostDraw(view);
   if (zero) return zero;
+  const enlightenment = best(view.playable.filter(isEnlightenment), () => []);
+  if (enlightenment) return enlightenment;
   const fetched = pickFetchOrUpgrade(view);
   if (fetched) return fetched;
   if (config.order[0] === 'attack') {

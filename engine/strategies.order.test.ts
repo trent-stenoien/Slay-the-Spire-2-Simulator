@@ -482,3 +482,29 @@ describe('#132 draw rule', () => {
     expect(cannotFillTopGroup(view([card('xattack')], 0), GREEDY_CONFIG)).toBe(true);
   });
 });
+
+describe('#169 Enlightenment is always played, early', () => {
+  it('plays 0-cost Enlightenment before attacks, even with nothing else to pay for', () => {
+    const enlighten: CardDef = {
+      ...cards.defend!,
+      id: 'enlighten',
+      code: 'En',
+      name: 'Enlightenment',
+      cost: 0,
+      keywords: ['exhaust'],
+      effects: [{ type: 'setCost', piles: ['hand'], cost: 1, duration: 'turn', onlyIfHigher: true }],
+      upgraded: null,
+    };
+    const hand = [
+      makeCardInstance(cards.strike!, false, 1),
+      makeCardInstance(cards.bash!, false, 2),
+      makeCardInstance(enlighten, false, 3),
+    ];
+    const view = {
+      state: { turn: 1, player: { energy: 3, hand, drawPile: [], discardPile: [], exhaustPile: [] } },
+      playable: hand,
+    } as unknown as StrategyView;
+    expect(createStrategy(GREEDY_CONFIG).decide(view)).toEqual({ kind: 'play', uid: 3 });
+    expect(createStrategy(blockFirstConfig(0)).decide(view)).toEqual({ kind: 'play', uid: 3 });
+  });
+});

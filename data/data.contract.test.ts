@@ -28,6 +28,7 @@ const SIMULATED = [
   'schedule',
   'dealDamage',
   'enemyLoseHp',
+  'enemyGainStrength',
   'setCost',
   'playCards',
   'addReplay',

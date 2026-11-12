@@ -146,6 +146,7 @@ const CONTRACT_CHECKS: Record<ContractEffect, EffectCheck> = {
     optBool(r, e, 'allEnemies', p);
   },
   enemyLoseHp: amountOnly,
+  enemyGainStrength: amountOnly,
   heal: amountOnly,
   gainMaxHp: amountOnly,
   loseMaxHp: amountOnly,

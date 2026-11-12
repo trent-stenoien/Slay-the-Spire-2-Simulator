@@ -843,3 +843,33 @@ describe('#110 Enlightenment', () => {
     expect(bash?.energyLeft === 2 || bash === undefined).toBe(true);
   });
 });
+
+describe('#169 enemy Strength (Fight Me!)', () => {
+  const fightMe = card('fightme', 'attack', 0, [
+    atk(5, 2),
+    { type: 'gainStrength', amount: 3 },
+    { type: 'enemyGainStrength', amount: 1 },
+  ]);
+
+  it('the enemy gains Strength and its attacks grow by it; the player Strength is separate', () => {
+    const d = data(attacker(1, 5));
+    d.cards.fightme = fightMe;
+    const r = run(
+      d,
+      [
+        ['fightme', 3],
+        ['defend', 7],
+      ],
+      (t) => (t <= 2 ? ['fightme'] : []),
+      'att',
+    );
+    const str = events(r.log, 'strength');
+    expect(str.filter((s) => s.side === 'enemy').map((s) => [s.amount, s.total])).toEqual([
+      [1, 1],
+      [1, 2],
+    ]);
+    expect(str.filter((s) => s.side === 'player').map((s) => s.total)).toEqual([3, 6]);
+    const hits = enemyHits(r.log).map((h) => h.amount);
+    expect(hits.slice(0, 2)).toEqual([6, 7]);
+  });
+});
