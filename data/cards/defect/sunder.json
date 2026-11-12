@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 26,
+      "damage": 24,
       "hits": 1
     }
   ],
@@ -20,13 +20,13 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 34,
+        "damage": 32,
         "hits": 1
       }
     ]
   },
-  "description": "Deal 26 damage. / If this kills an enemy, gain [E][E][E].",
-  "upgradedDescription": "Deal 34 damage. / If this kills an enemy, gain [E][E][E].",
+  "description": "Deal 24 damage. / If this kills an enemy, gain [E][E][E].",
+  "upgradedDescription": "Deal 32 damage. / If this kills an enemy, gain [E][E][E].",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

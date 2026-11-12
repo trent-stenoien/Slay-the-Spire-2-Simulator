@@ -11,10 +11,12 @@
   "keywords": [],
   "effects": [],
   "upgraded": {
-    "cost": 0
+    "keywords": [
+      "innate"
+    ]
   },
   "description": "Whenever you create a Status, Channel 1 random Orb.",
-  "upgradedDescription": "Whenever you create a Status, Channel 1 random Orb.",
+  "upgradedDescription": "Innate. / Whenever you create a Status, Channel 1 random Orb.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

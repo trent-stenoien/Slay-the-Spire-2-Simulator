@@ -19,8 +19,8 @@
     }
   ],
   "upgraded": {},
-  "description": "Deal 13 damage. / Permanently increase this card's damage by 5. / Exhaust.",
-  "upgradedDescription": "Deal 13 damage. / Permanently increase this card's damage by 7. / Exhaust.",
+  "description": "Deal 13 damage. / Permanently increase this card's damage by 4. / Exhaust.",
+  "upgradedDescription": "Deal 13 damage. / Permanently increase this card's damage by 5. / Exhaust.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

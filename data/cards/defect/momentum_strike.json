@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 11,
+      "damage": 10,
       "hits": 1
     }
   ],
@@ -20,13 +20,13 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 15,
+        "damage": 13,
         "hits": 1
       }
     ]
   },
-  "description": "Deal 11 damage. / Reduce this card's cost to 0 [E].",
-  "upgradedDescription": "Deal 15 damage. / Reduce this card's cost to 0 [E].",
+  "description": "Deal 10 damage. / Reduce this card's cost to 0 [E].",
+  "upgradedDescription": "Deal 13 damage. / Reduce this card's cost to 0 [E].",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

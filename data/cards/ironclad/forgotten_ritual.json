@@ -13,20 +13,40 @@
   ],
   "effects": [
     {
-      "type": "gainEnergy",
-      "amount": 3
+      "type": "conditional",
+      "if": {
+        "kind": "counter",
+        "counter": "cardsExhaustedThisTurn",
+        "min": 1
+      },
+      "then": [
+        {
+          "type": "gainEnergy",
+          "amount": 3
+        }
+      ]
     }
   ],
   "upgraded": {
     "effects": [
       {
-        "type": "gainEnergy",
-        "amount": 4
+        "type": "conditional",
+        "if": {
+          "kind": "counter",
+          "counter": "cardsExhaustedThisTurn",
+          "min": 1
+        },
+        "then": [
+          {
+            "type": "gainEnergy",
+            "amount": 4
+          }
+        ]
       }
     ]
   },
-  "description": "Gain [E][E][E]. / Exhaust.",
-  "upgradedDescription": "Gain 4 [E]. / Exhaust.",
+  "description": "If you Exhausted a card this turn, gain [E][E][E]. / Exhaust.",
+  "upgradedDescription": "If you Exhausted a card this turn, gain 4 [E]. / Exhaust.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

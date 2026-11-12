@@ -5,14 +5,14 @@
   "type": "attack",
   "rarity": "rare",
   "character": "colorless",
-  "cost": 1,
+  "cost": 2,
   "xCost": false,
   "starCost": null,
   "keywords": [],
   "effects": [
     {
       "type": "attackFrom",
-      "damage": 10,
+      "damage": 15,
       "hits": 1,
       "bonusPer": {
         "per": "enemyUniqueDebuffs",
@@ -24,7 +24,7 @@
     "effects": [
       {
         "type": "attackFrom",
-        "damage": 12,
+        "damage": 18,
         "hits": 1,
         "bonusPer": {
           "per": "enemyUniqueDebuffs",
@@ -33,8 +33,8 @@
       }
     ]
   },
-  "description": "Deal 10 damage. / Deals 5 additional damage for each unique debuff on the enemy.",
-  "upgradedDescription": "Deal 12 damage. / Deals 8 additional damage for each unique debuff on the enemy.",
+  "description": "Deal 15 damage. / Deals 5 additional damage for each unique debuff on the enemy.",
+  "upgradedDescription": "Deal 18 damage. / Deals 8 additional damage for each unique debuff on the enemy.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

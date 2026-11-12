@@ -11,8 +11,8 @@
   "keywords": [],
   "effects": [],
   "upgraded": {},
-  "description": "Whenever you create a card, gain 2 Block.",
-  "upgradedDescription": "Whenever you create a card, gain 3 Block.",
+  "description": "Whenever you create a card, gain 3 Block.",
+  "upgradedDescription": "Whenever you create a card, gain 4 Block.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

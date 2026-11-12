@@ -13,8 +13,8 @@
   "upgraded": {
     "cost": 1
   },
-  "description": "Weak enemies take 50% more damage from Attacks.",
-  "upgradedDescription": "Weak enemies take 50% more damage from Attacks.",
+  "description": "Weak enemies take double damage from Attacks.",
+  "upgradedDescription": "Weak enemies take double damage from Attacks.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

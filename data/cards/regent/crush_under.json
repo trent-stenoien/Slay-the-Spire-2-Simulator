@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 8,
+      "damage": 7,
       "hits": 1,
       "allEnemies": true
     }
@@ -21,14 +21,14 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 9,
+        "damage": 8,
         "hits": 1,
         "allEnemies": true
       }
     ]
   },
-  "description": "Deal 8 damage to ALL enemies. All enemies lose 1 Strength this turn.",
-  "upgradedDescription": "Deal 9 damage to ALL enemies. All enemies lose 2 Strength this turn.",
+  "description": "Deal 7 damage to ALL enemies. All enemies lose 1 Strength this turn.",
+  "upgradedDescription": "Deal 8 damage to ALL enemies. All enemies lose 2 Strength this turn.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

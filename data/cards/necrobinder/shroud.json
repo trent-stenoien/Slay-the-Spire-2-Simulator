@@ -11,8 +11,8 @@
   "keywords": [],
   "effects": [],
   "upgraded": {},
-  "description": "Whenever you apply Doom, gain 3 Block.",
-  "upgradedDescription": "Whenever you apply Doom, gain 4 Block.",
+  "description": "Whenever you apply Doom, gain 2 Block.",
+  "upgradedDescription": "Whenever you apply Doom, gain 3 Block.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

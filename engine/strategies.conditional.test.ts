@@ -43,12 +43,12 @@ function turnOnePlays(d: ReturnType<typeof world>, deck: ReturnType<typeof deckO
 const wall = () => helper('wall', [{ type: 'gainBlock', amount: 7 }], { cost: 1 });
 
 describe('#111 card classification', () => {
-  it('scaling attacks are attacks; Stack, Entrench and Expect a Fight are block cards; Fisticuffs is only an attack', () => {
+  it('scaling attacks are attacks; Stack and Entrench are block cards; Fisticuffs is only an attack', () => {
     const inst = (id: string) => makeCardInstance(real(id), false, 0);
     for (const id of ['body_slam', 'bully', 'rend', 'mind_blast', 'perfected_strike', 'dismantle', 'fisticuffs']) {
       expect(isAttackCard(inst(id)), id).toBe(true);
     }
-    for (const id of ['stack', 'entrench', 'expect_a_fight']) expect(isBlockCard(inst(id)), id).toBe(true);
+    for (const id of ['stack', 'entrench']) expect(isBlockCard(inst(id)), id).toBe(true);
     expect(isBlockCard(inst('fisticuffs'))).toBe(false);
     expect(isAttackCard(inst('entrench'))).toBe(false);
   });
@@ -130,7 +130,6 @@ describe('#111 real data end to end', () => {
       'perfected_strike',
       'rampage',
       'maul',
-      'expect_a_fight',
       'rend',
       'mind_blast',
       'stack',

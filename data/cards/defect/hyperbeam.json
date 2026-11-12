@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 24,
+      "damage": 28,
       "hits": 1,
       "allEnemies": true
     }
@@ -21,14 +21,14 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 30,
+        "damage": 36,
         "hits": 1,
         "allEnemies": true
       }
     ]
   },
-  "description": "Deal 24 damage to ALL enemies. Lose 3 Focus this turn.",
-  "upgradedDescription": "Deal 30 damage to ALL enemies. Lose 3 Focus this turn.",
+  "description": "Deal 28 damage to ALL enemies. Lose 3 Focus.",
+  "upgradedDescription": "Deal 36 damage to ALL enemies. Lose 3 Focus.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

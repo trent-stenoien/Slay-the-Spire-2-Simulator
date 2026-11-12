@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 10,
+      "damage": 9,
       "hits": 1
     },
     {
@@ -25,18 +25,18 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 10,
+        "damage": 9,
         "hits": 1
       },
       {
         "type": "growDamage",
-        "amount": 10,
+        "amount": 9,
         "scope": "self"
       }
     ]
   },
-  "description": "Deal 10 damage. / Increase this card's damage by 5 this combat.",
-  "upgradedDescription": "Deal 10 damage. / Increase this card's damage by 10 this combat.",
+  "description": "Deal 9 damage. / Increase this card's damage by 5 this combat.",
+  "upgradedDescription": "Deal 9 damage. / Increase this card's damage by 9 this combat.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

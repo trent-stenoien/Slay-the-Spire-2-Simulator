@@ -17,7 +17,7 @@
     },
     {
       "type": "applyWeak",
-      "amount": 1
+      "amount": 2
     }
   ],
   "upgraded": {
@@ -29,12 +29,12 @@
       },
       {
         "type": "applyWeak",
-        "amount": 2
+        "amount": 3
       }
     ]
   },
-  "description": "Deal 10 damage. / Apply 1 Weak. / Channel 1 Dark.",
-  "upgradedDescription": "Deal 13 damage. / Apply 2 Weak. / Channel 1 Dark.",
+  "description": "Deal 10 damage. / Apply 2 Weak. / Channel 1 Dark.",
+  "upgradedDescription": "Deal 13 damage. / Apply 3 Weak. / Channel 1 Dark.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

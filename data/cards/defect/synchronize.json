@@ -8,11 +8,13 @@
   "cost": 1,
   "xCost": false,
   "starCost": null,
-  "keywords": [],
+  "keywords": [
+    "exhaust"
+  ],
   "effects": [],
   "upgraded": {},
-  "description": "Gain 1 Focus this turn for each unique Orb you have.",
-  "upgradedDescription": "Gain 2 Focus this turn for each unique Orb you have.",
+  "description": "Gain 2 Focus this turn for each unique Orb you have. / Exhaust.",
+  "upgradedDescription": "Gain 3 Focus this turn for each unique Orb you have. / Exhaust.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

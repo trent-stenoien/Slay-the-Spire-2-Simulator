@@ -15,18 +15,26 @@
     {
       "type": "gainEnergy",
       "amount": 1
+    },
+    {
+      "type": "draw",
+      "amount": 1
     }
   ],
   "upgraded": {
     "effects": [
       {
         "type": "gainEnergy",
+        "amount": 1
+      },
+      {
+        "type": "draw",
         "amount": 2
       }
     ]
   },
-  "description": "Gain [E]. / Exhaust.",
-  "upgradedDescription": "Gain [E][E]. / Exhaust.",
+  "description": "Gain [E]. / Draw 1 card. / Exhaust.",
+  "upgradedDescription": "Gain [E]. / Draw 2 cards. / Exhaust.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

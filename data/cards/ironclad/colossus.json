@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "gainBlock",
-      "amount": 4
+      "amount": 5
     },
     {
       "type": "applyPower",
@@ -24,7 +24,7 @@
     "effects": [
       {
         "type": "gainBlock",
-        "amount": 7
+        "amount": 8
       },
       {
         "type": "applyPower",
@@ -33,8 +33,8 @@
       }
     ]
   },
-  "description": "Gain 4 Block. / You receive 50% less damage from Vulnerable enemies this turn.",
-  "upgradedDescription": "Gain 7 Block. / You receive 50% less damage from Vulnerable enemies this turn.",
+  "description": "Gain 5 Block. / You receive 50% less damage from Vulnerable enemies this turn.",
+  "upgradedDescription": "Gain 8 Block. / You receive 50% less damage from Vulnerable enemies this turn.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

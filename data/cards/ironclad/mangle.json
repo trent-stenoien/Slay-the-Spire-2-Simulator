@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 20,
+      "damage": 15,
       "hits": 1
     },
     {
@@ -25,7 +25,7 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 26,
+        "damage": 20,
         "hits": 1
       },
       {
@@ -35,8 +35,8 @@
       }
     ]
   },
-  "description": "Deal 20 damage. / Enemy loses 10 Strength this turn.",
-  "upgradedDescription": "Deal 26 damage. / Enemy loses 15 Strength this turn.",
+  "description": "Deal 15 damage. / Enemy loses 10 Strength this turn.",
+  "upgradedDescription": "Deal 20 damage. / Enemy loses 15 Strength this turn.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

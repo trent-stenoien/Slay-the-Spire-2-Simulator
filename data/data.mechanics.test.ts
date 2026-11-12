@@ -148,8 +148,8 @@ describe('#108 Exhaust cards', () => {
     const three = { kind: 'counter', counter: 'exhaustPileSize', min: 3 };
     expect(c.pacts_end).toMatchObject({
       simulated: false,
-      effects: [{ type: 'conditional', if: three, then: [atk(18, { allEnemies: true })] }],
-      upgraded: { effects: [{ type: 'conditional', if: three, then: [atk(24, { allEnemies: true })] }] },
+      effects: [{ type: 'conditional', if: three, then: [atk(17, { allEnemies: true })] }],
+      upgraded: { effects: [{ type: 'conditional', if: three, then: [atk(23, { allEnemies: true })] }] },
     });
   });
 });
@@ -160,10 +160,10 @@ describe('#109 Powers', () => {
 
   it.each([
     ['inflame', [str(2)], [str(3)]],
-    ['demon_form', [pw('demonForm', 3)], [pw('demonForm', 4)]],
+    ['demon_form', [pw('demonForm', 2)], [pw('demonForm', 3)]],
     ['pyre', [pw('energyPerTurn', 1)], [pw('energyPerTurn', 2)]],
     ['rolling_boulder', [pw('rollingBoulder', 5)], [pw('rollingBoulder', 10)]],
-    ['crimson_mantle', [pw('crimsonMantle', 7)], [pw('crimsonMantle', 10)]],
+    ['crimson_mantle', [pw('crimsonMantle', 8)], [pw('crimsonMantle', 10)]],
     ['stone_armor', [pw('plating', 4)], [pw('plating', 6)]],
     ['eternal_armor', [pw('plating', 9)], [pw('plating', 12)]],
     ['cruelty', [pw('cruelty', 25)], [pw('cruelty', 50)]],
@@ -229,7 +229,7 @@ describe('#114 Play other cards', () => {
   it('Howl from Beyond plays itself from the Exhaust pile at the end of the turn; simulated', () => {
     expect(c.howl_from_beyond).toMatchObject({
       simulated: true,
-      effects: [atk(18, { allEnemies: true })],
+      effects: [atk(16, { allEnemies: true })],
       triggers: [{ when: 'turnEndInExhaust', effects: [{ type: 'script', id: 'playSelf' }] }],
     });
   });
@@ -297,5 +297,43 @@ describe('#115 Statuses, healing and Max HP', () => {
       expect(c[id]).toMatchObject({ simulated: true, triggers: trig(takes(n)) });
     }
     expect(c.wither!.upgraded).toMatchObject({ triggers: trig(takes(6)) });
+  });
+});
+
+describe('#208 main-release values', () => {
+  const c = gameData.cards;
+
+  it('Expect a Fight is the main-release Energy card and is not simulated (no Attacks-in-hand counter)', () => {
+    expect(c.expect_a_fight).toMatchObject({ cost: 2, simulated: false, effects: [], upgraded: { cost: 1 } });
+  });
+
+  it('Taunt is Uncommon with 7 (8) Block and 1 (2) Vulnerable', () => {
+    expect(c.taunt).toMatchObject({
+      rarity: 'uncommon',
+      effects: [
+        { type: 'gainBlock', amount: 7 },
+        { type: 'applyVulnerable', amount: 1 },
+      ],
+      upgraded: {
+        effects: [
+          { type: 'gainBlock', amount: 8 },
+          { type: 'applyVulnerable', amount: 2 },
+        ],
+      },
+    });
+  });
+
+  it('Rend costs 2 and Salvo is Rare', () => {
+    expect(c.rend).toMatchObject({ cost: 2 });
+    expect(c.salvo).toMatchObject({ rarity: 'rare' });
+  });
+
+  it('beta-only multiplayer cards and Sidestep are not in the data', () => {
+    for (const id of ['midnight', 'blaze', 'outrage', 'blade_symphony', 'concoct', 'fade', 'plot', 'constellation']) {
+      expect(c[id], id).toBeUndefined();
+    }
+    for (const id of ['hibernate', 'one_for_all', 'imitation_learning', 'the_ball', 'sidestep']) {
+      expect(c[id], id).toBeUndefined();
+    }
   });
 });

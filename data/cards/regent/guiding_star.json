@@ -7,7 +7,7 @@
   "character": "R",
   "cost": 1,
   "xCost": false,
-  "starCost": 1,
+  "starCost": 2,
   "keywords": [],
   "effects": [
     {
@@ -25,8 +25,8 @@
       }
     ]
   },
-  "description": "Deal 12 damage. / Next turn, draw 2 cards.",
-  "upgradedDescription": "Deal 13 damage. / Next turn, draw 3 cards.",
+  "description": "Deal 12 damage. / Draw 2 cards.",
+  "upgradedDescription": "Deal 13 damage. / Draw 3 cards.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

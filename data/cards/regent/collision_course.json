@@ -12,7 +12,7 @@
   "effects": [
     {
       "type": "attack",
-      "damage": 10,
+      "damage": 11,
       "hits": 1
     }
   ],
@@ -20,13 +20,13 @@
     "effects": [
       {
         "type": "attack",
-        "damage": 14,
+        "damage": 15,
         "hits": 1
       }
     ]
   },
-  "description": "Deal 10 damage. / Add a Debris into your Hand.",
-  "upgradedDescription": "Deal 14 damage. / Add a Debris into your Hand.",
+  "description": "Deal 11 damage. / Add a Debris into your Hand.",
+  "upgradedDescription": "Deal 15 damage. / Add a Debris into your Hand.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
