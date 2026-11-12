@@ -33,6 +33,10 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
     checked, taken from the result.
   - `afterEnemy`: state after the enemy's move (read at the start of the next turn).
     `player.block` is not allowed here: Block resets at the start of the turn.
+  - `enemyMove` (optional): the enemy's move id after this turn's plays (single enemy, random pattern).
+    Give it on every turn or none. The harness forces that order and rejects an illegal one (not in
+    the pool, a second once-per-fight move, a no-repeat violation, a broken opener) with
+    `enemy moves: turn N: …`. Turn 1's move is the opener when there is one.
   - `enemyHpAfterEachPlay`: enemy HP after each play (and before any potion used before the next play).
   - State is `{ "player"?: {…}, "enemy"?: {…} }`. Fields: `hp`, `block`, `strength`, `shrink`,
     `energy`, `poison`, `vulnerable`, `weak`, `frail`, and any simulated power by id (player:
@@ -56,5 +60,6 @@ consistent with the piles; cards in a shuffle beyond the last recorded draw are 
 Limits: a card put into, or taken from, the draw pile between shuffles (an `addCards` to the draw
 pile, Headbutt, Stratagem) cannot be forced; the harness reports it as
 `turn N: <card> added to drawRandom (…); the shuffle mock cannot force later draws`. Record it under
-`knownDiffs` or `skip`. Other random effects (random targets or picks, random enemy moves) are not
-scripted, and only one enemy is supported.
+`knownDiffs` or `skip`. Other random effects (random targets or picks) are not scripted, and only one enemy is supported.
+A fixture's `enemyMove` order is forced harness-side by giving the enemy a cycle pattern in a copy of the data
+(the engine's own random pick is not exercised).

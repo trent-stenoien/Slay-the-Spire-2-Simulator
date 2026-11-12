@@ -1,6 +1,6 @@
 {
   "combat": "mawler-a0-01",
-  "source": "Played by hand in the real game; recorded on issue #200 (Combat 5). Trent's 54 HP was before Burning Blood's +6 heal; finalHp 60 is after it.",
+  "source": "Played by hand in the real game; recorded on issue #200 (Combat 5). Trent's 54 HP was before Burning Blood's +6 heal; finalHp 60 is after it. Mawler's move order from the record: claw, rip and tear, roar, rip and tear, claw (turn 5's is never made: the combat ends first).",
   "gameVersion": "v0.107.1",
   "character": "ironclad",
   "ascension": 0,
@@ -63,7 +63,8 @@
         "enemy": {
           "hp": 52
         }
-      }
+      },
+      "enemyMove": "claw"
     },
     {
       "hand": ["strike", "defend", "armaments", "setup_strike", "bash"],
@@ -86,7 +87,8 @@
         "enemy": {
           "hp": 45
         }
-      }
+      },
+      "enemyMove": "ripAndTear"
     },
     {
       "hand": ["defend", "defend", "defend", "inflame", "strike"],
@@ -104,7 +106,8 @@
         "enemy": {
           "hp": 37
         }
-      }
+      },
+      "enemyMove": "roar"
     },
     {
       "hand": ["strike", "strike", "strike", "setup_strike", "armaments"],
@@ -139,7 +142,8 @@
         "enemy": {
           "hp": 15
         }
-      }
+      },
+      "enemyMove": "ripAndTear"
     },
     {
       "hand": ["strike", "defend+", "bash", "dismantle", "defend"],
@@ -151,7 +155,8 @@
           "strength": 2
         }
       },
-      "enemyHpAfterEachPlay": [5, 0]
+      "enemyHpAfterEachPlay": [5, 0],
+      "enemyMove": "claw"
     }
   ],
   "result": {
@@ -159,35 +164,5 @@
     "turns": 5,
     "finalHp": 60,
     "hpLost": 19
-  },
-  "knownDiffs": [
-    {
-      "diff": "turn 2 after enemy move: player.hp: expected 70, engine 71",
-      "reason": "Mawler's random move order is not scripted (pattern random, noRepeat). Record: claw, rip and tear, roar, rip and tear, claw. Engine rolls claw, roar, rip and tear, claw, ..., so enemy damage and Vulnerable timing differ."
-    },
-    {
-      "diff": "turn 4 start: player.hp: expected 70, engine 50",
-      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
-    },
-    {
-      "diff": "turn 4 start: player.vulnerable: expected 3, engine 2",
-      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
-    },
-    {
-      "diff": "turn 4 after enemy move: player.hp: expected 54, engine 43",
-      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
-    },
-    {
-      "diff": "turn 5 start: player.hp: expected 54, engine 43",
-      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
-    },
-    {
-      "diff": "turn 5 start: player.vulnerable: expected 2, engine 1",
-      "reason": "Same cause: engine's random Mawler move order differs from the record (T2 roar instead of 14 damage, T3 14x1.5 instead of roar)."
-    },
-    {
-      "diff": "turn - result: hpLost: expected 19, engine 30",
-      "reason": "Same cause: move order differs, so the engine takes more damage (final HP 49 after the +6 heal vs recorded 60)."
-    }
-  ]
+  }
 }
