@@ -83,7 +83,7 @@
           "effects": [
             {
               "type": "attack",
-              "damage": 9,
+              "damage": 8,
               "hits": 1
             }
           ]
@@ -92,7 +92,7 @@
           "effects": [
             {
               "type": "attack",
-              "damage": 9,
+              "damage": 7,
               "hits": 2
             }
           ]

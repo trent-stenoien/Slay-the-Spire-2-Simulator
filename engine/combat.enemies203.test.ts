@@ -194,7 +194,7 @@ describe('Mawler, Byrdonis, Cubex Construct, Vantom data (#203)', () => {
     ]);
     expect(moveIds('vantom', 5)).toEqual(['inkBlot', 'inkyLance', 'dismember', 'prepare', 'inkBlot']);
     expect(damages('vantom').slice(0, 5)).toEqual([7, 6, 6, 26, 9]);
-    expect(damages('vantom', 9).slice(0, 5)).toEqual([9, 9, 9, 30, 11]);
+    expect(damages('vantom', 9).slice(0, 5)).toEqual([8, 7, 7, 30, 10]);
     const r = logged(gameData, passive, { enemyId: 'vantom', deck: deckOf(['defend', 10]) });
     const wounds = events(r.log, 'generated').filter((g) => g.cardId === 'wound');
     expect(wounds.slice(0, 3)).toHaveLength(3);
