@@ -32,6 +32,7 @@ const SIMULATED = [
   'schedule',
   'dealDamage',
   'enemyLoseHp',
+  'enemyGainStrength',
   'setCost',
   'playCards',
   'addReplay',
@@ -44,7 +45,7 @@ describe('#105 contract effects are not simulated yet', () => {
   it('covers every contract effect type exactly once', () => {
     const types = CONTRACT_EFFECT_SAMPLES.map((e) => e.type);
     expect(new Set(types).size).toBe(types.length);
-    expect(types).toHaveLength(26);
+    expect(types).toHaveLength(27);
   });
 
   it.each(CONTRACT_EFFECT_SAMPLES.filter((e) => !SIMULATED.includes(e.type)).map((e) => [e.type, e] as const))(

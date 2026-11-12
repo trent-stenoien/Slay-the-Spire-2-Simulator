@@ -227,6 +227,7 @@ export const CONTRACT_EFFECT_SAMPLES: Effect[] = [
   { type: 'schedule', delay: 1, effects: [{ type: 'gainEnergy', amount: 2 }] }, // Outmaneuver
   { type: 'dealDamage', amount: 40, allEnemies: true }, // The Bomb (inside a schedule)
   { type: 'enemyLoseHp', amount: 6 }, // Choking
+  { type: 'enemyGainStrength', amount: 1 }, // Fight Me!
   { type: 'setCost', piles: ['hand'], cost: 1, duration: 'turn', onlyIfHigher: true }, // Enlightenment
   {
     type: 'conditional',
