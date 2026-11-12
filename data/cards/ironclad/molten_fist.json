@@ -16,6 +16,16 @@
       "type": "attack",
       "damage": 10,
       "hits": 1
+    },
+    {
+      "type": "repeat",
+      "per": "enemyVulnerable",
+      "effects": [
+        {
+          "type": "applyVulnerable",
+          "amount": 1
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -24,12 +34,22 @@
         "type": "attack",
         "damage": 14,
         "hits": 1
+      },
+      {
+        "type": "repeat",
+        "per": "enemyVulnerable",
+        "effects": [
+          {
+            "type": "applyVulnerable",
+            "amount": 1
+          }
+        ]
       }
     ]
   },
   "description": "Deal 10 damage. / Double the enemy's Vulnerable. / Exhaust.",
   "upgradedDescription": "Deal 14 damage. / Double the enemy's Vulnerable. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

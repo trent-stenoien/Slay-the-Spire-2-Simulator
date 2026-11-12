@@ -15,6 +15,16 @@
     {
       "type": "applyVulnerable",
       "amount": 1
+    },
+    {
+      "type": "repeat",
+      "per": "enemyVulnerable",
+      "effects": [
+        {
+          "type": "gainStrength",
+          "amount": 1
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -22,12 +32,22 @@
       {
         "type": "applyVulnerable",
         "amount": 2
+      },
+      {
+        "type": "repeat",
+        "per": "enemyVulnerable",
+        "effects": [
+          {
+            "type": "gainStrength",
+            "amount": 1
+          }
+        ]
       }
     ]
   },
   "description": "Apply 1 Vulnerable. / Gain 1 Strength for each Vulnerable on the enemy. / Exhaust.",
   "upgradedDescription": "Apply 2 Vulnerable. / Gain 1 Strength for each Vulnerable on the enemy. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

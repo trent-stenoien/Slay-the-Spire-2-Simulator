@@ -9,7 +9,17 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "attackFrom",
+      "damage": 0,
+      "hits": 1,
+      "bonusPer": {
+        "per": "cardsPlayedThisCombat",
+        "amount": 1
+      }
+    }
+  ],
   "upgraded": {
     "keywords": [
       "retain"

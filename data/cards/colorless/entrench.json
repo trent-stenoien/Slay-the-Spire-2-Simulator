@@ -9,13 +9,22 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "gainBlockFrom",
+      "amount": 0,
+      "bonusPer": {
+        "per": "playerBlock",
+        "amount": 1
+      }
+    }
+  ],
   "upgraded": {
     "cost": 1
   },
   "description": "Double your Block.",
   "upgradedDescription": "Double your Block.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

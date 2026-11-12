@@ -11,23 +11,31 @@
   "keywords": [],
   "effects": [
     {
-      "type": "attack",
+      "type": "attackFrom",
       "damage": 10,
-      "hits": 1
+      "hits": 1,
+      "bonusPer": {
+        "per": "enemyUniqueDebuffs",
+        "amount": 5
+      }
     }
   ],
   "upgraded": {
     "effects": [
       {
-        "type": "attack",
+        "type": "attackFrom",
         "damage": 12,
-        "hits": 1
+        "hits": 1,
+        "bonusPer": {
+          "per": "enemyUniqueDebuffs",
+          "amount": 8
+        }
       }
     ]
   },
   "description": "Deal 10 damage. / Deals 5 additional damage for each unique debuff on the enemy.",
   "upgradedDescription": "Deal 12 damage. / Deals 8 additional damage for each unique debuff on the enemy.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

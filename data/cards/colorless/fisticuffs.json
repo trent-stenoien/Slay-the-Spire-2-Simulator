@@ -14,6 +14,14 @@
       "type": "attack",
       "damage": 7,
       "hits": 1
+    },
+    {
+      "type": "gainBlockFrom",
+      "amount": 0,
+      "bonusPer": {
+        "per": "lastAttackDamage",
+        "amount": 1
+      }
     }
   ],
   "upgraded": {
@@ -22,12 +30,20 @@
         "type": "attack",
         "damage": 9,
         "hits": 1
+      },
+      {
+        "type": "gainBlockFrom",
+        "amount": 0,
+        "bonusPer": {
+          "per": "lastAttackDamage",
+          "amount": 1
+        }
       }
     ]
   },
   "description": "Deal 7 damage. / Gain Block equal to damage dealt.",
   "upgradedDescription": "Deal 9 damage. / Gain Block equal to damage dealt.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

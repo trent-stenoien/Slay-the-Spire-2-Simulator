@@ -6,7 +6,7 @@ import {
   SIMULATED_KEYWORDS,
   SIMULATED_POWERS,
   SIMULATED_FILTER_FIELDS,
-  SIMULATED_REPEAT_COUNTERS,
+  SIMULATED_COUNTERS,
   SIMULATED_COST_COUNTERS,
   SIMULATED_ENEMY_POWERS,
   SIMULATED_SCRIPTS,
@@ -63,6 +63,21 @@ function unsimulatedIn(list: unknown): string | undefined {
   return undefined;
 }
 
+/** #111: the counter name to report when a PerCounter reads a counter the engine does not track. */
+function unsimulatedPer(per: unknown, effect: string): string | undefined {
+  if (!isObj(per)) return undefined;
+  return SIMULATED_COUNTERS.has(String(per.per)) ? undefined : `${effect}.${String(per.per)}`;
+}
+
+/** #111: a condition is simulated unless it tests a counter the engine does not track. */
+function unsimulatedCondition(cond: unknown): string | undefined {
+  if (!isObj(cond)) return undefined;
+  if (cond.kind === 'handAll' || cond.kind === 'handHasNone')
+    return unsimulatedFilter(cond.filter, 'conditional.filter');
+  if (cond.kind !== 'counter') return undefined;
+  return SIMULATED_COUNTERS.has(String(cond.counter)) ? undefined : `conditional.${String(cond.counter)}`;
+}
+
 /** #116: a random pool is simulated except Splash's `otherCharacters`. */
 function unsimulatedPool(source: unknown): string | undefined {
   const pool = isObj(source) ? source.pool : undefined;
@@ -73,17 +88,19 @@ function unsimulatedPool(source: unknown): string | undefined {
  * The name to report when a simulated card's effect is not simulated, or undefined when it is.
  * `applyPower` is simulated only for SIMULATED_POWERS; `drawUntil.stopOn` and `exhaustCards.filter`
  * only with simulated filter fields; `exhaustCards` not from the exhaust pile; `repeat` only per
- * SIMULATED_REPEAT_COUNTERS (#108) with simulated inner effects; `script` only for SIMULATED_SCRIPTS.
+ * SIMULATED_COUNTERS (#108, #111) with simulated inner effects; `script` only for SIMULATED_SCRIPTS.
  */
 function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (name === 'applyPower') return SIMULATED_POWERS.has(String(e.power)) ? undefined : name;
-  if (name === 'repeat') return SIMULATED_REPEAT_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
+  if (name === 'repeat') return SIMULATED_COUNTERS.has(String(e.per)) ? unsimulatedIn(e.effects) : name;
+  // #111: attackFrom and gainBlockFrom read counters; only simulated ones count.
+  if (name === 'attackFrom' || name === 'gainBlockFrom')
+    return unsimulatedPer(e.bonusPer, name) ?? unsimulatedPer(e.extraHitsPer, name);
   if (name === 'schedule') return unsimulatedIn(e.effects);
   if (name === 'applyEnemyPower') return SIMULATED_ENEMY_POWERS.has(String(e.power)) ? undefined : name;
-  // #104: only "if Fatal" (the previous attack killed the enemy) is simulated, with simulated branches.
+  // #104/#111: a conditional is simulated when its test is (counters: SIMULATED_COUNTERS) and so are its branches.
   if (name === 'conditional') {
-    const fatal = isObj(e.if) && e.if.kind === 'fatal';
-    return fatal ? (unsimulatedIn(e.then) ?? unsimulatedIn(e.else)) : name;
+    return unsimulatedCondition(e.if) ?? unsimulatedIn(e.then) ?? unsimulatedIn(e.else);
   }
   if (name === 'script') return SIMULATED_SCRIPTS.has(String(e.id)) ? undefined : name;
   if (name === 'addCards') {
@@ -160,6 +177,8 @@ function checkSimulatable(r: Reporter, c: Obj): void {
     const bad = unsimulatedTrigger(list);
     if (bad !== undefined) unsupported(bad);
   }
+  const playableBad = unsimulatedCondition(c.playableIf);
+  if (playableBad !== undefined) unsupported(playableBad);
   for (const field of UNSIMULATED_CARD_FIELDS) {
     if (has(c, field) || (isObj(c.upgraded) && has(c.upgraded, field))) {
       unsupported(field);

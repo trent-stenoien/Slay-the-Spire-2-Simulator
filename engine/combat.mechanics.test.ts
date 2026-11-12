@@ -329,13 +329,14 @@ describe('#107 draw', () => {
     expect(turnEvents(r.log!, 2).filter((e) => e.t === 'draw')).toHaveLength(5);
   });
 
-  it('matchesFilter: types, notTypes, cardId, upgraded; open fields throw', () => {
+  it('matchesFilter: types, notTypes, cardId, upgraded, nameIncludes', () => {
     const strike = makeCardInstance(cards.strike!, true, 0);
     expect(matchesFilter(strike, {})).toBe(true);
     expect(matchesFilter(strike, { notTypes: ['attack'] })).toBe(false);
     expect(matchesFilter(strike, { types: ['attack'], cardId: 'strike', upgraded: true })).toBe(true);
     expect(matchesFilter(strike, { upgraded: false })).toBe(false);
-    expect(() => matchesFilter(strike, { nameIncludes: 'Strike' })).toThrow(/"nameIncludes" is not simulated yet/);
+    expect(matchesFilter(strike, { nameIncludes: 'Strike' })).toBe(true);
+    expect(matchesFilter(strike, { nameIncludes: 'strike' })).toBe(false);
   });
 
   it('lose HP and draw combats are deterministic', () => {
