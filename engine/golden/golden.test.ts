@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { gameData } from '../../data/index';
 import { SIMULATED_POWER_IDS, simulateCombat } from '../combat';
+import { resolveEnemy } from '../enemy';
 import { GREEDY_CONFIG } from '../strategies';
 import { makeEnemy } from '../testFixtures';
 import type {
@@ -97,6 +98,8 @@ interface Turn {
   afterPlays?: State;
   afterEnemy?: State;
   enemyHpAfterEachPlay?: number[];
+  /** The move the enemy makes after this turn's plays (single enemy; all turns or none). */
+  enemyMove?: string;
 }
 interface Fixture {
   combat: string;
@@ -179,8 +182,50 @@ function drawPileChanges(log: readonly GameEvent[]): { turn: number; text: strin
   return out;
 }
 
+/**
+ * Why the recorded enemy moves are not a legal run of the enemy's random pattern, or null when they are.
+ * Turn 1's move is the one shown at combat start; turn N's is the one made after turn N's plays.
+ */
+function enemyMoveProblem(fx: Fixture, data: GameData): string | null {
+  const def = data.enemies[fx.enemy.id];
+  if (!def) return `unknown enemy ${fx.enemy.id}`;
+  const { pattern, moves } = resolveEnemy(def, fx.ascension);
+  if (pattern.type !== 'random') return `${fx.enemy.id} follows a fixed cycle, not a random pick`;
+  const used = new Set<string>();
+  let last: string | null = null;
+  for (const [i, t] of fx.turns.entries()) {
+    const id = t.enemyMove;
+    if (id === undefined) return `turn ${i + 1}: enemyMove is missing (list it on every turn)`;
+    const opener = pattern.opener?.[i];
+    if (opener !== undefined) {
+      if (id !== opener) return `turn ${i + 1}: ${id} but the opener forces ${opener}`;
+    } else {
+      if (!pattern.moves.includes(id)) return `turn ${i + 1}: ${id} is not in ${fx.enemy.id}'s move pool`;
+      if (used.has(id)) return `turn ${i + 1}: ${id} is once per fight and was already made`;
+      if (pattern.noRepeat && id === last) return `turn ${i + 1}: ${id} repeats the previous move (no-repeat)`;
+    }
+    if (moves[id]?.oncePerFight) used.add(id);
+    last = id;
+  }
+  return null;
+}
+
+/** The data with the enemy's random pattern replaced by the recorded move order (a harness-only cycle). */
+function withEnemyMoves(fx: Fixture, data: GameData): GameData {
+  const out = structuredClone(data);
+  const def = out.enemies[fx.enemy.id]!;
+  def.pattern = { type: 'cycle', order: fx.turns.map((t) => t.enemyMove!), start: 'first' };
+  for (const o of Object.values(def.ascension)) delete o.pattern;
+  return out;
+}
+
 /** Replays a fixture through the engine; returns every mismatch, one line each. */
 function replay(fx: Fixture, data: GameData = gameData): string[] {
+  if (fx.turns.some((t) => t.enemyMove !== undefined)) {
+    const problem = enemyMoveProblem(fx, data);
+    if (problem) return [`enemy moves: ${problem}`];
+    data = withEnemyMoves(fx, data);
+  }
   const mismatches: string[] = [];
   const miss = (turn: number | string, stage: string, field: string, expected: unknown, actual: unknown) =>
     mismatches.push(`turn ${turn} ${stage}: ${field}: expected ${expected}, engine ${actual}`);
@@ -457,6 +502,20 @@ function testData(): GameData {
   return data;
 }
 
+/** Enemy that cannot be forced: a random pattern with an opener, a no-repeat pool and a once-per-fight move. */
+function moveData(): GameData {
+  const data = testData();
+  const hit = (name: string, damage: number, once = false) => ({
+    name,
+    ...(once ? { oncePerFight: true } : {}),
+    effects: [{ type: 'attack' as const, damage, hits: 1 }],
+  });
+  const e = makeEnemy('golden_moves', 99, { a: hit('A', 1), b: hit('B', 2), r: hit('R', 3, true) });
+  e.pattern = { type: 'random', opener: ['a'], moves: ['a', 'b', 'r'], noRepeat: true };
+  data.enemies[e.id] = e;
+  return data;
+}
+
 /** Relics with a choice, a potion before play 1, startHp below Max HP, playerStart, end-of-combat heal. */
 const relicsAndPotion = base({
   player: { startHp: 50, maxHp: 80 },
@@ -555,6 +614,44 @@ describe('golden harness (#210, synthetic fixtures)', () => {
     expect(replay(fx, testData())).toContain(
       'turn 1: wound added to drawRandom (card); the shuffle mock cannot force later draws (state it in knownDiffs or skip)',
     );
+  });
+
+  describe('enemyMove (forced random move order)', () => {
+    const hand = ['strike', 'strike', 'strike', 'defend', 'defend'];
+    const second = ['strike', 'strike', 'defend', 'defend', 'bash'];
+    const withMoves = (moves: string[]) =>
+      base({
+        enemy: { id: 'golden_moves', startHp: 99 },
+        turns: moves.map((enemyMove, i) => ({ hand: i === 1 ? [...second] : [...hand], plays: [], enemyMove })),
+        result: { outcome: 'win', turns: moves.length, finalHp: 80, hpLost: 0 },
+      });
+
+    it('forces the listed moves: damage taken follows the order', () => {
+      const fx = withMoves(['a', 'r', 'b']);
+      fx.turns[0]!.afterEnemy = { player: { hp: 79 } };
+      fx.turns[1]!.afterEnemy = { player: { hp: 76 } };
+      // Nobody can kill the 99 HP enemy, so the engine runs past the fixture's last turn: the only mismatch.
+      expect(replay(fx, moveData())).toEqual(['replay stopped: engine reached turn 4 but the fixture has 3 turns']);
+      fx.turns[1]!.afterEnemy = { player: { hp: 77 } };
+      expect(replay(fx, moveData())).toContain('turn 2 after enemy move: player.hp: expected 77, engine 76');
+    });
+
+    it('fails precisely on a second once-per-fight move, a repeat, an opener break and a missing turn', () => {
+      const data = moveData();
+      expect(replay(withMoves(['a', 'r', 'b', 'r']), data)).toEqual([
+        'enemy moves: turn 4: r is once per fight and was already made',
+      ]);
+      expect(replay(withMoves(['a', 'b', 'b']), data)).toEqual([
+        'enemy moves: turn 3: b repeats the previous move (no-repeat)',
+      ]);
+      expect(replay(withMoves(['b', 'a']), data)).toEqual(['enemy moves: turn 1: b but the opener forces a']);
+      expect(replay(withMoves(['a', 'zz']), data)).toEqual([
+        "enemy moves: turn 2: zz is not in golden_moves's move pool",
+      ]);
+      const gap = withMoves(['a', 'b']);
+      delete gap.turns[1]!.enemyMove;
+      expect(replay(gap, data)).toEqual(['enemy moves: turn 2: enemyMove is missing (list it on every turn)']);
+    });
   });
 
   it('knownDiffs: listed mismatches pass, unlisted ones and stale entries fail', () => {
