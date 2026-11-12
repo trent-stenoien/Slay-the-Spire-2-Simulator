@@ -35,6 +35,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    uses one stack, so a multi-hit attack uses one per hit; a fully blocked hit (0 HP loss) uses none;
    Strength and Vulnerable don't matter. Poison counts as a loss (literal reading of the text). While
    it is up, the attack with the most hits is played first and big single hits wait.
+9b. **Once-per-fight moves (#226):** an enemy move flagged `oncePerFight` (Mawler's Roar) is never picked again
+    once made; the no-repeat picker still always has a legal move (a pool with no unused move falls back to the
+    whole pool, and a pool of only once-moves is rejected by the validator).
 9a. **Artifact, start powers, Strength per turn (#203):** an enemy's `startPowers` apply at combat start
     (an Ascension override replaces them from its level). Artifact negates the next debuff applied to the
     enemy, exactly one stack per application whatever its size (one Poison application of any amount = 1 stack;

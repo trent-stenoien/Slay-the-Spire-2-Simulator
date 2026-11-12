@@ -22,6 +22,7 @@
     },
     "roar": {
       "name": "Roar",
+      "oncePerFight": true,
       "effects": [
         {
           "type": "applyVulnerable",

@@ -124,10 +124,24 @@ export function checkEnemy(r: Reporter, e: Obj): void {
         continue;
       }
       r.str(m, 'name', `${p}.name`);
+      if (m.oncePerFight !== undefined && typeof m.oncePerFight !== 'boolean')
+        r.add(`${p}.oncePerFight`, 'must be true or false');
       checkMoveEffects(r, m.effects, `${p}.effects`);
     }
   }
   checkPattern(r, e.pattern, 'pattern', moveIds);
+  if (isObj(e.pattern) && isObj(moves)) {
+    const once = (id: unknown) => isObj(moves[id as string]) && (moves[id as string] as Obj).oncePerFight === true;
+    const pool = Array.isArray(e.pattern.moves)
+      ? e.pattern.moves
+      : Array.isArray(e.pattern.order)
+        ? e.pattern.order
+        : [];
+    if (e.pattern.type === 'cycle' && pool.some(once))
+      r.add('pattern.order', 'oncePerFight moves are only honoured in random patterns');
+    if (e.pattern.type === 'random' && pool.length > 0 && pool.every(once))
+      r.add('pattern.moves', 'needs at least one move that is not oncePerFight');
+  }
   if (e.startPowers !== undefined) checkStartPowers(r, e.startPowers, 'startPowers');
 
   const asc = r.obj(e, 'ascension');

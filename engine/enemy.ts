@@ -29,6 +29,7 @@ export function resolveEnemy(def: EnemyDef, ascension: number): EnemyDef {
   const moves: Record<string, EnemyMove> = {};
   for (const [id, move] of Object.entries(def.moves)) {
     moves[id] = { name: move.name, effects: cloneEffects(move.effects) };
+    if (move.oncePerFight) moves[id].oncePerFight = true;
   }
   let hp = { ...def.hp };
   let pattern = clonePattern(def.pattern);
@@ -50,6 +51,7 @@ export function resolveEnemy(def: EnemyDef, ascension: number): EnemyDef {
         const base = moves[id];
         if (!base) throw new Error(`Enemy ${def.id}: A${key} overrides unknown move "${id}"`);
         moves[id] = { name: base.name, effects: cloneEffects(mo.effects) };
+        if (base.oncePerFight) moves[id].oncePerFight = true;
       }
     }
   }

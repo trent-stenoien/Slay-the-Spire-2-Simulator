@@ -1058,10 +1058,17 @@ class Combat {
    * #4: the pool move after `last` (null at combat start). Cycle: order[patternIndex].
    * Random: a seeded pick from the pool, skipping `last` when the pattern says noRepeat.
    */
+  /** #226: once-per-fight enemy moves already made. */
+  private readonly usedOnce = new Set<string>();
+
   private poolMove(patternIndex: number, last: string | null): string {
     const { pattern } = this.enemyDef;
     if (pattern.type === 'cycle') return pattern.order[patternIndex] as string;
-    const options = pattern.noRepeat && last !== null ? pattern.moves.filter((id) => id !== last) : pattern.moves;
+    // #226: a once-per-fight move that was already made is out of the pool for good.
+    const fresh = pattern.moves.filter((id) => !this.usedOnce.has(id));
+    const pool = fresh.length > 0 ? fresh : pattern.moves;
+    const notLast = pattern.noRepeat && last !== null ? pool.filter((id) => id !== last) : pool;
+    const options = notLast.length > 0 ? notLast : pool;
     return options[this.rng.int(0, options.length - 1)] as string;
   }
 
@@ -1072,6 +1079,7 @@ class Combat {
     const openerLength = pattern.opener?.length ?? 0;
     const made = (enemy.movesMade ?? 0) + 1;
     enemy.movesMade = made;
+    if (this.enemyDef.moves[lastMoveId]?.oncePerFight) this.usedOnce.add(lastMoveId);
     if (made < openerLength) {
       enemy.nextMoveId = pattern.opener![made];
       return;

@@ -148,3 +148,35 @@ describe('random pattern', () => {
     expect(() => runCombat(withEnemy(makeGameData(), empty), cfg({ enemyId: 'pat' }))).toThrow(/empty pattern/);
   });
 });
+
+describe('oncePerFight moves (#226)', () => {
+  const once = (pattern: MovePattern, ids = ['roar', 'a', 'b']): EnemyDef => {
+    const e = patterned(pattern, ids);
+    e.moves.roar = { ...e.moves.roar!, oncePerFight: true };
+    return e;
+  };
+
+  it('is used at most once over a long fight across many seeds, and the picker never stalls', () => {
+    const e = once({ type: 'random', opener: ['a'], moves: ['roar', 'a', 'b'], noRepeat: true });
+    for (let s = 0; s < 60; s++) {
+      const seq = moveSeq(e, s, 40);
+      expect(seq).toHaveLength(40);
+      expect(seq.filter((m) => m === 'roar').length).toBeLessThanOrEqual(1);
+      for (let i = 1; i < seq.length; i++) if (seq[i] === seq[i - 1]) throw new Error(`repeat at ${i}, seed ${s}`);
+    }
+  });
+
+  it('with a two-move pool, once-move plus one other, the other repeats after the once-move is spent', () => {
+    const e = once({ type: 'random', moves: ['roar', 'a'], noRepeat: true }, ['roar', 'a']);
+    for (let s = 0; s < 30; s++) {
+      const seq = moveSeq(e, s, 20);
+      expect(seq).toHaveLength(20);
+      expect(seq.filter((m) => m === 'roar').length).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('survives Ascension resolution', () => {
+    const e = once({ type: 'random', moves: ['roar', 'a'], noRepeat: true }, ['roar', 'a']);
+    expect(resolveEnemy(e, 9).moves.roar?.oncePerFight).toBe(true);
+  });
+});

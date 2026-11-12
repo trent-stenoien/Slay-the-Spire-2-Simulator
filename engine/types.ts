@@ -78,6 +78,7 @@
  * #210 Golden       — CombatConfig.startHp, relics, potions, playerStart; Strategy.usePotion
  *                     (potion at a point); Strategy.choose (card choices, already declared).
  *                     Fixture JSON fields stay local to engine/golden/golden.test.ts.
+ * #226 Once-per-fight — EnemyMove.oncePerFight (Mawler's Roar); simulated in engine/combat.ts.
  * ---------------------------------------------------------------------------
  */
 
@@ -786,6 +787,8 @@ export type EnemyDifficulty = 'easy' | 'normal' | 'elite' | 'boss' | 'minion' | 
 export interface EnemyMove {
   name: string;
   effects: Effect[];
+  /** #226: the move can be used at most once per fight (Mawler's Roar); the picker never chooses it again. */
+  oncePerFight?: boolean;
 }
 
 export interface CyclePattern {
