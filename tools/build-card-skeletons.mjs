@@ -3,7 +3,7 @@
 // Writes data/cards/<folder>/<id>.json with all metadata filled in deterministically:
 // id, code, name, type, rarity, character, cost, xCost, starCost, upgraded cost,
 // keywords, base/upgraded description, multiplayerOnly, lastUpdateVersion.
-// `effects` start empty and `simulated` false; the sts2-card-import skill fills them.
+// `effects` start empty and `simulated` false; the sts2-wiki-import skill fills them.
 //
 // Existing card files are never overwritten (pass --refresh-meta to update their
 // metadata while keeping effects/simulated). Codes are permanent: existing codes are

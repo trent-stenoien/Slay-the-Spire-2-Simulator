@@ -39,6 +39,7 @@ sets the card's Status, adds the issue to the board if needed, and removes any o
   inside Web Workers and Vitest.
 - `data/` — hand-entered JSON: `manifest.json`, `cards/` (shared Strike/Defend at the top level; `ironclad/`, `colorless/`, `curses/` subfolders), `enemies/`, `characters/`.
   Source: slaythespire.wiki.gg (CC BY-SA 4.0; keep attribution in `data/LICENSE`).
+  Importing from the wiki: use the `sts2-wiki-import` skill (`.claude/skills/sts2-wiki-import/`).
   Import main-release data only (the version in `manifest.json`), never beta. The wiki marks
   beta content with a "Beta Content Warning" or "(Beta only currently)".
 - `app/` — React UI, workers, charts. May import from `engine/` and `data/`.
