@@ -3,18 +3,16 @@
   "code": "WP",
   "name": "Well-Laid Plans",
   "type": "power",
-  "rarity": "rare",
+  "rarity": "uncommon",
   "character": "S",
-  "cost": 2,
+  "cost": 1,
   "xCost": false,
   "starCost": null,
   "keywords": [],
   "effects": [],
-  "upgraded": {
-    "cost": 1
-  },
-  "description": "At the end of your turn, you no longer discard your Hand.",
-  "upgradedDescription": "At the end of your turn, you no longer discard your Hand.",
+  "upgraded": {},
+  "description": "At the end of your turn, Retain up to 1 card.",
+  "upgradedDescription": "At the end of your turn, Retain up to 2 cards.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

@@ -3,7 +3,7 @@
   "code": "SQ",
   "name": "Splash",
   "type": "skill",
-  "rarity": "rare",
+  "rarity": "uncommon",
   "character": "colorless",
   "cost": 1,
   "xCost": false,

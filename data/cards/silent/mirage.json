@@ -13,10 +13,10 @@
   ],
   "effects": [],
   "upgraded": {
-    "keywords": []
+    "cost": 0
   },
   "description": "Gain Block equal to Poison on ALL enemies. / Exhaust.",
-  "upgradedDescription": "Gain Block equal to Poison on ALL enemies.",
+  "upgradedDescription": "Gain Block equal to Poison on ALL enemies. / Exhaust.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"

@@ -11,8 +11,8 @@
   "keywords": [],
   "effects": [],
   "upgraded": {},
-  "description": "Draw 2 cards. / They gain Retain this turn.",
-  "upgradedDescription": "Draw 3 cards. / They gain Retain this turn.",
+  "description": "Draw cards until you have 6 cards in your Hand.",
+  "upgradedDescription": "Draw cards until you have 7 cards in your Hand.",
   "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
