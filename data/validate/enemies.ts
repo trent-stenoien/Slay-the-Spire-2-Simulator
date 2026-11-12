@@ -1,5 +1,13 @@
 /** Enemy validation: moves, patterns and Ascension overrides. */
-import { CONTRACT_EFFECTS, ZONES, DIFFICULTIES, PATTERN_STARTS, PATTERN_TYPES, NUMERIC_KEY } from './lists';
+import {
+  CONTRACT_EFFECTS,
+  ENEMY_POWER_IDS,
+  ZONES,
+  DIFFICULTIES,
+  PATTERN_STARTS,
+  PATTERN_TYPES,
+  NUMERIC_KEY,
+} from './lists';
 import { type Obj, isOneOf, isObj, Reporter, checkTwoCharCode } from './shared';
 import { checkEffects } from './effects';
 
@@ -14,7 +22,9 @@ function checkEnemyOnlyEffects(r: Reporter, list: unknown, path: string): void {
     if (e.type === 'applyPoison')
       r.add(`${path}[${i}].type`, 'is "applyPoison", but Poison on the player is not simulated');
     if (e.type === 'gainEnergy') r.add(`${path}[${i}].type`, 'is "gainEnergy", but enemies have no energy');
-    if (isOneOf(e.type, CONTRACT_EFFECTS)) {
+    // #203: an enemy move may add a named card to a pile (Vantom's Dismember adds Wounds).
+    const namedCard = e.type === 'addCards' && isObj(e.source) && e.source.kind === 'card';
+    if (!namedCard && isOneOf(e.type, CONTRACT_EFFECTS)) {
       r.add(`${path}[${i}].type`, `is "${e.type}", which is not simulated on enemy moves`);
     }
     if (e.type === 'applyShrink' && typeof e.amount === 'number' && e.amount > 100) {
@@ -27,6 +37,21 @@ function checkEnemyOnlyEffects(r: Reporter, list: unknown, path: string): void {
 function checkMoveEffects(r: Reporter, list: unknown, path: string): void {
   checkEffects(r, list, path);
   checkEnemyOnlyEffects(r, list, path);
+}
+
+/** #203: powers an enemy starts combat with: known EnemyPowerId keys, whole amounts of at least 1. */
+function checkStartPowers(r: Reporter, v: unknown, path: string): void {
+  if (!isObj(v)) {
+    r.add(path, 'must be an object');
+    return;
+  }
+  for (const [id, amount] of Object.entries(v)) {
+    if (!isOneOf(id, ENEMY_POWER_IDS))
+      r.add(`${path}.${id}`, `is not a known enemy power (${ENEMY_POWER_IDS.join(', ')})`);
+    if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 1) {
+      r.add(`${path}.${id}`, 'must be a whole number of at least 1');
+    }
+  }
 }
 
 function checkRange(r: Reporter, v: unknown, path: string): void {
@@ -103,6 +128,7 @@ export function checkEnemy(r: Reporter, e: Obj): void {
     }
   }
   checkPattern(r, e.pattern, 'pattern', moveIds);
+  if (e.startPowers !== undefined) checkStartPowers(r, e.startPowers, 'startPowers');
 
   const asc = r.obj(e, 'ascension');
   if (asc) {
@@ -128,6 +154,7 @@ export function checkEnemy(r: Reporter, e: Obj): void {
           }
         }
       }
+      if (o.startPowers !== undefined) checkStartPowers(r, o.startPowers, `${p}.startPowers`);
       if (o.pattern !== undefined) checkPattern(r, o.pattern, `${p}.pattern`, moveIds);
     }
   }

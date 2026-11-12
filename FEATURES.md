@@ -35,6 +35,13 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    uses one stack, so a multi-hit attack uses one per hit; a fully blocked hit (0 HP loss) uses none;
    Strength and Vulnerable don't matter. Poison counts as a loss (literal reading of the text). While
    it is up, the attack with the most hits is played first and big single hits wait.
+   player Strength (#169).
+9a. **Artifact, start powers, Strength per turn (#203):** an enemy's `startPowers` apply at combat start
+    (an Ascension override replaces them from its level). Artifact negates the next debuff applied to the
+    enemy, one stack per debuff; Vulnerable, Weak, Frail, Poison, Stun and temporary Strength loss all
+    count (golden combat 7: Uppercut's Weak is negated, its Vulnerable lands). Strength per turn
+    (Byrdonis) is gained at the end of the enemy's own turn, after its move (Strength 0, 1, 2 on turns
+    1, 2, 3). An enemy move may add a named card to a pile (Vantom's Dismember: 3 Wounds to discard).
 10. **Statuses, curses and defensive effects (#115):** "Lose X HP" curses/statuses (Bad Luck, Beckon,
     Regret) ignore Block; "Take X damage" ones (Burn, Decay, Disintegration, Infection, Toxic, Wither)
     are blockable. Intangible makes every hit that turn 1, Poison included (Accelerant = 1 twice).

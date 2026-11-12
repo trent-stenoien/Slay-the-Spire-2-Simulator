@@ -32,6 +32,7 @@ export function resolveEnemy(def: EnemyDef, ascension: number): EnemyDef {
   }
   let hp = { ...def.hp };
   let pattern = clonePattern(def.pattern);
+  let startPowers = def.startPowers ? { ...def.startPowers } : undefined;
 
   const levels = Object.keys(def.ascension)
     .map((k) => ({ key: k, level: Number(k) }))
@@ -43,6 +44,7 @@ export function resolveEnemy(def: EnemyDef, ascension: number): EnemyDef {
     if (!o) continue;
     if (o.hp) hp = { ...o.hp };
     if (o.pattern) pattern = clonePattern(o.pattern);
+    if (o.startPowers) startPowers = { ...o.startPowers };
     if (o.moves) {
       for (const [id, mo] of Object.entries(o.moves)) {
         const base = moves[id];
@@ -52,5 +54,7 @@ export function resolveEnemy(def: EnemyDef, ascension: number): EnemyDef {
     }
   }
 
-  return { ...def, hp, moves, pattern, ascension: {} };
+  const resolved: EnemyDef = { ...def, hp, moves, pattern, ascension: {} };
+  if (startPowers) resolved.startPowers = startPowers;
+  return resolved;
 }
