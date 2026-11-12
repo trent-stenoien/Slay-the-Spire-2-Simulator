@@ -1,0 +1,17 @@
+{
+  "id": "bellows",
+  "code": "Bw",
+  "name": "Bellows",
+  "rarity": "rare",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "script",
+      "id": "bellows"
+    }
+  ],
+  "description": "The first Hand you draw each combat is Upgraded.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

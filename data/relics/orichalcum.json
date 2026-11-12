@@ -1,0 +1,31 @@
+{
+  "id": "orichalcum",
+  "code": "Or",
+  "name": "Orichalcum",
+  "rarity": "uncommon",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnEnd",
+      "effects": [
+        {
+          "type": "conditional",
+          "if": {
+            "kind": "counter",
+            "counter": "playerBlock",
+            "max": 0
+          },
+          "then": [
+            {
+              "type": "gainBlock",
+              "amount": 6
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "description": "If you end your turn without Block, gain 6 Block.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

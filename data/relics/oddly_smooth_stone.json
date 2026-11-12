@@ -1,0 +1,22 @@
+{
+  "id": "oddly_smooth_stone",
+  "code": "OS",
+  "name": "Oddly Smooth Stone",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "combatStart",
+      "effects": [
+        {
+          "type": "applyPower",
+          "power": "dexterity",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "description": "Start each combat with 1 Dexterity.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

@@ -8,6 +8,8 @@ import {
   BANDWIDTH_FACTOR,
   CURVE_FILL_OPACITY,
   curveRange,
+  hpLostOffset,
+  offsetCurve,
   curvesMaxYInRange,
   linePath,
   linearScale,
@@ -60,12 +62,14 @@ const Y_LABELS: Record<ChartMode, string> = {
 function compute(rows: readonly ResultRow[], hidden: ReadonlySet<string>, mode: ChartMode, bandwidthFactor: number) {
   const range = visibleHpLostRange(rows, hidden);
   const span = curveRange(range);
-  const curve = (counts: number[]): CurvePoint[] => {
-    if (mode === 'kde') return smoothedCurve(counts, span, bandwidthFactor); // ×0 is the raw per-HP percentages
-    if (mode === 'raw') return rawCurve(counts, span);
-    return cumulativeCurve(counts, span);
+  const build = (counts: readonly number[], at: [number, number]): CurvePoint[] => {
+    if (mode === 'kde') return smoothedCurve(counts, at, bandwidthFactor); // ×0 is the raw per-HP percentages
+    if (mode === 'raw') return rawCurve(counts, at);
+    return cumulativeCurve(counts, at);
   };
-  return { range, curves: rows.map((r) => curve(r.summary.hpLostCounts)) };
+  // #205: hpLostCounts start at minHpLost when HP lost went negative.
+  const curve = (r: ResultRow) => offsetCurve(build, r.summary.hpLostCounts, span, hpLostOffset(r.summary));
+  return { range, curves: rows.map(curve) };
 }
 
 /** Y offset of a marker label row in the strip above the plot. */

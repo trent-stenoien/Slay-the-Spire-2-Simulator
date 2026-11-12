@@ -1,0 +1,17 @@
+{
+  "id": "the_boot",
+  "code": "TB",
+  "name": "The Boot",
+  "rarity": "event",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "minUnblockedAttack",
+      "amount": 5
+    }
+  ],
+  "description": "Whenever you would deal 4 or less unblocked attack damage, increase it to 5.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "stone_calendar",
+  "code": "SC",
+  "name": "Stone Calendar",
+  "rarity": "rare",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnEnd",
+      "turn": 7,
+      "effects": [
+        {
+          "type": "dealDamage",
+          "amount": 52,
+          "allEnemies": true
+        }
+      ]
+    }
+  ],
+  "description": "At the end of turn 7, deal 52 damage to ALL enemies.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

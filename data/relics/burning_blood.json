@@ -1,0 +1,21 @@
+{
+  "id": "burning_blood",
+  "code": "BB",
+  "name": "Burning Blood",
+  "rarity": "starter",
+  "character": "I",
+  "hooks": [
+    {
+      "when": "combatEnd",
+      "effects": [
+        {
+          "type": "heal",
+          "amount": 6
+        }
+      ]
+    }
+  ],
+  "description": "At the end of combat, heal 6 HP.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

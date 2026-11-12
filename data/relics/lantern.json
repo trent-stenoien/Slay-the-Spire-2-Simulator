@@ -1,0 +1,22 @@
+{
+  "id": "lantern",
+  "code": "Ln",
+  "name": "Lantern",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "turn": 1,
+      "effects": [
+        {
+          "type": "gainEnergy",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "description": "Start each combat with an additional 1 Energy.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

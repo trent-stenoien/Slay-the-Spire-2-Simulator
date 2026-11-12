@@ -1,0 +1,22 @@
+{
+  "id": "pollinous_core",
+  "code": "PC",
+  "name": "Pollinous Core",
+  "rarity": "event",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "everyTurns": 4,
+      "effects": [
+        {
+          "type": "draw",
+          "amount": 2
+        }
+      ]
+    }
+  ],
+  "description": "Every 4 turns, draw 2 additional cards.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

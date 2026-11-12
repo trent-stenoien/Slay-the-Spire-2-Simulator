@@ -79,7 +79,7 @@ export function ResultsPanel({ data, characterId, result, status, blocker, onRun
 
   return (
     <Panel id="res" title="Results" actions={actions} defaultCollapsed expandOn={result ?? undefined}>
-      <p className="note">{relicNote(data, characterId)}</p>
+      {relicNote(data, characterId) && <p className="note">{relicNote(data, characterId)}</p>}
       <form
         className="field-row run-seed"
         onSubmit={(e) => {

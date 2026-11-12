@@ -14,14 +14,18 @@ reference file for the record type:
 | Enemies (`data/enemies/`) | `reference/enemies.md` |
 | Potions (`data/potions/`) | `reference/potions.md` |
 | Buffs and debuffs | `reference/powers.md` |
+| Relics (`data/relics/`) | `reference/relics.md` |
 
-Relics are added by their own card (#205); keywords/mechanics when needed.
+Keywords/mechanics are added when needed.
 Type index with examples: https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Main
 
 ## 1. Fetch
 
 Use the WebFetch tool on the page URL (`https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:<Name>`);
-shell tools such as curl cannot reach the wiki. Ask explicitly for: the infobox values, the
+shell tools such as curl cannot reach the wiki. WebFetch refuses a wiki URL that has not appeared
+in a search result yet: WebSearch for it first (e.g. "slaythespire.wiki.gg Slay the Spire 2 Vajra
+relic"), then fetch the URL from the results. List pages (e.g. `Slay_the_Spire_2:Relics_List`) and
+the beta patch-note pages newer than the manifest version are a quick way to check many records. Ask explicitly for: the infobox values, the
 move/effect table, Ascension changes, and the full Update History table with its Type column.
 Card tables may show beta values, so always apply the version rule below.
 

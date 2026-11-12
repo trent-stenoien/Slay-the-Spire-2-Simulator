@@ -135,6 +135,25 @@ export function isRawFactor(factor: number): boolean {
   return clampBandwidthFactor(factor) === 0;
 }
 
+/** #205: the HP lost that hpLostCounts[0] counts (StrategySummary.minHpLost; 0 when absent). */
+export function hpLostOffset(summary: Pick<StrategySummary, 'minHpLost'>): number {
+  return summary.minHpLost ?? 0;
+}
+
+/**
+ * #205: a curve built from `hpLostCounts` (index = HP lost − offset), shifted so its x values are
+ * real HP lost. `build` sees the range in index space.
+ */
+export function offsetCurve<P extends Point>(
+  build: (counts: readonly number[], range: [number, number]) => P[],
+  hpLostCounts: readonly number[],
+  range: [number, number],
+  offset: number,
+): P[] {
+  if (offset === 0) return build(hpLostCounts, range);
+  return build(hpLostCounts, [range[0] - offset, range[1] - offset]).map((p) => ({ ...p, x: p.x + offset }));
+}
+
 /** KDE bandwidth for one strategy: Silverman's rule × the (clamped) slider factor. */
 export function kdeBandwidth(hpLostCounts: readonly number[], factor: number): number {
   return silvermanBandwidth(hpLostCounts) * clampBandwidthFactor(factor);
@@ -202,7 +221,7 @@ export const X_RANGE_PADDING = 2;
  * rank ceil(p / 100 × N), at least rank 1. So P0 is the minimum, P100 the maximum, and the
  * result is always an observed HP-lost value. Returns null when there are no combats.
  */
-export function hpLostPercentile(hpLostCounts: readonly number[], p: number): number | null {
+export function hpLostPercentile(hpLostCounts: readonly number[], p: number, offset = 0): number | null {
   let n = 0;
   for (const c of hpLostCounts) n += c > 0 ? c : 0;
   if (n === 0) return null;
@@ -212,15 +231,16 @@ export function hpLostPercentile(hpLostCounts: readonly number[], p: number): nu
   for (let v = 0; v < hpLostCounts.length; v++) {
     const c = hpLostCounts[v] ?? 0;
     if (c > 0) run += c;
-    if (run >= rank) return v;
+    if (run >= rank) return v + offset;
   }
-  return hpLostCounts.length - 1; // unreachable: run reaches n
+  return hpLostCounts.length - 1 + offset; // unreachable: run reaches n
 }
 
 type ChartRow = { strategyId: string; summary: StrategySummary };
 
 /**
- * X-axis range fitted to the strategies not in `hidden`: [max(0, P5 − 2), P95 + 2], where P5
+ * X-axis range fitted to the strategies not in `hidden`: [max(0, P5 − 2), P95 + 2] (#205: P5 − 2
+ * when P5 is negative, so negative HP lost shows), where P5
  * is the lowest 5th percentile and P95 the highest 95th percentile of raw HP lost among the
  * visible strategies (nearest rank, see `hpLostPercentile`). Data outside the range is drawn
  * to the edge and clipped. With none visible, EMPTY_X_RANGE; visible but no combats, NO_DATA_X_RANGE.
@@ -231,18 +251,18 @@ export function visibleHpLostRange(rows: readonly ChartRow[], hidden: ReadonlySe
   let lo = Infinity;
   let hi = -Infinity;
   for (const r of shown) {
-    const p5 = hpLostPercentile(r.summary.hpLostCounts, 5);
-    const p95 = hpLostPercentile(r.summary.hpLostCounts, 95);
+    const p5 = hpLostPercentile(r.summary.hpLostCounts, 5, hpLostOffset(r.summary));
+    const p95 = hpLostPercentile(r.summary.hpLostCounts, 95, hpLostOffset(r.summary));
     if (p5 !== null && p5 < lo) lo = p5;
     if (p95 !== null && p95 > hi) hi = p95;
   }
   if (lo === Infinity) return [...NO_DATA_X_RANGE];
-  return [Math.max(0, lo - X_RANGE_PADDING), hi + X_RANGE_PADDING];
+  return [lo < 0 ? lo - X_RANGE_PADDING : Math.max(0, lo - X_RANGE_PADDING), hi + X_RANGE_PADDING];
 }
 
-/** Range the curves are computed over: the axis range plus 1 HP each side (min 0), so lines run to the clip edge. */
+/** Range the curves are computed over: the axis range plus 1 HP each side (min 0 unless the axis is already below 0), so lines run to the clip edge. */
 export function curveRange(range: [number, number]): [number, number] {
-  return [Math.max(0, range[0] - 1), range[1] + 1];
+  return [range[0] < 0 ? range[0] - 1 : Math.max(0, range[0] - 1), range[1] + 1];
 }
 
 /** Max y over the points whose x lies in [range[0], range[1]], so clipped peaks don't set the Y axis. */
@@ -260,10 +280,10 @@ export interface PercentileMarker {
 }
 
 /** One strategy's labelled P5/P25/P50/P75/P95 of raw HP lost, or [] if it has no combats. */
-export function strategyPercentileMarkers(hpLostCounts: readonly number[]): PercentileMarker[] {
+export function strategyPercentileMarkers(hpLostCounts: readonly number[], offset = 0): PercentileMarker[] {
   const out: PercentileMarker[] = [];
   for (const p of MARKER_PERCENTILES) {
-    const value = hpLostPercentile(hpLostCounts, p);
+    const value = hpLostPercentile(hpLostCounts, p, offset);
     if (value === null) return [];
     out.push({ p, value, label: `P${p} = ${value}` });
   }
@@ -280,7 +300,7 @@ export function percentileMarkerSets<R extends ChartRow>(
 ): { row: R; markers: PercentileMarker[] }[] {
   const shown = rows.filter((r) => !hidden.has(r.strategyId));
   return shown
-    .map((row) => ({ row, markers: strategyPercentileMarkers(row.summary.hpLostCounts) }))
+    .map((row) => ({ row, markers: strategyPercentileMarkers(row.summary.hpLostCounts, hpLostOffset(row.summary)) }))
     .filter((s) => s.markers.length > 0);
 }
 

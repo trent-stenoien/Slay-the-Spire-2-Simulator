@@ -1,0 +1,22 @@
+{
+  "id": "chandelier",
+  "code": "Ch",
+  "name": "Chandelier",
+  "rarity": "rare",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "turn": 3,
+      "effects": [
+        {
+          "type": "gainEnergy",
+          "amount": 3
+        }
+      ]
+    }
+  ],
+  "description": "At the start of your 3rd turn, gain 3 Energy.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

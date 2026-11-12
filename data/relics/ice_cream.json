@@ -1,0 +1,16 @@
+{
+  "id": "ice_cream",
+  "code": "IC",
+  "name": "Ice Cream",
+  "rarity": "rare",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "conserveEnergy"
+    }
+  ],
+  "description": "Energy is now conserved between turns.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

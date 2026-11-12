@@ -1,0 +1,22 @@
+{
+  "id": "happy_flower",
+  "code": "HF",
+  "name": "Happy Flower",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "everyTurns": 3,
+      "effects": [
+        {
+          "type": "gainEnergy",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "description": "Every 3 turns, gain 1 Energy.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

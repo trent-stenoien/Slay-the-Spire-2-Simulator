@@ -1,0 +1,22 @@
+{
+  "id": "anchor_fake",
+  "code": "Af",
+  "name": "Anchor???",
+  "rarity": "event",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "turn": 1,
+      "effects": [
+        {
+          "type": "gainBlock",
+          "amount": 4
+        }
+      ]
+    }
+  ],
+  "description": "Start each combat with 4 Block.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

@@ -5,13 +5,14 @@
  * (e.g. `effects[1].amount`) so a broken JSON file is easy to find.
  * The checks live in data/validate/: lists, shared helpers, effects, cards and enemies.
  */
-import type { CardDef, CharacterDef, EnemyDef, GameData, Manifest, PotionDef } from '../engine/types';
+import type { CardDef, CharacterDef, EnemyDef, GameData, Manifest, PotionDef, RelicDef } from '../engine/types';
 import reservedCodes from './reserved-codes.json';
 import { CHARACTER_CODES } from './validate/lists';
 import { type Obj, isObj, Reporter } from './validate/shared';
 import { checkCard } from './validate/cards';
 import { checkEnemy } from './validate/enemies';
 import { checkPotion } from './validate/potions';
+import { checkRelic } from './validate/relics';
 
 export { CONTRACT_LISTS_MATCH_TYPES } from './validate/lists';
 
@@ -65,7 +66,7 @@ function checkCharacter(r: Reporter, c: Obj, cardIds: Set<string>): void {
  */
 function checkCollection(
   errors: string[],
-  name: 'cards' | 'enemies' | 'characters' | 'potions',
+  name: 'cards' | 'enemies' | 'characters' | 'potions' | 'relics',
   raw: unknown,
   check: (r: Reporter, o: Obj) => void,
 ): void {
@@ -139,6 +140,11 @@ export function validateGameData(raw: unknown): ValidationResult {
   checkUniqueCodes(errors, 'enemies', raw.enemies);
   checkUniqueCodes(errors, 'characters', raw.characters);
   checkUniqueCodes(errors, 'potions', raw.potions);
+  // #205: relics are optional (absent until relic data exists).
+  if (raw.relics !== undefined) {
+    checkCollection(errors, 'relics', raw.relics, checkRelic);
+    checkUniqueCodes(errors, 'relics', raw.relics);
+  }
 
   if (errors.length > 0) return { ok: false, errors };
   return {
@@ -149,6 +155,7 @@ export function validateGameData(raw: unknown): ValidationResult {
       enemies: raw.enemies as Record<string, EnemyDef>,
       characters: raw.characters as Record<string, CharacterDef>,
       potions: raw.potions as Record<string, PotionDef>,
+      ...(raw.relics !== undefined ? { relics: raw.relics as Record<string, RelicDef> } : {}),
     },
   };
 }
@@ -161,6 +168,8 @@ export interface RawGameFiles {
   characters: Record<string, unknown>;
   /** #204: optional so callers without potion files still work. */
   potions?: Record<string, unknown>;
+  /** #205: data/relics/*.json. */
+  relics?: Record<string, unknown>;
 }
 
 /**
@@ -192,6 +201,7 @@ export function assembleGameData(files: RawGameFiles): { raw: Obj; errors: strin
       enemies: collect('enemies', files.enemies),
       characters: collect('characters', files.characters),
       potions: collect('potions', files.potions ?? {}),
+      ...(files.relics ? { relics: collect('relics', files.relics) } : {}),
     },
     errors,
   };

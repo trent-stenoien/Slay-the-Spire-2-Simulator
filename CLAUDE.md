@@ -37,7 +37,7 @@ sets the card's Status, adds the issue to the board if needed, and removes any o
 
 - `engine/` — pure TypeScript. No React, no DOM, no imports from `app/`. Must run
   inside Web Workers and Vitest.
-- `data/` — hand-entered JSON: `manifest.json`, `cards/` (shared Strike/Defend at the top level; `ironclad/`, `colorless/`, `curses/` subfolders), `enemies/`, `characters/`.
+- `data/` — hand-entered JSON: `manifest.json`, `cards/` (shared Strike/Defend at the top level; `ironclad/`, `colorless/`, `curses/` subfolders), `enemies/`, `characters/`, `relics/`.
   Source: slaythespire.wiki.gg (CC BY-SA 4.0; keep attribution in `data/LICENSE`).
   Importing from the wiki: use the `sts2-wiki-import` skill (`.claude/skills/sts2-wiki-import/`).
   Import main-release data only (the version in `manifest.json`), never beta. The wiki marks
@@ -68,9 +68,11 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
   lasts through that player turn and the enemy's next move).
 - Ascension overrides are cumulative (A9 applies A8 then A9). Ascender's Bane is
   added automatically at A5+ via `manifest.ascensionCards`.
-- `hpLost` = Max HP at the start of combat − final HP (minimum 0). Healing (Not Yet) lowers it by the
-  HP actually healed; a Max HP gain (Feed) raises current HP too, so it lowers it; HP removed when
-  Max HP drops below current HP (Brightest Flame) counts as lost. Burning Blood is not simulated.
+- `hpLost` = start HP (`startHp`, default Max HP) − final HP − overheal, and can be negative (#205,
+  Trent): every heal (cards and relics, Burning Blood's end-of-combat heal included) counts in full,
+  even past the damage taken or Max HP (lose 5, heal 8 → −3). HP itself stops at Max HP; the excess is
+  overheal. A Max HP gain (Feed) raises current HP too, so it lowers it; HP removed when Max HP drops
+  below current HP (Brightest Flame) counts as lost. `StrategySummary.minHpLost` offsets `hpLostCounts`.
 - Intangible makes every enemy hit on the player 1 (and curse/status damage); Gambit loses the combat
   on any unblocked enemy attack damage. "Take X damage" statuses are blockable; "Lose X HP" ones are not.
   A Stunned enemy skips its move (no damage) but its pattern still advances (#148 confirms).

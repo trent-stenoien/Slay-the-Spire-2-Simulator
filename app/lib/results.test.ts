@@ -113,8 +113,8 @@ describe('results helpers', () => {
 });
 
 describe('relicNote', () => {
-  it('names Burning Blood for the Ironclad and the starting relic otherwise', () => {
-    expect(relicNote(gameData, 'ironclad')).toBe("Burning Blood's 6 HP heal is not simulated.");
+  it('#205: no note for the Ironclad (Burning Blood is simulated); names unsimulated starting relics', () => {
+    expect(relicNote(gameData, 'ironclad')).toBeNull();
     expect(relicNote(gameData, 'silent')).toBe(
       `${gameData.characters.silent!.startingRelic} (starting relic) is not simulated.`,
     );

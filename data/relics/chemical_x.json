@@ -1,0 +1,17 @@
+{
+  "id": "chemical_x",
+  "code": "CX",
+  "name": "Chemical X",
+  "rarity": "shop",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "xBonus",
+      "amount": 2
+    }
+  ],
+  "description": "The effects of your cost X cards are increased by 2.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

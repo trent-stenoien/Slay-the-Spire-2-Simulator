@@ -1,0 +1,21 @@
+{
+  "id": "velvet_choker",
+  "code": "VC",
+  "name": "Velvet Choker",
+  "rarity": "ancient",
+  "character": "any",
+  "hooks": [],
+  "modifiers": [
+    {
+      "kind": "energyPerTurn",
+      "amount": 1
+    },
+    {
+      "kind": "cardsPerTurnLimit",
+      "amount": 6
+    }
+  ],
+  "description": "Gain 1 Energy at the start of each turn. You cannot play more than 6 cards per turn.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

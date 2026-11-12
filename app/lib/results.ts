@@ -86,11 +86,14 @@ export function parseSeedInput(text: string): number | null | undefined {
   return n <= 0xffffffff ? n : undefined;
 }
 
-/** The note on the character's starting relic, which the simulator does not model. */
-export function relicNote(data: GameData, characterId: string): string {
-  return characterId === 'ironclad'
-    ? "Burning Blood's 6 HP heal is not simulated."
-    : `${data.characters[characterId]?.startingRelic ?? 'The starting relic'} (starting relic) is not simulated.`;
+/**
+ * The note on the character's starting relic when the simulator does not model it; null when it
+ * does (#205: Burning Blood is a simulated relic, picked by default in Setup).
+ */
+export function relicNote(data: GameData, characterId: string): string | null {
+  const name = data.characters[characterId]?.startingRelic;
+  if (Object.values(data.relics ?? {}).some((r) => r.name === name && r.simulated)) return null;
+  return `${name ?? 'The starting relic'} (starting relic) is not simulated.`;
 }
 
 /**
@@ -110,9 +113,9 @@ export function describeRun(data: GameData, cfg: RunConfig): string {
 }
 
 /** "P25–P75" of HP lost (EN DASH), or one number when they are equal; "—" with no combats. */
-export function fmtHpLostRange(hpLostCounts: readonly number[]): string {
-  const lo = hpLostPercentile(hpLostCounts, 25);
-  const hi = hpLostPercentile(hpLostCounts, 75);
+export function fmtHpLostRange(hpLostCounts: readonly number[], offset = 0): string {
+  const lo = hpLostPercentile(hpLostCounts, 25, offset);
+  const hi = hpLostPercentile(hpLostCounts, 75, offset);
   if (lo === null || hi === null) return '—';
   return lo === hi ? String(lo) : `${lo}\u2013${hi}`;
 }

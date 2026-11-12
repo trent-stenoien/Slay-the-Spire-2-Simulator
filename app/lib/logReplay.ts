@@ -188,7 +188,28 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
 }
 
 /** One line of text per event, for the log view. `name` maps a cardId to a display name. */
-export function describeEvent(ev: GameEvent, name: (cardId: string) => string): string | null {
+/**
+ * #205: HP lost as words: "lost 6 HP", or "gained 3 HP" when heals beat the damage (HP lost −3).
+ * `ing` gives "losing" / "gaining".
+ */
+export function hpLostPhrase(hpLost: number, ing = false): string {
+  if (hpLost < 0) return `${ing ? 'gaining' : 'gained'} ${-hpLost} HP`;
+  return `${ing ? 'losing' : 'lost'} ${hpLost} HP`;
+}
+
+/** #205: "burning_blood" → "Burning Blood" (the default relic name when none is given). */
+export function relicIdName(id: string): string {
+  return id
+    .split('_')
+    .map((w) => (w ? w[0]!.toUpperCase() + w.slice(1) : w))
+    .join(' ');
+}
+
+export function describeEvent(
+  ev: GameEvent,
+  name: (cardId: string) => string,
+  relicName: (relicId: string) => string = relicIdName,
+): string | null {
   const gains = (s: 'player' | 'enemy') => (s === 'player' ? 'You gain' : 'Enemy gains');
   switch (ev.t) {
     case 'play':
@@ -221,7 +242,9 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
         ? `You lose ${ev.amount} HP (${ev.hpAfter} HP left)`
         : `Enemy loses ${ev.amount} HP (${ev.hpAfter} HP left)`;
     case 'heal':
-      return `You heal ${ev.amount} HP (${ev.hpAfter} HP)`;
+      return `You heal ${ev.amount} HP${ev.source ? ` from ${relicName(ev.source)}` : ''} (${ev.hpAfter} HP)`;
+    case 'relic':
+      return `${relicName(ev.relicId)} activates`;
     case 'maxHp':
       return ev.amount >= 0
         ? `Your Max HP rises by ${ev.amount} (${ev.hpAfter}/${ev.maxHpAfter} HP)`

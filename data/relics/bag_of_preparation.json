@@ -1,0 +1,22 @@
+{
+  "id": "bag_of_preparation",
+  "code": "BP",
+  "name": "Bag of Preparation",
+  "rarity": "common",
+  "character": "any",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "turn": 1,
+      "effects": [
+        {
+          "type": "draw",
+          "amount": 2
+        }
+      ]
+    }
+  ],
+  "description": "At the start of each combat, draw 2 additional cards.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}
