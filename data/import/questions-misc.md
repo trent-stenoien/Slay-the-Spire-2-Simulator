@@ -5,5 +5,5 @@
 - **Enthralled, Normality, Sloth**: Play-order and card-per-turn limits are not representable; confirm unsimulated.
 - **Folly, Writhe, Poor Sleep**: Contain Innate/Retain, which are not simulated keywords per the skill; kept simulated=false.
 - **Spore Mind, Debris (cost 1, Exhaust only)**: Playable with no effect; marked simulated=true as keyword-only text, confirm that is intended.
-- **Slimed**: "Draw 1 card" has no effect object, so simulated=false; confirm.
+- ~~**Slimed**~~ Resolved (#180): given the `draw` effect and marked simulated.
 - **Quests (Byrdonis Egg, Dowsing, Lantern Key, Spoils Map) and Guilty**: Run-level text (rest site, rooms, deck removal) is outside combat; simulated=false.

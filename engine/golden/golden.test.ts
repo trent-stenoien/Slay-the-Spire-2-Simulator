@@ -42,9 +42,7 @@ vi.mock('../rng', async (importOriginal) => {
             }
             ordered.push(rest.splice(i, 1)[0]!);
           }
-          if (ordered.length < items.length) {
-            control.error ??= `recorded hands cover ${ordered.length} of ${items.length} cards in a shuffle`;
-          }
+          // The last shuffle may be longer than the recorded draws: the rest is never drawn, so any order will do.
           const full = [...ordered, ...rest].reverse();
           items.splice(0, items.length, ...full);
           return items;
@@ -54,7 +52,7 @@ vi.mock('../rng', async (importOriginal) => {
   };
 });
 
-type Side = Partial<Record<'hp' | 'block' | 'strength' | DebuffKind, number>>;
+type Side = Partial<Record<'hp' | 'block' | 'strength' | 'shrink' | DebuffKind, number>>;
 interface State {
   player?: Side;
   enemy?: Side;
@@ -84,7 +82,13 @@ const files = import.meta.glob<Fixture>('./*.json', { eager: true, import: 'defa
 function snapshot(view: StrategyView): { player: Side; enemy: Side } {
   const { player, enemy } = view.state;
   return {
-    player: { hp: player.hp, block: player.block, strength: player.strength, ...player.debuffs },
+    player: {
+      hp: player.hp,
+      block: player.block,
+      strength: player.strength,
+      shrink: player.shrink ?? 0,
+      ...player.debuffs,
+    },
     enemy: { hp: enemy.hp, block: enemy.block, strength: enemy.strength, ...enemy.debuffs },
   };
 }

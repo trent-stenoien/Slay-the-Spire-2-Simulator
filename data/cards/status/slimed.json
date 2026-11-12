@@ -11,11 +11,16 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "draw",
+      "amount": 1
+    }
+  ],
   "upgraded": null,
   "description": "Draw 1 card. / Exhaust.",
   "upgradedDescription": null,
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
