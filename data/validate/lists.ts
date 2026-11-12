@@ -54,6 +54,8 @@ export const CONTRACT_EFFECTS = [
   'loseMaxHp',
   'gainGold',
   'gainPotion',
+  // #215 (#206 Void)
+  'loseEnergy',
   'script',
 ] as const;
 
@@ -290,7 +292,8 @@ export const POWER_IDS = [
   'entropy',
 ] as const;
 
-export const ENEMY_POWER_IDS = ['strengthLossThisTurn', 'stun'] as const;
+/** #215 adds artifact, strengthPerTurn, slippery: valid data, not simulated (not in SIMULATED_ENEMY_POWERS). */
+export const ENEMY_POWER_IDS = ['strengthLossThisTurn', 'stun', 'artifact', 'strengthPerTurn', 'slippery'] as const;
 
 export const TRIGGER_WHENS = ['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust'] as const;
 
