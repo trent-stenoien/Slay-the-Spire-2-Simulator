@@ -31,6 +31,7 @@ export function runCombatRange(
         enemyId: config.enemyId,
         ascension: config.ascension,
         strategy,
+        ...(config.potions ? { potions: config.potions } : {}),
         seed: deriveSeed(config.runSeed, i),
       }),
     );

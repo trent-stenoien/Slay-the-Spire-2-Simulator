@@ -245,6 +245,8 @@ export function describeEvent(ev: GameEvent, name: (cardId: string) => string): 
       return ev.reason === 'reshuffle' ? `Discard pile shuffled into draw pile (${ev.count} cards)` : null;
     case 'enemyMove':
       return `Enemy uses ${ev.name}`;
+    case 'potion':
+      return `You use ${ev.potionId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`;
     default:
       return null;
   }

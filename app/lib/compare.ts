@@ -48,6 +48,7 @@ export function replayCombat(
         deck: setup.deck,
         enemyId: setup.enemyId,
         ascension: setup.ascension,
+        ...(setup.potions && setup.potions.length > 0 ? { potions: setup.potions } : {}),
         strategy,
         seed,
       },

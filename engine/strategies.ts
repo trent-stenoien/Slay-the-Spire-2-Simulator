@@ -15,6 +15,7 @@ import type {
 } from './types';
 import { attackDamage, attackHits, conditionHolds, countStrikes, perCounterValue } from './rules';
 import { chooseGenerated } from './generate';
+import { pickPotion } from './potions';
 
 type Card = DeepReadonly<CardInstance>;
 
@@ -1877,6 +1878,7 @@ export function createStrategy(config: StrategyConfig): Strategy {
       playing = d.kind === 'play' ? view.playable.find((p) => p.uid === d.uid) : undefined;
       return d;
     },
+    usePotion: pickPotion,
     choose: (view, request) =>
       request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade'
         ? chooseGenerated(request, c.order)

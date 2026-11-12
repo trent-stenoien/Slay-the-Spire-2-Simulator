@@ -1,0 +1,12 @@
+{
+  "id": "strength_potion",
+  "code": "SP",
+  "name": "Strength Potion",
+  "rarity": "common",
+  "character": "any",
+  "effects": [{ "type": "gainStrength", "amount": 2 }],
+  "description": "Gain 2 Strength.",
+  "simulated": true,
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

@@ -139,6 +139,13 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     in order; an Ascension level applies every override at or below it and none above (A8 has no A9).
 36. **Storage and notes:** saved decks and strategies live in localStorage, and the app still works
     when storage is blocked. The UI says Burning Blood's heal is not simulated.
+37. **Potions (#204):** up to 3 potion slots in the setup (URL `p=` codes, e.g. `SPFP`). The strategy is
+    asked before every move; using a potion costs no energy, empties the slot and logs a `potion`
+    event. Fire Potion deals a fixed 20 (no Strength or Weak) through enemy Block. All built-in
+    strategies share one rule set: Strength Potion at once (turn 1, before any card); Fire Potion
+    when HP + Block of the enemy is at most 20 (a kill) or when the enemy has no Block, and only with
+    no Slippery; and always when the enemy's coming attack could kill you (intent total at least HP +
+    Block), so it is never held while dying.
 
 ## Known failure points
 
