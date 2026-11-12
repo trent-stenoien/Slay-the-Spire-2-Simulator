@@ -419,6 +419,7 @@ class Combat {
         discardPile: [],
         exhaustPile: [],
         counters: emptyCounters(),
+        ...(config.potions && config.potions.length > 0 ? { potions: this.potionSlots(data, config.potions) } : {}),
       },
       enemy: {
         enemyId: enemyDef.id,
@@ -436,6 +437,14 @@ class Combat {
     };
     this.log?.push({ t: 'combatStart', seed: config.seed, enemyHp, playerHp: character.maxHp });
     this.log?.push({ t: 'shuffle', reason: 'start', count: deck.length });
+  }
+
+  /** #204: the potion ids in slot order; an unknown id is a setup error. */
+  private potionSlots(data: GameData, ids: readonly string[]): string[] {
+    for (const id of ids) {
+      if (!data.potions?.[id]) throw new Error(`Unknown potion "${id}"`);
+    }
+    return [...ids];
   }
 
   private get player() {
@@ -682,6 +691,30 @@ class Combat {
   }
 
   /**
+   * #204: before each move the strategy may use potions (asked again until it returns null).
+   * A potion costs no energy and is not a card: its effects resolve, its slot empties, and a
+   * `potion` event is logged first. Returns 'win' when the potion kills the enemy.
+   */
+  private usePotions(): Outcome | null {
+    const { player, enemy } = this;
+    const slots = player.potions;
+    if (!slots || !this.strategy.usePotion) return null;
+    for (let used = 0; used <= slots.length; used++) {
+      const use = this.strategy.usePotion(this.view());
+      if (!use) return null;
+      const id = slots[use.slot];
+      const def = id ? this.data.potions?.[id] : undefined;
+      if (!id || !def) throw new Error(`Strategy tried to use empty or unknown potion slot ${use.slot}`);
+      slots[use.slot] = null;
+      this.log?.push({ t: 'potion', potionId: id, slot: use.slot });
+      const died = this.resolveEffects('player', def.effects);
+      if (died === 'player' || player.hp <= 0) return 'loss';
+      if (died === 'enemy' || enemy.hp <= 0) return 'win';
+    }
+    return null;
+  }
+
+  /**
    * The strategy plays cards until it ends its turn. Each decision gets a fresh view (current
    * hand and energy), so cards drawn mid-turn are considered. Returns the outcome if combat ended:
    * 'win' when the enemy died, 'loss' when the player's own card dropped them to 0 HP.
@@ -689,6 +722,8 @@ class Combat {
   private playCards(): Outcome | null {
     const { player, enemy } = this;
     for (let decisions = 0; decisions < MAX_DECISIONS_PER_TURN; decisions++) {
+      const potionOutcome = this.usePotions();
+      if (potionOutcome) return potionOutcome;
       const decision = this.strategy.decide(this.view());
       if (decision.kind === 'endTurn') break;
       const idx = player.hand.findIndex((c) => c.uid === decision.uid);

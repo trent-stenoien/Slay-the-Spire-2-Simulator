@@ -1,7 +1,7 @@
 import type { EnemyDef, GameData, Zone } from '../../engine/types';
 import { isCharacterSimulated } from '../lib/deck';
 import { Panel } from './Panel';
-import { MAX_ASCENSION, type SetupState } from '../lib/url';
+import { MAX_ASCENSION, MAX_POTIONS, type SetupState } from '../lib/url';
 
 interface Props {
   data: GameData;
@@ -9,6 +9,8 @@ interface Props {
   onCharacter: (characterId: string) => void;
   onEnemy: (enemyId: string) => void;
   onAscension: (ascension: number) => void;
+  /** #204: potion ids in slot order (empty slots dropped). */
+  onPotions?: (potions: string[]) => void;
 }
 
 /** Biomes by Act, in game order. Act 1 has two alternatives. */
@@ -32,7 +34,7 @@ export function enemiesIn(data: GameData, zone: Zone): EnemyDef[] {
 }
 
 /** Character, Act, biome, enemy and Ascension pickers. */
-export function SetupPanel({ data, setup, onCharacter, onEnemy, onAscension }: Props) {
+export function SetupPanel({ data, setup, onCharacter, onEnemy, onAscension, onPotions }: Props) {
   const order = ['I', 'S', 'R', 'N', 'D']; // in-game order
   const characters = Object.values(data.characters).sort((a, b) => order.indexOf(a.code) - order.indexOf(b.code));
   const current = data.enemies[setup.enemyId];
@@ -108,6 +110,32 @@ export function SetupPanel({ data, setup, onCharacter, onEnemy, onAscension }: P
           </select>
         </label>
       </div>
+      {onPotions && (data.potions ? Object.keys(data.potions).length > 0 : false) && (
+        <div className="field-row">
+          {Array.from({ length: MAX_POTIONS }, (_, slot) => (
+            <label className="field field-narrow" key={slot}>
+              <span>Potion {slot + 1}</span>
+              <select
+                value={setup.potions?.[slot] ?? ''}
+                onChange={(e) => {
+                  const slots = Array.from({ length: MAX_POTIONS }, (_, i) => setup.potions?.[i] ?? '');
+                  slots[slot] = e.target.value;
+                  onPotions(slots.filter((id) => id !== ''));
+                }}
+              >
+                <option value="">None</option>
+                {Object.values(data.potions ?? {})
+                  .filter((p) => p.simulated)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }

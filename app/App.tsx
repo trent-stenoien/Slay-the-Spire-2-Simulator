@@ -97,6 +97,7 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
       deck: setup.deck,
       enemyId: setup.enemyId,
       ascension: setup.ascension,
+      ...(setup.potions && setup.potions.length > 0 ? { potions: setup.potions } : {}),
       strategies: strategiesForRun,
       runSeed,
     };
@@ -139,6 +140,7 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
             onCharacter={(id) => setSetup({ ...setup, characterId: id, deck: startingDeckFor(data, id) })}
             onEnemy={(id) => setSetup({ ...setup, enemyId: id })}
             onAscension={(a) => setSetup({ ...setup, ascension: a })}
+            onPotions={(potions) => setSetup({ ...setup, potions })}
           />
           <StrategyPanel
             library={strategies.library}

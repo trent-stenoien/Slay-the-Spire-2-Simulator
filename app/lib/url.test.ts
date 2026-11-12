@@ -300,3 +300,22 @@ describe('compare links (several strategies in st, colors in k)', () => {
     expect(() => buildQuery(data, setup, { seed: 1, strategies: six })).toThrow();
   });
 });
+
+describe('potions (#204)', () => {
+  it('encodes p= in slot order and round-trips', () => {
+    const setup = { ...defaultSetup(data), potions: ['strength_potion', 'fire_potion'] };
+    expect(buildQuery(data, setup)).toContain('&p=SPFP');
+    expect(parseQuery(data, `?${buildQuery(data, setup)}`).setup.potions).toEqual(['strength_potion', 'fire_potion']);
+  });
+  it('omits p when there are no potions', () => {
+    expect(buildQuery(data, defaultSetup(data))).not.toContain('p=');
+    expect(buildQuery(data, { ...defaultSetup(data), potions: [] })).not.toContain('p=');
+  });
+  it('reports bad codes, odd length and more than 3', () => {
+    for (const bad of ['ZZ', 'SPF', 'SPSPSPSP']) {
+      const r = parseQuery(data, `?v=1&p=${bad}`);
+      expect(r.errors).toHaveLength(1);
+      expect(r.setup.potions).toBeUndefined();
+    }
+  });
+});

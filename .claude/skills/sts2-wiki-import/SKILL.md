@@ -12,9 +12,10 @@ reference file for the record type:
 |---|---|
 | Cards (`data/cards/`) | `reference/cards.md` |
 | Enemies (`data/enemies/`) | `reference/enemies.md` |
+| Potions (`data/potions/`) | `reference/potions.md` |
 | Buffs and debuffs | `reference/powers.md` |
 
-Potions and relics are added by their own cards (#204, #205); keywords/mechanics when needed.
+Relics are added by their own card (#205); keywords/mechanics when needed.
 Type index with examples: https://slaythespire.wiki.gg/wiki/Slay_the_Spire_2:Main
 
 ## 1. Fetch

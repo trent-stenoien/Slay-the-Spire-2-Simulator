@@ -368,3 +368,19 @@ describe('assembleGameData', () => {
     expect(errors).toEqual([expect.stringMatching(/cards.*"x".*a\.json.*b\.json/)]);
   });
 });
+
+describe('potion validation (#204)', () => {
+  it('accepts the real potions and gives them unique codes', () => {
+    expect(errorsOf(fixture())).toEqual([]);
+  });
+  it('reports a bad field, a duplicate code and an unsimulatable effect', () => {
+    const raw = fixture();
+    raw.potions.fire_potion.rarity = 'mythic';
+    raw.potions.strength_potion.code = raw.potions.fire_potion.code;
+    raw.potions.strength_potion.effects = [{ type: 'draw', amount: 1 }];
+    const errs = errorsOf(raw);
+    expect(errs).toContainEqual(expect.stringMatching(/potions\/fire_potion.*"rarity"/));
+    expect(errs).toContainEqual(expect.stringMatching(/potions: field "code"/));
+    expect(errs).toContainEqual(expect.stringMatching(/potions\/strength_potion.*effects\[0\]\.type/));
+  });
+});

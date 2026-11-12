@@ -16,6 +16,9 @@
  *       when its length differs from `st`.
  *   n   optional, display-only: 0-based combat number within the run.
  *
+ * Potions (#204): optional `p`, concatenated potion codes (2 chars each, in slot order, at most
+ * MAX_POTIONS), e.g. `p=SPFP`. Absent = no potions.
+ *
  * Deck: concatenated entries of card code (2 chars) + optional "+" (upgraded)
  * + count (decimal, no leading zeros). The "+" is written literally, so the
  * query is built and parsed by hand rather than with URLSearchParams (which
@@ -37,6 +40,8 @@ export const MAX_ASCENSION = 10;
 const MAX_SEED = 0xffffffff;
 const MAX_COPIES = 99;
 const MAX_COMBAT_INDEX = 9999;
+/** Potion slots in the setup (#204). */
+export const MAX_POTIONS = 3;
 
 /** One-letter color codes for the `k` param. */
 const COLOR_LETTER: Record<StrategyColor, string> = { blue: 'b', green: 'g', yellow: 'y', red: 'r', purple: 'p' };
@@ -47,6 +52,8 @@ export interface SetupState {
   enemyId: string;
   ascension: number;
   deck: Deck;
+  /** #204: potion ids in slot order (at most MAX_POTIONS); absent means none. */
+  potions?: string[];
 }
 
 export interface LogTarget {
@@ -145,11 +152,37 @@ export function decodeDeck(data: GameData, characterId: string, text: string): D
   return { ok: true, deck };
 }
 
+export function encodePotions(data: GameData, potions: readonly string[]): string {
+  return potions
+    .map((id) => {
+      const potion = data.potions?.[id];
+      if (!potion) throw new Error(`Unknown potion id "${id}"`);
+      return potion.code;
+    })
+    .join('');
+}
+
+export type PotionParseResult = { ok: true; potions: string[] } | { ok: false; error: string };
+
+/** Strict parser: 2-char codes of known potions, at most MAX_POTIONS. */
+export function decodePotions(data: GameData, text: string): PotionParseResult {
+  if (text.length % 2 !== 0) return { ok: false, error: `Potions: cannot read "${text}" (expected 2-char codes)` };
+  const potions: string[] = [];
+  for (let i = 0; i < text.length; i += 2) {
+    const code = text.slice(i, i + 2);
+    const potion = Object.values(data.potions ?? {}).find((x) => x.code === code);
+    if (!potion) return { ok: false, error: `Potions: unknown potion code "${code}"` };
+    potions.push(potion.id);
+  }
+  if (potions.length > MAX_POTIONS) return { ok: false, error: `Potions: at most ${MAX_POTIONS} are allowed` };
+  return { ok: true, potions };
+}
+
 // ---------------------------------------------------------------------------
 // Query string
 // ---------------------------------------------------------------------------
 
-/** Build the query string (without "?"). Param order is fixed: v c e a d [s st [k] [n]]. */
+/** Build the query string (without "?"). Param order is fixed: v c e a d [p] [s st [k] [n]]. */
 export function buildQuery(data: GameData, setup: SetupState, log?: LogTarget | null): string {
   const character = data.characters[setup.characterId];
   const enemy = data.enemies[setup.enemyId];
@@ -162,6 +195,7 @@ export function buildQuery(data: GameData, setup: SetupState, log?: LogTarget | 
     `a=${setup.ascension}`,
     `d=${encodeDeck(data, setup.deck)}`,
   ];
+  if (setup.potions && setup.potions.length > 0) parts.push(`p=${encodePotions(data, setup.potions)}`);
   if (log) {
     if (log.strategies.length < 1 || log.strategies.length > MAX_STRATEGIES_PER_RUN) {
       throw new Error(`A log link needs 1–${MAX_STRATEGIES_PER_RUN} strategies, got ${log.strategies.length}`);
@@ -252,6 +286,13 @@ export function parseQuery(data: GameData, search: string): ParsedUrl {
     // Tolerate a "+" that some tool turned into a space.
     const r = decodeDeck(data, setup.characterId, d.replace(/ /g, '+'));
     if (r.ok) setup.deck = r.deck;
+    else errors.push(r.error);
+  }
+
+  const pt = p.get('p');
+  if (pt !== undefined && pt !== '') {
+    const r = decodePotions(data, pt);
+    if (r.ok) setup.potions = r.potions;
     else errors.push(r.error);
   }
 

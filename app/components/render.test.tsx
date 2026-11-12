@@ -607,3 +607,22 @@ describe('deck folders, links and page layout', () => {
     expect(indexHtml).toContain('<title>STS2 Combat Simulator</title>');
   });
 });
+
+describe('potion pickers (#204)', () => {
+  it('SetupPanel shows three potion slots with the potions', () => {
+    const html = renderToStaticMarkup(
+      <SetupPanel
+        data={gameData}
+        setup={{ ...defaultSetup(gameData), potions: ['fire_potion'] }}
+        onCharacter={() => {}}
+        onEnemy={() => {}}
+        onAscension={() => {}}
+        onPotions={() => {}}
+      />,
+    );
+    expect(html).toContain('Potion 1');
+    expect(html).toContain('Potion 3');
+    expect(html).toContain('Strength Potion');
+    expect(html).toContain('Fire Potion');
+  });
+});

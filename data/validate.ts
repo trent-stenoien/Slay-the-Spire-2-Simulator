@@ -5,12 +5,13 @@
  * (e.g. `effects[1].amount`) so a broken JSON file is easy to find.
  * The checks live in data/validate/: lists, shared helpers, effects, cards and enemies.
  */
-import type { CardDef, CharacterDef, EnemyDef, GameData, Manifest } from '../engine/types';
+import type { CardDef, CharacterDef, EnemyDef, GameData, Manifest, PotionDef } from '../engine/types';
 import reservedCodes from './reserved-codes.json';
 import { CHARACTER_CODES } from './validate/lists';
 import { type Obj, isObj, Reporter } from './validate/shared';
 import { checkCard } from './validate/cards';
 import { checkEnemy } from './validate/enemies';
+import { checkPotion } from './validate/potions';
 
 export { CONTRACT_LISTS_MATCH_TYPES } from './validate/lists';
 
@@ -64,7 +65,7 @@ function checkCharacter(r: Reporter, c: Obj, cardIds: Set<string>): void {
  */
 function checkCollection(
   errors: string[],
-  name: 'cards' | 'enemies' | 'characters',
+  name: 'cards' | 'enemies' | 'characters' | 'potions',
   raw: unknown,
   check: (r: Reporter, o: Obj) => void,
 ): void {
@@ -132,10 +133,12 @@ export function validateGameData(raw: unknown): ValidationResult {
   checkCollection(errors, 'cards', raw.cards, checkCard);
   checkCollection(errors, 'enemies', raw.enemies, checkEnemy);
   checkCollection(errors, 'characters', raw.characters, (r, o) => checkCharacter(r, o, cardIds));
+  checkCollection(errors, 'potions', raw.potions, checkPotion);
   checkUniqueCodes(errors, 'cards', raw.cards);
   checkReservedCodes(errors, raw.cards);
   checkUniqueCodes(errors, 'enemies', raw.enemies);
   checkUniqueCodes(errors, 'characters', raw.characters);
+  checkUniqueCodes(errors, 'potions', raw.potions);
 
   if (errors.length > 0) return { ok: false, errors };
   return {
@@ -145,6 +148,7 @@ export function validateGameData(raw: unknown): ValidationResult {
       cards: raw.cards as Record<string, CardDef>,
       enemies: raw.enemies as Record<string, EnemyDef>,
       characters: raw.characters as Record<string, CharacterDef>,
+      potions: raw.potions as Record<string, PotionDef>,
     },
   };
 }
@@ -155,6 +159,8 @@ export interface RawGameFiles {
   cards: Record<string, unknown>;
   enemies: Record<string, unknown>;
   characters: Record<string, unknown>;
+  /** #204: optional so callers without potion files still work. */
+  potions?: Record<string, unknown>;
 }
 
 /**
@@ -185,6 +191,7 @@ export function assembleGameData(files: RawGameFiles): { raw: Obj; errors: strin
       cards: collect('cards', files.cards),
       enemies: collect('enemies', files.enemies),
       characters: collect('characters', files.characters),
+      potions: collect('potions', files.potions ?? {}),
     },
     errors,
   };
