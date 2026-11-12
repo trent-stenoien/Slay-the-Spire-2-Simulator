@@ -64,6 +64,15 @@ describe('card pools', () => {
     expect(ids({ types: ['power'] })).toEqual(['pool_power']);
   });
 
+  it('an upgraded cost pool also takes cards that become that cost when upgraded; the base pool does not (#170)', () => {
+    const slam = card('slam', { type: 'attack', rarity: 'common', cost: 1 }, hit(0));
+    slam.upgraded = { cost: 0 };
+    const data = dataWith(card('cheap', { type: 'attack', cost: 0, rarity: 'common' }), slam);
+    const ids = (up: boolean) => cardPool(data.cards, 'I', { types: ['attack'], cost: 0 }, up).map((c) => c.id);
+    expect(ids(false)).toEqual(['cheap']);
+    expect(ids(true)).toEqual(['cheap', 'slam']);
+  });
+
   it('a newly simulated card joins the pool by itself', () => {
     const data = dataWith(card('late', { type: 'attack', rarity: 'common', simulated: false }));
     expect(cardPool(data.cards, 'I', { types: ['attack'] }).map((c) => c.id)).toEqual(['pool_attack']);
