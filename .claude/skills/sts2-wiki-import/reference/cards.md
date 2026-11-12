@@ -118,9 +118,10 @@ Set `"simulated": true` only when ALL of these hold, for base AND upgraded versi
 3. No `gainStars` effect, no `starCost`, not `xStarCost`. An `xCost` card qualifies only
    when every X in its text (base and upgraded) is an "X times" attack (`xTimes`).
 4. Type is attack, skill or power (#109: a Power whose every line is in the table, e.g.
-   Inflame, Demon Form, Stone Armor; statuses with end-of-turn effects and quests → false).
+   Inflame, Demon Form, Stone Armor; statuses with end-of-turn effects → false).
    Exception: a status/curse whose whole text is keywords (e.g. `Unplayable. Ethereal.`)
-   can be `true`.
+   can be `true`. Likewise a quest whose only keyword is `Unplayable` and which has no in-combat
+   effect (Byrdonis Egg) is `true` with no effects; other quests stay `false`.
 Otherwise `false`. When unsure, `false` — and add a question (below).
 
 ## Examples
