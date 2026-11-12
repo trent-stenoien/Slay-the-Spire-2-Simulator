@@ -15,7 +15,7 @@ not checked.
   HP lost from the start: `startHp - recorded HP` against `Max HP - engine HP`.
 - `turns[]`, in order:
   - `hand`: the cards drawn this turn (ids, any order). The engine is made to draw exactly these.
-    A draw that spans a reshuffle works if the hands in the fixture are consistent with the deck.
+    A draw that spans a reshuffle works if the hands in the fixture are consistent with the deck. Cards in a shuffle beyond the last recorded draw are in any order.
   - `plays`: card ids in play order (use the listed order when the game order was not recorded).
   - `atStart`: state when the player's turn begins (after the draw).
   - `afterPlays`: state when the player ends the turn. On the turn that wins, only `enemy.hp: 0`
@@ -23,7 +23,7 @@ not checked.
   - `afterEnemy`: state after the enemy's move (read at the start of the next turn).
     `player.block` is not allowed here: Block resets at the start of the turn.
   - `enemyHpAfterEachPlay`: enemy HP after each play, one number per play.
-  - State is `{ "player"?: { hp, block, strength, vulnerable, weak, frail }, "enemy"?: { hp, block,
+  - State is `{ "player"?: { hp, block, strength, shrink, vulnerable, weak, frail }, "enemy"?: { hp, block,
 strength, vulnerable, weak, frail } }`. Every field is optional.
 - `result`: `{ "outcome": "win" | "loss", "turns", "finalHp", "hpLost" }`. `hpLost` is
   `startHp - finalHp`.
