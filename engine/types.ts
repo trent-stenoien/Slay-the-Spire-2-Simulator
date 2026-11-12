@@ -57,6 +57,27 @@
  * #169 Enemy Strength — Effect `enemyGainStrength` (Fight Me!); reuses EnemyState.strength.
  * #104 Rewards       — Effect `gainGold`, `gainPotion`; CombatResult.rewards;
  *                     StrategySummary.avgGold / potionRate (Hand of Greed, Alchemize).
+ *
+ * Contract map (#215): v1 relics, potions, enemy powers, Void, golden scripting.
+ * Same rule: declared, not simulated; validators list the new ids as valid but unsimulated.
+ *
+ * #203 Enemies      — EnemyDef.startPowers (+ EnemyAscensionOverride.startPowers);
+ *                     EnemyPowerId `artifact`, `strengthPerTurn`; GameEvent `negated`.
+ *                     Self-buffs reuse `enemyGainStrength`; cards added to the player's
+ *                     piles reuse `addCards` (source `card`) on an enemy move.
+ * #213 Slippery     — EnemyPowerId `slippery` (via EnemyDef.startPowers).
+ * #204 Potions      — PotionDef, GameData.potions; CombatConfig.potions / RunConfig.potions;
+ *                     PlayerState.potions; Strategy.usePotion + PotionUse; GameEvent `potion`.
+ *                     Strength Potion = `gainStrength`, Fire Potion = `dealDamage`.
+ * #205 Relics       — RelicDef (RelicHook list + RelicModifier list + RelicChoice),
+ *                     RelicSetup, GameData.relics; CombatConfig.relics / RunConfig.relics;
+ *                     PlayerState.relicCounters; GameEvent `relic`, `heal.source`;
+ *                     CombatResult.hpLost may be negative + CombatResult.healed;
+ *                     StrategySummary.minHpLost; CombatConfig.startHp / RunConfig.startHp.
+ * #206 Void         — Effect `loseEnergy` inside CardTrigger `drawn`.
+ * #210 Golden       — CombatConfig.startHp, relics, potions, playerStart; Strategy.usePotion
+ *                     (potion at a point); Strategy.choose (card choices, already declared).
+ *                     Fixture JSON fields stay local to engine/golden/golden.test.ts.
  * ---------------------------------------------------------------------------
  */
 
@@ -262,6 +283,8 @@ export type Effect =
   | { type: 'gainGold'; amount: number }
   /** #104: the player gains one Random Potion (Alchemize). Reward only; the potion has no combat effect. */
   | { type: 'gainPotion' }
+  /** #206: the player loses `amount` energy now, never below 0 (Void, as a `drawn` trigger). */
+  | { type: 'loseEnergy'; amount: number }
   /**
    * One-off card logic the typed effects can't express (Fiend Fire, Thrash,
    * Perfected Strike, Prolong). `id` names a handler in the engine; `values`
@@ -495,7 +518,19 @@ export type EnemyPowerId =
   /** The enemy has [amount] less Strength this turn (Mangle, Dark Shackles). When it comes back: open (#110). */
   | 'strengthLossThisTurn'
   /** The enemy skips its next move (Whistle). Whether its pattern advances: open (#115). */
-  | 'stun';
+  | 'stun'
+  /**
+   * #203: each stack negates the next debuff applied to the enemy (the debuff is not applied,
+   * one stack is used). Which statuses count as debuffs (Poison, Strength loss, Stun): open (#203).
+   */
+  | 'artifact'
+  /** #203: the enemy gains [amount] Strength each turn (Byrdonis). Exact timing (start or end of its turn): open (#203). */
+  | 'strengthPerTurn'
+  /**
+   * #213: the next [amount] times the enemy loses HP, it loses only 1 (one stack per loss).
+   * Whether Poison / `enemyLoseHp` losses count, and whether a fully blocked hit uses a stack: open (#213).
+   */
+  | 'slippery';
 
 /** Effects queued by a `schedule` effect. */
 export interface ScheduledEffect {
@@ -523,6 +558,121 @@ export interface CombatCounters {
   cardsExhaustedThisCombat: number;
   cardsDrawnThisTurn: number;
   cardsDrawnThisCombat: number;
+}
+
+// ---------------------------------------------------------------------------
+// Potions (#204) and relics (#205)
+// ---------------------------------------------------------------------------
+
+/**
+ * #204: a potion. Using one resolves `effects` as if a card played them (enemy-targeted effects
+ * hit the enemy; Strength Potion `gainStrength` 2, Fire Potion `dealDamage` 20), costs no energy,
+ * does not count as a card played, and removes it from its slot. Data in data/potions/.
+ */
+export interface PotionDef {
+  id: string;
+  /** Permanent two-character URL code. Never reused. */
+  code: string;
+  name: string;
+  rarity: 'common' | 'uncommon' | 'rare' | 'event';
+  /** A character-specific potion, or 'any'. */
+  character: CharacterCode | 'any';
+  effects: Effect[];
+  description: string;
+  simulated: boolean;
+  lastUpdateVersion: GameVersion;
+}
+
+/**
+ * #205: when a relic hook fires. 'combatStart' = before the first draw; 'turnStart' = after the
+ * player's draw; 'turnEnd' = at the end of the player's turn; 'combatEnd' = after a win (Burning
+ * Blood); 'cardPlayed' = after a card resolves.
+ */
+export type RelicWhen = 'combatStart' | 'turnStart' | 'turnEnd' | 'combatEnd' | 'cardPlayed';
+
+/**
+ * #205: one relic effect. Every present field must hold for the hook to fire:
+ * `turn` = only on this player turn (Anchor-style 1, Horn Cleat 2, Stone Calendar 7);
+ * `everyTurns` = every Nth turn (Happy Flower 3); `everyCards` = every Nth card played that
+ * matches `filter` this combat (Iron Club 4; Ornamental Fan 3 Attacks), counted in
+ * PlayerState.relicCounters. `amountFromChoice`: every `amount` in `effects` is replaced by the
+ * value chosen in setup (Girya). Effects resolve as for a card the player plays.
+ */
+export interface RelicHook {
+  when: RelicWhen;
+  turn?: number;
+  everyTurns?: number;
+  everyCards?: number;
+  filter?: CardFilter;
+  amountFromChoice?: boolean;
+  effects: Effect[];
+}
+
+/**
+ * #205: a standing rule a relic adds, for what hooks can't express (amount in brackets):
+ * 'energyPerTurn' / 'drawPerTurn' [+N each turn] (Sozu, Velvet Choker, Snecko Eye);
+ * 'cardDamageBonus' [+N per hit on cards matching `filter`] (Strike Dummy);
+ * 'hpLossReduce' [lose N less HP per loss] (Tungsten Rod); 'hpLossCapPerTurn' [N] (Beating Remnant);
+ * 'minUnblockedAttack' [unblocked attack damage of 1..N-1 becomes N] (The Boot);
+ * 'conserveEnergy' (Ice Cream); 'keepHand' [hand is not discarded at turn end] (Runic Pyramid);
+ * 'cardsPerTurnLimit' [N] (Velvet Choker); 'xBonus' [X-cost cards get X+N] (Chemical X);
+ * 'dexterityWithoutPotions' [N] (Belt Buckle); 'noPotions' (Sozu); 'script' = one-off
+ * engine handler `id` (Bellows, Ghost Seed, Snecko Eye's cost shuffle). Exact relic text: main release.
+ */
+export interface RelicModifier {
+  kind:
+    | 'energyPerTurn'
+    | 'drawPerTurn'
+    | 'cardDamageBonus'
+    | 'hpLossReduce'
+    | 'hpLossCapPerTurn'
+    | 'minUnblockedAttack'
+    | 'conserveEnergy'
+    | 'keepHand'
+    | 'cardsPerTurnLimit'
+    | 'xBonus'
+    | 'dexterityWithoutPotions'
+    | 'noPotions'
+    | 'script';
+  amount?: number;
+  filter?: CardFilter;
+  /** Handler name, only with kind 'script'. */
+  id?: string;
+}
+
+/** #205: a value picked when the relic is selected (Girya: Strength 1, 2 or 3). */
+export interface RelicChoice {
+  label: string;
+  values: number[];
+  default: number;
+}
+
+/**
+ * #205: a relic. Starting buffs are combatStart hooks reusing existing effects and powers
+ * (Vajra `gainStrength` 1, Gorget `applyPower` plating 4, Bronze Scales thorns, Oddly Smooth
+ * Stone dexterity, Akabeko vigor, Bag of Marbles `applyVulnerable`, Blood Vial `heal` 2);
+ * Burning Blood is a combatEnd `heal` 6. Data in data/relics/.
+ */
+export interface RelicDef {
+  id: string;
+  /** Permanent two-character URL code. Never reused. */
+  code: string;
+  name: string;
+  rarity: 'starter' | 'common' | 'uncommon' | 'rare' | 'shop' | 'boss' | 'ancient' | 'event';
+  /** A character-specific relic, or 'any'. */
+  character: CharacterCode | 'any';
+  hooks: RelicHook[];
+  modifiers?: RelicModifier[];
+  choice?: RelicChoice;
+  description: string;
+  simulated: boolean;
+  lastUpdateVersion: GameVersion;
+}
+
+/** #205: a relic picked for a run, with its setup choice when it has one (Girya). */
+export interface RelicSetup {
+  relicId: string;
+  choice?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -620,7 +770,7 @@ export interface CharacterDef {
   energyPerTurn: number;
   drawPerTurn: number;
   startingDeck: Deck;
-  /** Informational only in v1; relic effects are not simulated. */
+  /** Relic name (e.g. "Burning Blood"). Informational until #205 matches it to a RelicDef. */
   startingRelic: string;
   lastUpdateVersion: GameVersion;
 }
@@ -674,6 +824,8 @@ export interface EnemyAscensionOverride {
   hp?: IntRange;
   moves?: Record<string, { effects: Effect[] }>;
   pattern?: MovePattern;
+  /** #203: replaces EnemyDef.startPowers from this level (Vantom: 9 Slippery). */
+  startPowers?: Partial<Record<EnemyPowerId, number>>;
 }
 
 export interface EnemyDef {
@@ -690,6 +842,8 @@ export interface EnemyDef {
   pattern: MovePattern;
   /** Keyed by Ascension level as a string ("8", "9"). */
   ascension: Record<string, EnemyAscensionOverride>;
+  /** #203/#213: powers the enemy starts combat with (Cubex Construct: 1 artifact; Vantom: 8 slippery). */
+  startPowers?: Partial<Record<EnemyPowerId, number>>;
   source: string;
   lastUpdateVersion: GameVersion;
 }
@@ -710,6 +864,10 @@ export interface GameData {
   cards: Record<string, CardDef>;
   enemies: Record<string, EnemyDef>;
   characters: Record<string, CharacterDef>;
+  /** #205: absent until relic data exists. */
+  relics?: Record<string, RelicDef>;
+  /** #204: absent until potion data exists. */
+  potions?: Record<string, PotionDef>;
 }
 
 // ---------------------------------------------------------------------------
@@ -776,6 +934,11 @@ export interface PlayerState {
   scheduled?: ScheduledEffect[];
   /** #4: Shrink percent: the player's attacks deal this much % less damage. Absent or 0 means none. */
   shrink?: number;
+  // ----- #215 additions. -----
+  /** #204: potion slots, potion id or null once used. Absent means no potions. */
+  potions?: (string | null)[];
+  /** #205: per-relic tallies (cards played toward Iron Club, etc.), relic id → count. */
+  relicCounters?: Record<string, number>;
 }
 
 export interface EnemyState {
@@ -834,6 +997,11 @@ export interface StrategyView {
 
 export type Decision = { kind: 'play'; uid: number } | { kind: 'endTurn' };
 
+/** #204: use the potion in PlayerState.potions[slot]. */
+export interface PotionUse {
+  slot: number;
+}
+
 /**
  * #108/#112/#114/#116: a "choose a card" prompt the engine sends to Strategy.choose.
  * `options` are the candidate cards (from a pile, or newly created for
@@ -869,6 +1037,12 @@ export interface Strategy {
    * a strategy has no `choose` is open (#108, #112).
    */
   choose?(view: StrategyView, request: ChoiceRequest): ChoiceResponse;
+  /**
+   * #204/#210: asked before each `decide`; return a potion to use now, or null. Optional: a
+   * strategy without it never uses potions. Strength Potion: turn 1 before anything else; Fire
+   * Potion: when it does the most (after Slippery is gone, or to kill) (#204).
+   */
+  usePotion?(view: StrategyView): PotionUse | null;
 }
 
 /** #130: the card groups a strategy puts in priority order. */
@@ -953,8 +1127,8 @@ export type GameEvent =
   // ----- #105 additions: not emitted yet. -----
   /** #106: `side` lost HP not from an attack (Hemokinesis, Crimson Mantle, curses). Poison keeps `poisonDamage`. */
   | { t: 'loseHp'; side: Side; amount: number; hpAfter: number }
-  /** #115: the player healed. `amount` is the HP actually restored. */
-  | { t: 'heal'; amount: number; hpAfter: number }
+  /** #115: the player healed. `amount` is the HP actually restored. #205: `source` = relic id when a relic healed. */
+  | { t: 'heal'; amount: number; hpAfter: number; source?: string }
   /** #115: the player's Max HP changed by `amount` (negative for a loss). */
   | { t: 'maxHp'; amount: number; maxHpAfter: number; hpAfter: number }
   /** #109/#110: a power on `side` changed by `amount` (negative to reduce); `total` after. */
@@ -974,7 +1148,14 @@ export type GameEvent =
   /** #114: a card was played again by Replay; `left` = Replay remaining. */
   | { t: 'replay'; uid: number; cardId: string; left: number }
   /** #115: the enemy skipped its move. */
-  | { t: 'enemySkip'; reason: 'stun' };
+  | { t: 'enemySkip'; reason: 'stun' }
+  // ----- #215 additions: not emitted yet. -----
+  /** #203: Artifact negated a debuff on `side`; `left` = Artifact remaining. */
+  | { t: 'negated'; side: Side; status: DebuffKind | EnemyPowerId | 'poison'; left: number }
+  /** #204: the player used the potion in `slot`. */
+  | { t: 'potion'; potionId: string; slot: number }
+  /** #205: a relic hook or modifier took effect. */
+  | { t: 'relic'; relicId: string };
 
 // ---------------------------------------------------------------------------
 // Running combats
@@ -990,6 +1171,15 @@ export interface CombatConfig {
   ascension: number;
   strategy: StrategyConfig;
   seed: number;
+  // ----- #215 additions: all optional; absent means the current behaviour. -----
+  /** #205/#210: HP at the start of combat (below Max HP); absent = Max HP. */
+  startHp?: number;
+  /** #205: relics in play. */
+  relics?: RelicSetup[];
+  /** #204: potion ids in slot order. */
+  potions?: string[];
+  /** #210: statuses the player starts with (golden fixtures). */
+  playerStart?: { strength?: number; debuffs?: Partial<Debuffs>; powers?: Partial<Record<PowerId, number>> };
 }
 
 export interface CombatResult {
@@ -997,8 +1187,14 @@ export interface CombatResult {
   outcome: Outcome;
   /** Player turns taken. */
   turns: number;
-  /** Max HP − final HP, measured before any end-of-combat healing. */
+  /**
+   * Max HP − final HP, measured before any end-of-combat healing. #205 (Trent): becomes start HP −
+   * final HP after all healing, end-of-combat relic heals included, and may go negative
+   * (lose 5, heal 8 → −3). Heals may exceed the damage taken in the simulation.
+   */
   hpLost: number;
+  /** #205: total HP actually healed this combat (cards and relics); omitted when 0. */
+  healed?: number;
   /** Enemy HP at the end (0 on a win); useful for turn-cap analysis. */
   enemyHpRemaining: number;
   /** #104: gold and potions gained during the combat; omitted when nothing was gained. */
@@ -1016,6 +1212,12 @@ export interface RunConfig {
   enemyId: string;
   ascension: number;
   strategies: RunStrategy[];
+  /** #205: HP at the start of each combat; absent = Max HP. */
+  startHp?: number;
+  /** #205: relics in play. */
+  relics?: RelicSetup[];
+  /** #204: potion ids in slot order (refilled for every combat). */
+  potions?: string[];
   /** Per-combat seeds are derived from this, identical across strategies. */
   runSeed: number;
 }
@@ -1034,8 +1236,10 @@ export interface StrategySummary {
   potionRate: number;
   deathRate: number;
   turnCapRate: number;
-  /** hpLostCounts[n] = number of combats that lost exactly n HP. */
+  /** hpLostCounts[n] = number of combats that lost exactly n HP (n + minHpLost when that is set). */
   hpLostCounts: number[];
+  /** #205: when HP lost can be negative, the HP lost counted by hpLostCounts[0] (≤ 0). Absent = 0. */
+  minHpLost?: number;
   /**
    * firstCombatByHpLost[n] = the lowest 0-based combat index that lost exactly n HP.
    * Has a key only for HP values that occurred (the non-zero entries of hpLostCounts).

@@ -117,6 +117,8 @@ export function effectText(e: Effect): string {
       return `Gain ${e.amount} Gold`;
     case 'gainPotion':
       return 'Gain a Random Potion';
+    case 'loseEnergy':
+      return `Lose ${e.amount} Energy`;
     case 'script':
       // #108: Fiend Fire, Thrash.
       if (e.id === 'fiendFire') return `Exhaust your Hand. Deal ${e.values?.[0] ?? 0} damage for each card Exhausted`;
