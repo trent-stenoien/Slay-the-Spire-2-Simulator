@@ -56,7 +56,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     discard. All picks use the seeded Rng.
 16. **Trigger powers (#113):** cards drawn by Dark Embrace during the end-of-turn Ethereal exhaust
     stay in hand into the next turn. Inferno loses 1 HP per copy. Juggernaut reacts to any Block gain.
-17. **Card coverage:** every main-release Ironclad and Colorless card is simulated and matches its
+17. **Void (#206):** drawing Void (at turn start after the energy refill, or mid-turn) loses 1 Energy,
+    never below 0. It is Unplayable and Ethereal, so an unplayed Void exhausts at end of turn.
+18. **Card coverage:** every main-release Ironclad and Colorless card is simulated and matches its
     wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20) and the multiplayer-only
     cards (#117).
 

@@ -54,7 +54,6 @@ export const CONTRACT_EFFECTS = [
   'loseMaxHp',
   'gainGold',
   'gainPotion',
-  // #215 (#206 Void)
   'loseEnergy',
   'script',
 ] as const;
@@ -68,6 +67,7 @@ export const CONTRACT_EFFECTS = [
  */
 export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseHp',
+  'loseEnergy',
   'draw',
   'drawUntil',
   'exhaustCards',

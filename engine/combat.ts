@@ -1101,6 +1101,14 @@ class Combat {
           player.energy += e.amount;
           log?.push({ t: 'energy', amount: e.amount, total: player.energy });
           break;
+        case 'loseEnergy': {
+          if (source !== 'player') throw new Error('Enemies have no energy');
+          // #206 Void: energy never goes below 0; only the energy actually lost is logged.
+          const lost = Math.min(e.amount, player.energy);
+          player.energy -= lost;
+          if (lost > 0) log?.push({ t: 'energy', amount: -lost, total: player.energy });
+          break;
+        }
         case 'gainStars':
           throw new Error('Stars are not simulated yet');
         case 'loseHp':
