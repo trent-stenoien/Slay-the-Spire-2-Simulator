@@ -117,6 +117,16 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 33. **Deck builder:** grouped by data folder, collapsed by default; search; Statuses/Curses/Multiplayer
     filters; Standard/Upgraded steppers; wiki links; hidden cards excluded.
 
+## Data and storage
+
+34. **Data files:** every JSON file passes the schema check; card, enemy and character codes are
+    unique and permanent, and codes in `data/reserved-codes.json` are never reused; only
+    main-release data is imported (no beta).
+35. **Enemy basics:** HP is rolled inside the enemy's range from the seeded Rng; move patterns cycle
+    in order; an Ascension level applies every override at or below it and none above (A8 has no A9).
+36. **Storage and notes:** saved decks and strategies live in localStorage, and the app still works
+    when storage is blocked. The UI says Burning Blood's heal is not simulated.
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at
