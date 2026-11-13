@@ -5,6 +5,9 @@ import { runSimulationSync } from './montecarlo';
 import { GREEDY_CONFIG, blockFirstConfig } from './strategies';
 import type { RunConfig } from './types';
 
+/** Raise to 10000 for the full measurement (5 s). */
+const STRESS_COMBATS = 1000;
+
 const ironclad = gameData.characters['ironclad']!;
 
 /** Starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 (it was 64% deaths at Block 0 before #141). */
@@ -28,7 +31,7 @@ const stressRun = (): RunConfig => ({
 
 describe('Scared Block stress deck (known failure point)', () => {
   it('has 0 deaths and no turn-cap fights for Block 0, Block 5 and Greedy', () => {
-    const run = runSimulationSync(gameData, stressRun(), Number(process.env.STRESS_COMBATS ?? 1000));
+    const run = runSimulationSync(gameData, stressRun(), STRESS_COMBATS);
     expect(run.summaries.map((s) => [s.strategyId, s.deathRate, s.turnCapRate])).toEqual([
       ['block0', 0, 0],
       ['block5', 0, 0],

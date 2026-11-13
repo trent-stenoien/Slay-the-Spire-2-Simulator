@@ -223,7 +223,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 
 | Item | Test / measurement |
 |------|--------------------|
-| Scared Block stress deck: 0% deaths for Block 0, Block 5, Greedy | engine/montecarlo.stress.test.ts > Scared Block stress deck (known failure point) > has 0 deaths and no turn-cap fights for Block 0, Block 5 and Greedy (added; 1,000 combats, `STRESS_COMBATS=10000` for the full run). Measured at 10,000 combats, runSeed 12345: Block 0 0 deaths, avg HP lost 9.66; Block 5 0 deaths, 11.61; Greedy 0 deaths, 19.15. |
+| Scared Block stress deck: 0% deaths for Block 0, Block 5, Greedy | engine/montecarlo.stress.test.ts > Scared Block stress deck (known failure point) > has 0 deaths and no turn-cap fights for Block 0, Block 5 and Greedy (added; 1,000 combats, edit `STRESS_COMBATS` for the full 10,000 run). Measured at 10,000 combats, runSeed 12345: Block 0 0 deaths, avg HP lost 9.66; Block 5 0 deaths, 11.61; Greedy 0 deaths, 19.15. |
 | `compare-main` covers only the starter deck | process note; `npm run compare-main` printed `identical` on this branch |
 | `npm run shot` cannot show the chart | process note |
 | Parallel cards collide | process note |
