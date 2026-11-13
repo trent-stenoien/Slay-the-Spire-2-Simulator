@@ -1413,6 +1413,23 @@ export function isAttackBooster(c: Card): boolean {
   return !isAttackCard(c) && (['strengthThisTurn', 'rage', 'doubleAttack'] as const).some((p) => appliesPower(c, p));
 }
 
+/**
+ * #264: a card that only pays off when a Block Skill follows: Anticipate (Dexterity this turn),
+ * Shadowmeld (double Block) and Burst (the next Skills twice). Not a rule from Trent.
+ */
+export function isBlockBooster(c: Card): boolean {
+  return (
+    !isAttackCard(c) &&
+    !isBlockCard(c) &&
+    (['dexterityThisTurn', 'doubleBlock', 'burst'] as const).some((p) => appliesPower(c, p))
+  );
+}
+
+/** #264 Shadow Step: discards the hand, so it is only played once nothing else is left to play. */
+export function isShadowStep(c: Card): boolean {
+  return appliesPower(c, 'doubleAttackNextTurn');
+}
+
 /** Dark Shackles: a non-Attack that lowers the enemy's Strength this turn (Mangle is an Attack). */
 export function isEnemyWeakener(c: Card): boolean {
   return !isAttackCard(c) && c.effects.some((e) => e.type === 'applyEnemyPower' && e.power === 'strengthLossThisTurn');
@@ -1459,6 +1476,31 @@ function pickPanic(view: StrategyView): Card | undefined {
 function pickShackles(view: StrategyView): Card | undefined {
   if (view.intent.totalIncoming <= 0) return undefined;
   return best(view.playable.filter(isEnemyWeakener), (c) => [-(c.cost ?? 0)]);
+}
+
+/**
+ * #264: a Block booster is played before the Block cards, only if a Block Skill follows that the energy
+ * left after the booster still pays for; one already on this turn (Shadowmeld, Burst, Anticipate) is not stacked again.
+ */
+function pickBlockBooster(view: StrategyView): Card | undefined {
+  const p = view.state.player;
+  const energy = p.energy;
+  const on = (c: Card) =>
+    (['dexterityThisTurn', 'doubleBlock', 'burst'] as const).some(
+      (id) => appliesPower(c, id) && (p.powers?.[id] ?? 0) > 0,
+    );
+  const followed = (b: Card) =>
+    view.playable.some(
+      (a) =>
+        a.uid !== b.uid &&
+        a.type === 'skill' &&
+        isBlockCard(a) &&
+        (a.xCost ? energy - (b.cost ?? 0) > 0 : (a.cost ?? 0) <= energy - (b.cost ?? 0)),
+    );
+  return best(
+    view.playable.filter((c) => isBlockBooster(c) && !on(c) && followed(c)),
+    (c) => [-(c.cost ?? 0)],
+  );
 }
 
 /**
@@ -1594,6 +1636,8 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   if (shackles) return shackles;
   const booster = pickBooster(view);
   if (booster) return booster;
+  const blockBooster = pickBlockBooster(view);
+  if (blockBooster) return blockBooster;
   const pure = pickPureDraw(view);
   if (
     pure &&
@@ -1928,6 +1972,9 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   const preferBlock = config.order.indexOf('block') < config.order.indexOf('attack');
   const last = pickLast(view, preferBlock);
   if (last) return play(last);
+  // #264: Shadow Step goes last: it discards what is left in the hand for double Attacks next turn.
+  const shadowStep = best(view.playable.filter(isShadowStep), () => []);
+  if (shadowStep) return play(shadowStep);
   return END;
 }
 

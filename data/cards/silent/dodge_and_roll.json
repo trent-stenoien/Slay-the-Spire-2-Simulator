@@ -13,6 +13,19 @@
     {
       "type": "gainBlock",
       "amount": 4
+    },
+    {
+      "type": "schedule",
+      "delay": 1,
+      "effects": [
+        {
+          "type": "script",
+          "id": "scheduledBlock",
+          "values": [
+            4
+          ]
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -20,12 +33,25 @@
       {
         "type": "gainBlock",
         "amount": 6
+      },
+      {
+        "type": "schedule",
+        "delay": 1,
+        "effects": [
+          {
+            "type": "script",
+            "id": "scheduledBlock",
+            "values": [
+              6
+            ]
+          }
+        ]
       }
     ]
   },
   "description": "Gain 4 Block. / Next turn, gain 4 Block.",
   "upgradedDescription": "Gain 6 Block. / Next turn, gain 6 Block.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

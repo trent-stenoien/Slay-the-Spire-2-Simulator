@@ -69,6 +69,12 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     enemy's turn (3×3 → 0×3). Flame Barrier and Colossus cover the following enemy turn. Colossus
     multiplies with Weak (62.5% less together), stacks when replayed, and ticks down at the end of the
     enemy's turn. Panic Button stops Block from cards; The Bomb fires at the end of the third turn.
+    Silent (#264): Anticipate's Dexterity ends with the turn; Blur keeps the Block through the next turn
+    start only; Shadowmeld doubles Block from cards this turn (with Dexterity and Frail, floored once);
+    Burst replays the next 1 (2 upgraded) Skills this turn; Pounce makes the next Skill cost 0; Shadow Step
+    discards the hand and doubles Attack damage on the next turn only; Wraith Form loses 1 Dexterity at each
+    turn start (Dexterity may go below 0, Block from cards stays at 0 or more); Dodge and Roll's next-turn Block
+    gets Dexterity and Frail (Trent).
 13. **Conditional and scaling cards (#111, #113):** "Strike" means any card with Strike in its name
     (Strike+ included) in Draw, Hand, Discard and Exhaust, including ones created mid-combat; used by
     Perfected Strike and Hellraiser. Rampage's growth stays with that copy. Fisticuffs' Block = damage
@@ -135,6 +141,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Panic Button only as a last resort (#110). Body Slam and Entrench after other block cards, with
     Entrench planned to avoid excess Block (#111). Catastrophe, Beat Down, Hidden Gem, Dual Wield, The
     Bomb, Outmaneuver and Prolong use leftover energy; Dual Wield copies the highest-value card.
+    Anticipate, Shadowmeld and Burst are played before Block Skills only when a Block Skill follows;
+    Shadow Step is played last (#264).
     "Choose a card" follows the strategy's priorities (#112, #150).
 22. **Self-damage:** never play a card that would kill you; otherwise ignore the HP cost.
 23. **Fiend Fire:** always if it kills; otherwise only when it beats other uses of the energy; played

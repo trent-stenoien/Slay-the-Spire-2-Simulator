@@ -9,11 +9,35 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "intangible",
+      "amount": 2
+    },
+    {
+      "type": "applyPower",
+      "power": "dexterityLossPerTurn",
+      "amount": 1
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "intangible",
+        "amount": 3
+      },
+      {
+        "type": "applyPower",
+        "power": "dexterityLossPerTurn",
+        "amount": 1
+      }
+    ]
+  },
   "description": "Gain 2 Intangible. / At the start of your turn, lose 1 Dexterity.",
   "upgradedDescription": "Gain 3 Intangible. / At the start of your turn, lose 1 Dexterity.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

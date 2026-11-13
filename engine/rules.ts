@@ -16,6 +16,7 @@ import type {
  * (25 → ×1.75, 50 → ×2); it only matters when the target is Vulnerable. #4 Shrink: the attacker
  * deals `shrinkPercent`% less, applied after every other modifier (×0.7 for 30). #110 Colossus:
  * `reducePercent` is a further percent less on the same floor (50 → ×0.5, so Weak + Colossus = ×0.375).
+ * #264 Shadow Step: `multiplier` doubles the damage (×2 with the other multipliers, floored once).
  */
 export function attackDamage(
   base: number,
@@ -25,8 +26,9 @@ export function attackDamage(
   crueltyPercent = 0,
   shrinkPercent = 0,
   reducePercent = 0,
+  multiplier = 1,
 ): number {
-  let dmg = base + attackerStrength;
+  let dmg = (base + attackerStrength) * multiplier;
   if (attackerWeak > 0) dmg *= 0.75;
   if (targetVulnerable > 0) dmg *= 1.5 + crueltyPercent / 100;
   // Integer percent math (× 70 / 100) so e.g. 10 × 0.7 can't floor to 6.
@@ -58,10 +60,12 @@ export function cardCost(
   card: DeepReadonly<CardInstance>,
   attacksPlayedThisTurn: number,
   freeAttack: boolean,
+  freeSkill = false,
 ): number | null {
   if (card.cost === null) return null;
   if (card.xCost) return 0;
   if (freeAttack && card.type === 'attack') return 0;
+  if (freeSkill && card.type === 'skill') return 0;
   let cost = card.costThisTurn ?? card.costThisCombat ?? card.cost;
   if (card.costLessPer) cost = Math.max(0, cost - card.costLessPer.amount * attacksPlayedThisTurn);
   return cost;
