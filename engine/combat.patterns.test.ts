@@ -4,7 +4,7 @@ import { runCombat, simulateCombat } from './combat';
 import { resolveEnemy } from './enemy';
 import { makeEnemy, makeGameData } from './testFixtures';
 import { cfg, events, logged, passive, withEnemy } from './combatTestHelpers';
-import type { EnemyDef, MovePattern, Strategy } from './types';
+import type { CyclePattern, EnemyDef, MovePattern, Strategy } from './types';
 
 const waitMoves = (...ids: string[]) =>
   Object.fromEntries(ids.map((id) => [id, { name: id.toUpperCase(), effects: [] }])) as EnemyDef['moves'];
@@ -56,8 +56,8 @@ describe('opener', () => {
     const e = patterned({ type: 'cycle', opener: ['x'], order: ['a'], start: 'first' });
     const r = resolveEnemy(e, 0);
     expect(r.pattern).toEqual(e.pattern);
-    r.pattern.opener!.push('y');
-    expect(e.pattern.opener).toEqual(['x']);
+    (r.pattern as CyclePattern).opener!.push('y');
+    expect((e.pattern as CyclePattern).opener).toEqual(['x']);
   });
 });
 

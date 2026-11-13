@@ -465,6 +465,7 @@ class Combat {
     this.enemies = enemyDefs.map((enemyDef, i) => {
       const enemyHp = this.rng.int(enemyDef.hp.min, enemyDef.hp.max);
       const { pattern } = enemyDef;
+      if (pattern.type === 'alternate') throw new Error('not simulated yet (#287)');
       const startIndex =
         pattern.type === 'cycle' && pattern.start === 'random' ? this.rng.int(0, pattern.order.length - 1) : 0;
       const firstMove = pattern.opener?.[0] ?? this.poolMove(i, startIndex, null);
@@ -1302,6 +1303,7 @@ class Combat {
   private poolMove(i: number, patternIndex: number, last: string | null): string {
     const { pattern } = this.enemyDefs[i]!;
     const usedOnce = this.usedOnce[i]!;
+    if (pattern.type === 'alternate') throw new Error('not simulated yet (#287)');
     if (pattern.type === 'cycle') return pattern.order[patternIndex] as string;
     // #226: a once-per-fight move that was already made is out of the pool for good.
     const fresh = pattern.moves.filter((id) => !usedOnce.has(id));
@@ -1315,6 +1317,7 @@ class Combat {
   private advancePattern(lastMoveId: string): void {
     const { enemy } = this;
     const { pattern } = this.enemyDef;
+    if (pattern.type === 'alternate') throw new Error('not simulated yet (#287)');
     const openerLength = pattern.opener?.length ?? 0;
     const made = (enemy.movesMade ?? 0) + 1;
     enemy.movesMade = made;
