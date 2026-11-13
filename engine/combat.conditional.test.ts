@@ -581,6 +581,22 @@ describe('#245 Ironclad and Colorless cards unflagged by the quality loop', () =
     expect(hitsOf(run(d, turnOne('spite'), deckOf(['spite', 1, true])))).toEqual([5]);
   });
 
+  it('Spite: HP lost on an earlier turn does not count (only this turn)', () => {
+    const innateHurt = helper('hurt_innate', [{ type: 'loseHp', amount: 1 }], { keywords: ['innate'] });
+    const d = world({ hurt_innate: innateHurt }, ['spite']);
+    let spited = false;
+    const lateSpite: Strategy = {
+      decide(view: StrategyView): Decision {
+        const want = view.state.turn === 1 ? 'hurt_innate' : view.state.turn === 2 && !spited ? 'spite' : undefined;
+        const c = want && view.playable.find((p) => p.cardId === want);
+        if (!c) return { kind: 'endTurn' };
+        if (want === 'spite') spited = true;
+        return { kind: 'play', uid: c.uid };
+      },
+    };
+    expect(hitsOf(run(d, lateSpite, deckOf(['hurt_innate', 1], ['spite', 9])))).toEqual([5]);
+  });
+
   it('Ashen Strike: 6 plus 3 per card in the Exhaust pile (4 upgraded)', () => {
     const d = world({ burn }, ['ashen_strike']);
     expect(hitsOf(run(d, turnOne('ashen_strike'), deckOf(['ashen_strike', 1])))).toEqual([6]);
@@ -632,5 +648,11 @@ describe('#245 Ironclad and Colorless cards unflagged by the quality loop', () =
     const up = stats(run(d, five(), deckOf(['restlessness', 8, true])));
     expect(up.draws).toBe(5 + 3);
     expect(up.energy.filter((a) => a > 0)).toContain(3);
+    // Not with cards still in hand: playing only four of the five does nothing.
+    const four = stats(
+      run(d, turnOne('restlessness', 'restlessness', 'restlessness', 'restlessness'), deckOf(['restlessness', 8])),
+    );
+    expect(four.draws).toBe(5);
+    expect(four.energy.filter((a) => a > 0)).toEqual([]);
   });
 });
