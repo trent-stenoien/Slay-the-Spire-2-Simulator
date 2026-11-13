@@ -1,0 +1,100 @@
+{
+  "id": "inklet",
+  "code": "Ik",
+  "name": "Inklet",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "normal",
+  "hp": {
+    "min": 11,
+    "max": 17
+  },
+  "moves": {
+    "jab": {
+      "name": "Jab",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 3,
+          "hits": 1
+        }
+      ]
+    },
+    "whirlwind": {
+      "name": "Whirlwind",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 2,
+          "hits": 3
+        }
+      ]
+    },
+    "piercingGaze": {
+      "name": "Piercing Gaze",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 10,
+          "hits": 1
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "alternate",
+    "fixed": "jab",
+    "random": [
+      { "move": "piercingGaze", "weight": 1 },
+      { "move": "whirlwind", "weight": 1 }
+    ],
+    "openerBySlot": {
+      "outer": "jab",
+      "middle": "whirlwind"
+    }
+  },
+  "startPowers": {
+    "slippery": 1
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 12,
+        "max": 18
+      }
+    },
+    "9": {
+      "moves": {
+        "jab": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 4,
+              "hits": 1
+            }
+          ]
+        },
+        "whirlwind": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 3,
+              "hits": 3
+            }
+          ]
+        },
+        "piercingGaze": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 11,
+              "hits": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

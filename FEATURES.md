@@ -43,6 +43,11 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    uses one stack, so a multi-hit attack uses one per hit; a fully blocked hit (0 HP loss) uses none;
    Strength and Vulnerable don't matter. Poison counts as a loss (literal reading of the text). While
    it is up, the attack with the most hits is played first and big single hits wait.
+9c. **Alternate pattern (#287, Inklet):** an `alternate` pattern plays a fixed move and a weighted seeded random
+    pick in turn. The first move comes from `openerBySlot` by position (first and last enemy = outer, any other
+    = middle; a lone enemy is outer), else `startWith` (default the fixed move); afterwards the move after the
+    fixed one is a random pick and the move after a pick is the fixed one. Inklet: outer opens Jab, middle opens
+    Whirlwind, then Jab alternates with a 50/50 Piercing Gaze or Whirlwind.
 9b. **Once-per-fight moves (#226):** an enemy move flagged `oncePerFight` (Mawler's Roar) is never picked again
     once made; the no-repeat picker still always has a legal move (a pool with no unused move falls back to the
     whole pool, and a pool of only once-moves is rejected by the validator).

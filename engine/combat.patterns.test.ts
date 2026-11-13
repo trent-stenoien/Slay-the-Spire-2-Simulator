@@ -180,3 +180,107 @@ describe('oncePerFight moves (#226)', () => {
     expect(resolveEnemy(e, 9).moves.roar?.oncePerFight).toBe(true);
   });
 });
+
+describe('alternate pattern (#287)', () => {
+  const alt = (over: Partial<Extract<MovePattern, { type: 'alternate' }>> = {}): MovePattern => ({
+    type: 'alternate',
+    fixed: 'x',
+    random: [
+      { move: 'a', weight: 1 },
+      { move: 'b', weight: 1 },
+    ],
+    ...over,
+  });
+
+  /** Moves each of several identical enemies made over `turns` turns, per enemy. */
+  function multiSeq(e: EnemyDef, count: number, seed: number, turns: number): string[][] {
+    const data = withEnemy(makeGameData(), e);
+    const log = logged(data, passive, { enemyId: e.id, enemyIds: Array(count).fill(e.id), seed, deck: [] }).log!;
+    const per: string[][] = Array.from({ length: count }, () => []);
+    let current = 0;
+    for (const ev of log) {
+      if (ev.t === 'target') current = ev.enemy;
+      if (ev.t === 'enemyMove') per[current]!.push(ev.moveId);
+    }
+    return per.map((s) => s.slice(0, turns));
+  }
+
+  it('alternates the fixed move with a random pick, starting with the fixed move by default', () => {
+    for (let s = 0; s < 20; s++) {
+      const seq = moveSeq(patterned(alt()), s, 10);
+      seq.forEach((m, i) => (i % 2 === 0 ? expect(m).toBe('x') : expect(['a', 'b']).toContain(m)));
+    }
+  });
+
+  it('startWith random opens with a random pick, then the fixed move', () => {
+    const seq = moveSeq(patterned(alt({ startWith: 'random' })), 3, 6);
+    expect(['a', 'b']).toContain(seq[0]);
+    expect(seq.filter((_, i) => i % 2 === 1)).toEqual(['x', 'x', 'x']);
+  });
+
+  it('the random picks are seeded and use both moves; same seed gives the same moves', () => {
+    const e = patterned(alt());
+    expect(moveSeq(e, 7, 12)).toEqual(moveSeq(e, 7, 12));
+    const seen = new Set<string>();
+    for (let s = 0; s < 30; s++) moveSeq(e, s, 4).forEach((m) => seen.add(m));
+    expect(seen).toEqual(new Set(['x', 'a', 'b']));
+  });
+
+  it('respects weights: a zero-sum-like skew picks the heavy move far more often', () => {
+    const e = patterned(
+      alt({
+        random: [
+          { move: 'a', weight: 9 },
+          { move: 'b', weight: 1 },
+        ],
+      }),
+    );
+    let a = 0;
+    let b = 0;
+    for (let s = 0; s < 200; s++) {
+      for (const m of moveSeq(e, s, 2)) {
+        if (m === 'a') a++;
+        if (m === 'b') b++;
+      }
+    }
+    expect(a).toBeGreaterThan(b * 4);
+    expect(b).toBeGreaterThan(0);
+  });
+
+  it('openerBySlot: first and last enemies are outer, a middle enemy uses the middle opener, then alternation continues', () => {
+    const e = patterned(alt({ openerBySlot: { outer: 'x', middle: 'a' } }));
+    for (let s = 0; s < 10; s++) {
+      const [left, mid, right] = multiSeq(e, 3, s, 6);
+      expect(left![0]).toBe('x');
+      expect(right![0]).toBe('x');
+      expect(mid![0]).toBe('a');
+      expect(mid![1]).toBe('x');
+      expect(left![1]).not.toBe('x');
+      for (const seq of [left!, mid!, right!]) {
+        seq.forEach((m, i) => {
+          if (i > 0) expect(m === 'x').toBe(seq[i - 1] !== 'x');
+        });
+      }
+    }
+  });
+
+  it('a lone enemy and a pair are all outer', () => {
+    const e = patterned(alt({ startWith: 'random', openerBySlot: { outer: 'x', middle: 'a' } }));
+    expect(moveSeq(e, 1, 1)).toEqual(['x']);
+    expect(multiSeq(e, 2, 1, 1).map((s) => s[0])).toEqual(['x', 'x']);
+  });
+
+  it('Ascension resolution copies the pattern without sharing it', () => {
+    const e = patterned(alt({ openerBySlot: { outer: 'x' } }));
+    const r = resolveEnemy(e, 0);
+    expect(r.pattern).toEqual(e.pattern);
+    (r.pattern as Extract<MovePattern, { type: 'alternate' }>).random.push({ move: 'c', weight: 1 });
+    expect((e.pattern as Extract<MovePattern, { type: 'alternate' }>).random).toHaveLength(2);
+  });
+
+  it('rejects a pattern naming an unknown move', () => {
+    const e = patterned(alt({ fixed: 'nope' }));
+    const data = withEnemy(makeGameData(), e);
+    expect(() => runCombat(data, cfg({ enemyId: e.id, seed: 1 }))).toThrow(/unknown move "nope"/);
+  });
+});
