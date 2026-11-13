@@ -4,9 +4,9 @@
  * This file is the contract between the engine, data, strategy, stats and UI
  * tracks. Change it only through the orchestrator, never from a feature branch.
  *
- * v1 is single-target: every card targets the one enemy, every enemy move
- * targets the player. Effects therefore carry no explicit target; the source
- * decides it (a card's effects hit the enemy, an enemy move's hit the player).
+ * Effects carry no explicit target; the source decides it (a card's effects hit the
+ * targeted enemy, or every living enemy with `allEnemies`; an enemy move's hit the player).
+ * #5: a fight may have several enemies; the strategy picks the target of each card.
  *
  * ---------------------------------------------------------------------------
  * Contract map (#105): which addition serves which board card. Everything
@@ -79,6 +79,11 @@
  *                     (potion at a point); Strategy.choose (card choices, already declared).
  *                     Fixture JSON fields stay local to engine/golden/golden.test.ts.
  * #226 Once-per-fight — EnemyMove.oncePerFight (Mawler's Roar); simulated in engine/combat.ts.
+ *
+ * #5 Multi-enemy    — CombatConfig.enemyIds / RunConfig.enemyIds; CombatState.enemies (`enemy` is
+ *                     the current one); StrategyView.intents; Decision / PotionUse `target`;
+ *                     StrategyConfig.target + TargetPriority; `allEnemies` on applyVulnerable /
+ *                     applyWeak / applyPoison; GameEvent `target`, combatStart.enemyHps. Simulated.
  * ---------------------------------------------------------------------------
  */
 
@@ -109,7 +114,7 @@ export interface IntRange {
 export type Effect =
   /**
    * Deal `damage` per hit, `hits` times. Strength and modifiers apply per hit.
-   * `allEnemies` marks area attacks; with one enemy (v1) it hits that enemy.
+   * `allEnemies` marks area attacks: each hit lands on every living enemy, left to right (#5).
    * `xTimes` (X-cost cards only): the attack repeats X times, so total hits =
    * `hits` × (X + `xBonus`), where X is the energy spent on the card and
    * `xBonus` (default 0) covers "X+1 times" upgrades. X = 0 deals no hits.
@@ -117,15 +122,16 @@ export type Effect =
   | { type: 'attack'; damage: number; hits: number; allEnemies?: boolean; xTimes?: boolean; xBonus?: number }
   | { type: 'gainBlock'; amount: number }
   | { type: 'gainStrength'; amount: number }
-  | { type: 'applyVulnerable'; amount: number }
-  | { type: 'applyWeak'; amount: number }
+  /** #5: `allEnemies` applies it to every living enemy (Thunderclap, Shockwave, Bag of Marbles). */
+  | { type: 'applyVulnerable'; amount: number; allEnemies?: boolean }
+  | { type: 'applyWeak'; amount: number; allEnemies?: boolean }
   | { type: 'applyFrail'; amount: number }
   /**
    * Apply `amount` Poison to the enemy (cards only; v1 has no Poison on the player).
    * At the start of the enemy's turn, after its Block is removed, it loses HP equal
    * to its Poison (ignores Block, Strength, Weak, Vulnerable), then Poison goes down by 1.
    */
-  | { type: 'applyPoison'; amount: number }
+  | { type: 'applyPoison'; amount: number; allEnemies?: boolean }
   /**
    * Gain `amount` energy now (cards only). Spendable this turn; it does not carry
    * over, since energy is set to energyPerTurn at the start of the next turn.
@@ -137,7 +143,7 @@ export type Effect =
    * #4 (enemy moves only): Shrink the player: their attacks deal `amount`% less damage
    * (Shrinker Beetle: 30). Applied after every other damage modifier, then rounded down.
    * Does not stack (a second Shrink keeps the larger percent); removed when the enemy
-   * that applied it dies (in single-enemy v1 that ends the combat, so it lasts all fight).
+   * that applied it dies (#5; with one enemy that ends the combat, so it lasts all fight).
    */
   | { type: 'applyShrink'; amount: number }
   // ----- #105 additions below: declared, not simulated yet. -----
@@ -967,7 +973,10 @@ export interface EnemyState {
 export interface CombatState {
   turn: number;
   player: PlayerState;
+  /** The current enemy: the target of the card being played, or the enemy taking its turn (#5). */
   enemy: EnemyState;
+  /** #5: every enemy, left to right, dead ones included (hp ≤ 0). Absent means just `enemy`. */
+  enemies?: EnemyState[];
 }
 
 /** What the enemy will do this turn, as the player sees it. */
@@ -993,16 +1002,24 @@ export type DeepReadonly<T> = T extends (infer U)[]
 /** Everything a strategy may look at. It must not mutate anything. */
 export interface StrategyView {
   state: DeepReadonly<CombatState>;
+  /**
+   * What the enemies will do this turn. #5: with several enemies, every living enemy's attacks in
+   * order, `totalIncoming` summed; moveId and name are the first living enemy's.
+   */
   intent: EnemyIntent;
+  /** #5: each enemy's own intent, in the order of `state.enemies` (dead enemies: no attacks). */
+  intents?: EnemyIntent[];
   /** Cards in hand that are playable right now (affordable, not unplayable). */
   playable: readonly DeepReadonly<CardInstance>[];
 }
 
-export type Decision = { kind: 'play'; uid: number } | { kind: 'endTurn' };
+/** #5: `target` = index into `state.enemies` for the card's single-target effects; absent or dead = the engine picks. */
+export type Decision = { kind: 'play'; uid: number; target?: number } | { kind: 'endTurn' };
 
-/** #204: use the potion in PlayerState.potions[slot]. */
+/** #204: use the potion in PlayerState.potions[slot]. #5: `target` as in Decision. */
 export interface PotionUse {
   slot: number;
+  target?: number;
 }
 
 /**
@@ -1060,6 +1077,12 @@ export type StrategyGroup = 'attack' | 'block' | 'powers';
  * URL code: the order as letters a/b/p, with X right after "b" unless Block is last
  * ("apb", "b5pa", "pb5a"). Old codes still parse: "g" = "apb", "b<X>" = "b<X>pa".
  */
+/**
+ * #5 (Trent): which living enemy a strategy targets. 'lowestHp': the lowest current HP;
+ * 'biggestAttack': the biggest incoming attack this turn (ties: lowest HP). Further ties: leftmost.
+ */
+export type TargetPriority = 'lowestHp' | 'biggestAttack';
+
 export interface StrategyConfig {
   /** 'attack', 'block' and 'powers', each exactly once. */
   order: StrategyGroup[];
@@ -1068,6 +1091,8 @@ export interface StrategyConfig {
    * 0–9999. When Block is last it is unused (Block then spends leftover energy) and always 0.
    */
   allowThrough: number;
+  /** #5: target priority; absent = 'lowestHp'. URL code: a trailing "i" for 'biggestAttack'. */
+  target?: TargetPriority;
 }
 
 export type StrategyColor = 'blue' | 'green' | 'yellow' | 'red' | 'purple';
@@ -1091,7 +1116,13 @@ export interface RunStrategy {
 export type Side = 'player' | 'enemy';
 
 export type GameEvent =
-  | { t: 'combatStart'; seed: number; enemyHp: number; playerHp: number }
+  /** `enemyHp` is the first enemy's; #5: `enemyHps` lists every enemy's, only when there are several. */
+  | { t: 'combatStart'; seed: number; enemyHp: number; playerHp: number; enemyHps?: number[] }
+  /**
+   * #5: later `enemy`-side events are about enemy `enemy` (index into CombatState.enemies) until the
+   * next `target` event. Logged only in fights with several enemies, whenever the current enemy changes.
+   */
+  | { t: 'target'; enemy: number }
   | { t: 'shuffle'; reason: 'start' | 'reshuffle'; count: number }
   | { t: 'turnStart'; turn: number; side: Side }
   | { t: 'draw'; uid: number; cardId: string }
@@ -1172,6 +1203,8 @@ export interface CombatConfig {
   /** The player's deck before Ascension additions. */
   deck: Deck;
   enemyId: string;
+  /** #5: the enemies, left to right, when there are several; then `enemyId` is ignored. */
+  enemyIds?: string[];
   ascension: number;
   strategy: StrategyConfig;
   seed: number;
@@ -1199,7 +1232,7 @@ export interface CombatResult {
   hpLost: number;
   /** #205: total HP actually healed this combat (cards and relics); omitted when 0. */
   healed?: number;
-  /** Enemy HP at the end (0 on a win); useful for turn-cap analysis. */
+  /** Enemy HP at the end (0 on a win); useful for turn-cap analysis. #5: summed over all enemies. */
   enemyHpRemaining: number;
   /** #104: gold and potions gained during the combat; omitted when nothing was gained. */
   rewards?: { gold: number; potions: number };
@@ -1214,6 +1247,8 @@ export interface RunConfig {
   characterId: string;
   deck: Deck;
   enemyId: string;
+  /** #5: as CombatConfig.enemyIds. */
+  enemyIds?: string[];
   ascension: number;
   strategies: RunStrategy[];
   /** #205: HP at the start of each combat; absent = Max HP. */

@@ -12,6 +12,7 @@ import type {
   StrategyConfig,
   StrategyGroup,
   StrategyView,
+  TargetPriority,
 } from './types';
 import { attackDamage, attackHits, conditionHolds, countStrikes, perCounterValue } from './rules';
 import { chooseGenerated } from './generate';
@@ -1874,20 +1875,66 @@ export function createStrategy(config: StrategyConfig): Strategy {
   let playing: Card | undefined;
   const tally = new EnergyTally();
   const withTally = (): TallyConfig => ({ ...c, drawExhaustible: tally.drawExhaustible });
+  // #5: with several enemies every decision is made against the target the priority picks.
+  const aim = (view: StrategyView) => {
+    const target = pickTarget(view, c.target);
+    return { target, view: targetView(view, target) };
+  };
   return {
-    decide: (view) => {
+    decide: (raw) => {
+      const { target, view } = aim(raw);
       tally.observe(view);
       const d = decide(view, withTally());
       tally.record(view, d);
       playing = d.kind === 'play' ? view.playable.find((p) => p.uid === d.uid) : undefined;
-      return d;
+      return d.kind === 'play' && target !== undefined ? { ...d, target } : d;
     },
-    usePotion: pickPotion,
-    choose: (view, request) =>
-      request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade'
+    usePotion: (raw) => {
+      const { target, view } = aim(raw);
+      const use = pickPotion(view);
+      return use && target !== undefined ? { ...use, target } : use;
+    },
+    choose: (raw, request) => {
+      const { view } = aim(raw);
+      return request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade'
         ? chooseGenerated(request, c.order)
-        : chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined),
+        : chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined);
+    },
   };
+}
+
+/**
+ * #5 (Trent): the living enemy a strategy targets, as an index into `state.enemies`; undefined with
+ * a single enemy. 'lowestHp': lowest current HP. 'biggestAttack': biggest incoming attack this turn
+ * (the enemy's intent), ties to the lowest HP. Remaining ties: the leftmost.
+ */
+export function pickTarget(view: StrategyView, priority: TargetPriority = 'lowestHp'): number | undefined {
+  const enemies = view.state.enemies;
+  if (!enemies || enemies.length < 2) return undefined;
+  const incoming = (i: number) => view.intents?.[i]?.totalIncoming ?? 0;
+  let best: number | undefined;
+  enemies.forEach((e, i) => {
+    if (e.hp <= 0) return;
+    if (best === undefined) {
+      best = i;
+      return;
+    }
+    const b = enemies[best]!;
+    const lower = e.hp < b.hp;
+    if (priority === 'biggestAttack') {
+      if (incoming(i) > incoming(best) || (incoming(i) === incoming(best) && lower)) best = i;
+    } else if (lower) {
+      best = i;
+    }
+  });
+  return best;
+}
+
+/** #5: the view with enemy `target` as `state.enemy`, so every single-enemy rule reads the target. */
+function targetView(view: StrategyView, target: number | undefined): StrategyView {
+  if (target === undefined) return view;
+  const enemy = view.state.enemies![target]!;
+  return enemy === view.state.enemy ? view : { ...view, state: { ...view.state, enemy } };
 }
 
 // ---------------------------------------------------------------------------
@@ -1925,9 +1972,19 @@ export function normalizeConfig(raw: unknown): StrategyConfig | null {
   if (!Array.isArray(order) || order.length !== STRATEGY_GROUPS.length) return null;
   if (!STRATEGY_GROUPS.every((g) => order.includes(g))) return null;
   if (!validAllow(o.allowThrough)) return null;
+  // #5: target priority; absent or 'lowestHp' is the default and is left out of the canonical form.
+  if (o.target !== undefined && !TARGET_PRIORITIES.includes(o.target as TargetPriority)) return null;
   const groups = order as StrategyGroup[];
-  return { order: [...groups], allowThrough: groups[groups.length - 1] === 'block' ? 0 : o.allowThrough };
+  const config: StrategyConfig = {
+    order: [...groups],
+    allowThrough: groups[groups.length - 1] === 'block' ? 0 : o.allowThrough,
+  };
+  if (o.target === 'biggestAttack') config.target = 'biggestAttack';
+  return config;
 }
+
+/** #5: the target priorities a strategy can use; the first is the default. */
+export const TARGET_PRIORITIES: readonly TargetPriority[] = ['lowestHp', 'biggestAttack'];
 
 /** True when two configs play the same (same order and, unless Block is last, same X). */
 export function sameConfig(a: StrategyConfig, b: StrategyConfig): boolean {
@@ -1937,14 +1994,24 @@ export function sameConfig(a: StrategyConfig, b: StrategyConfig): boolean {
 const GROUP_LETTER: Record<StrategyGroup, string> = { attack: 'a', block: 'b', powers: 'p' };
 const LETTER_GROUP: Record<string, StrategyGroup> = { a: 'attack', b: 'block', p: 'powers' };
 
-/** URL code: the order's letters, X after "b" unless Block is last ("apb", "b5pa", "pb5a"). */
+/**
+ * URL code: the order's letters, X after "b" unless Block is last ("apb", "b5pa", "pb5a"), then
+ * #5 a trailing "i" for the 'biggestAttack' target priority ("apbi"); none for the default.
+ */
 export function strategyCode(config: StrategyConfig): string {
   const last = blockIsLast(config);
-  return config.order.map((g) => (g === 'block' && !last ? `b${config.allowThrough}` : GROUP_LETTER[g])).join('');
+  const order = config.order.map((g) => (g === 'block' && !last ? `b${config.allowThrough}` : GROUP_LETTER[g]));
+  return order.join('') + (config.target === 'biggestAttack' ? 'i' : '');
 }
 
 /** Parses a code from strategyCode, or an old one ("g", "b<X>"). Null for anything else. */
 export function parseStrategyCode(code: string): StrategyConfig | null {
+  // #5: a trailing "i" = 'biggestAttack' target priority (never on the old "g" / "b<X>" codes).
+  if (code.endsWith('i')) {
+    const base = code.slice(0, -1);
+    const config = base === 'g' || /^b\d+$/.test(base) ? null : parseStrategyCode(base);
+    return config && !config.target ? { ...config, target: 'biggestAttack' } : null;
+  }
   if (code === 'g') return normalizeConfig({ kind: 'greedyDamage' });
   const old = /^b(0|[1-9]\d{0,3})$/.exec(code);
   if (old) return blockFirstConfig(Number(old[1]));

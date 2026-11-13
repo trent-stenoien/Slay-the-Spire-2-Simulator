@@ -56,6 +56,7 @@ import {
   type EnemyIntent,
   type EnemyMove,
   type EnemyPowerId,
+  type EnemyState,
   type GameData,
   type GameEvent,
   type Outcome,
@@ -99,6 +100,22 @@ export function computeIntent(
     totalIncoming += dph * e.hits;
   }
   return { moveId, name: move.name, attacks, totalIncoming };
+}
+
+/**
+ * #5: the intent of several enemies as one: every living enemy's attacks in order and the summed
+ * incoming damage; moveId and name are the first living enemy's. With one enemy, its own intent.
+ */
+export function combineIntents(intents: readonly EnemyIntent[], enemies: readonly { hp: number }[]): EnemyIntent {
+  if (intents.length === 1) return intents[0]!;
+  const alive = intents.filter((_, i) => (enemies[i]?.hp ?? 0) > 0);
+  const lead = alive[0] ?? intents[0]!;
+  return {
+    moveId: lead.moveId,
+    name: lead.name,
+    attacks: alive.flatMap((x) => x.attacks),
+    totalIncoming: alive.reduce((n, x) => n + x.totalIncoming, 0),
+  };
 }
 
 /** #110: the percent less damage a Vulnerable enemy deals while the player has Colossus (else 0). */
@@ -178,10 +195,10 @@ function buildDeck(data: GameData, config: CombatConfig): CardInstance[] {
 }
 
 /** The enemy with Ascension applied, after checking its pattern only names known moves. */
-function resolveCheckedEnemy(data: GameData, config: CombatConfig): EnemyDef {
-  const baseEnemy = data.enemies[config.enemyId];
-  if (!baseEnemy) throw new Error(`Unknown enemy "${config.enemyId}"`);
-  const enemyDef = resolveEnemy(baseEnemy, config.ascension);
+function resolveCheckedEnemy(data: GameData, enemyId: string, ascension: number): EnemyDef {
+  const baseEnemy = data.enemies[enemyId];
+  if (!baseEnemy) throw new Error(`Unknown enemy "${enemyId}"`);
+  const enemyDef = resolveEnemy(baseEnemy, ascension);
   const { pattern } = enemyDef;
   const pool = patternPool(pattern);
   if (pool.length === 0) throw new Error(`Enemy ${enemyDef.id} has an empty pattern`);
@@ -192,6 +209,11 @@ function resolveCheckedEnemy(data: GameData, config: CombatConfig): EnemyDef {
     if (!enemyDef.moves[id]) throw new Error(`Enemy ${enemyDef.id} pattern uses unknown move "${id}"`);
   }
   return enemyDef;
+}
+
+/** #5: the enemies of a combat, left to right: `enemyIds` when it lists any, else `enemyId`. */
+export function combatEnemyIds(config: { enemyId: string; enemyIds?: readonly string[] }): string[] {
+  return config.enemyIds && config.enemyIds.length > 0 ? [...config.enemyIds] : [config.enemyId];
 }
 
 /**
@@ -410,12 +432,20 @@ class Combat {
   private unmovableUsed = false;
   /** #113 Rupture, Inferno: true from the start of the player's turn to the start of the enemy's. */
   private playerTurn = false;
+  /** #5: every enemy, left to right (the same objects as CombatState.enemies). */
+  private readonly enemies: EnemyState[];
+  /** #5: index of the current enemy (CombatState.enemy): the card's target, or the enemy taking its turn. */
+  private focus = 0;
+  /** #226: once-per-fight moves already made, per enemy. */
+  private readonly usedOnce: Set<string>[];
+  /** #4/#5: index of the enemy whose Shrink is on the player; Shrink ends when it dies. */
+  private shrinkSource: number | null = null;
 
   constructor(
     private readonly data: GameData,
     private readonly config: CombatConfig,
     private readonly character: CharacterDef,
-    private readonly enemyDef: EnemyDef,
+    private readonly enemyDefs: EnemyDef[],
     deck: CardInstance[],
     private readonly strategy: Strategy,
     logging: boolean,
@@ -428,14 +458,30 @@ class Combat {
       throw new Error(`startHp ${startHp} must be an integer from 1 to Max HP ${character.maxHp}`);
     }
     this.startHp = startHp;
-    // RNG use order is fixed: (1) enemy HP, (2) random cycle start or first random pick (when
-    // there is no opener), (3) shuffle. Later random picks happen right after each enemy move.
+    // RNG use order is fixed: per enemy, left to right, (1) enemy HP, (2) random cycle start or first
+    // random pick (when there is no opener); then (3) shuffle. Later random picks happen right after each enemy move.
     this.rng = createRng(config.seed);
-    const enemyHp = this.rng.int(enemyDef.hp.min, enemyDef.hp.max);
-    const { pattern } = enemyDef;
-    const startIndex =
-      pattern.type === 'cycle' && pattern.start === 'random' ? this.rng.int(0, pattern.order.length - 1) : 0;
-    const firstMove = pattern.opener?.[0] ?? this.poolMove(startIndex, null);
+    this.usedOnce = enemyDefs.map(() => new Set<string>());
+    this.enemies = enemyDefs.map((enemyDef, i) => {
+      const enemyHp = this.rng.int(enemyDef.hp.min, enemyDef.hp.max);
+      const { pattern } = enemyDef;
+      const startIndex =
+        pattern.type === 'cycle' && pattern.start === 'random' ? this.rng.int(0, pattern.order.length - 1) : 0;
+      const firstMove = pattern.opener?.[0] ?? this.poolMove(i, startIndex, null);
+      return {
+        enemyId: enemyDef.id,
+        name: enemyDef.name,
+        hp: enemyHp,
+        maxHp: enemyHp,
+        block: 0,
+        strength: 0,
+        debuffs: emptyDebuffs(),
+        poison: 0,
+        patternIndex: startIndex,
+        movesMade: 0,
+        nextMoveId: firstMove,
+      };
+    });
     this.rng.shuffle(deck);
     this.state = {
       turn: 0,
@@ -453,25 +499,21 @@ class Combat {
         counters: emptyCounters(),
         ...(config.potions && config.potions.length > 0 ? { potions: this.potionSlots(data, config.potions) } : {}),
       },
-      enemy: {
-        enemyId: enemyDef.id,
-        name: enemyDef.name,
-        hp: enemyHp,
-        maxHp: enemyHp,
-        block: 0,
-        strength: 0,
-        debuffs: emptyDebuffs(),
-        poison: 0,
-        patternIndex: startIndex,
-        movesMade: 0,
-        nextMoveId: firstMove,
-      },
+      enemy: this.enemies[0]!,
+      enemies: this.enemies,
     };
-    this.log?.push({ t: 'combatStart', seed: config.seed, enemyHp, playerHp: startHp });
+    const start: GameEvent = { t: 'combatStart', seed: config.seed, enemyHp: this.enemies[0]!.hp, playerHp: startHp };
+    if (this.enemies.length > 1) start.enemyHps = this.enemies.map((e) => e.hp);
+    this.log?.push(start);
     // #203: powers the enemy starts with (Cubex Construct: Artifact; Byrdonis: Strength per turn).
-    for (const [power, amount] of Object.entries(enemyDef.startPowers ?? {}) as [EnemyPowerId, number][]) {
-      if (amount > 0) this.applyEnemyPower(power, amount);
-    }
+    enemyDefs.forEach((enemyDef, i) => {
+      for (const [power, amount] of Object.entries(enemyDef.startPowers ?? {}) as [EnemyPowerId, number][]) {
+        if (amount <= 0) continue;
+        this.focusOn(i);
+        this.applyEnemyPower(power, amount);
+      }
+    });
+    this.focusOn(0);
     this.applyPlayerStart(config.playerStart);
     this.log?.push({ t: 'shuffle', reason: 'start', count: deck.length });
   }
@@ -509,6 +551,78 @@ class Combat {
 
   private get enemy() {
     return this.state.enemy;
+  }
+
+  /** #5: the current enemy's definition (Ascension applied). */
+  private get enemyDef(): EnemyDef {
+    return this.enemyDefs[this.focus]!;
+  }
+
+  /** #5: make enemy `i` the current one; with several enemies the change is logged (`target`). */
+  private focusOn(i: number): void {
+    if (i === this.focus) return;
+    this.focus = i;
+    this.state.enemy = this.enemies[i]!;
+    if (this.enemies.length > 1) this.log?.push({ t: 'target', enemy: i });
+  }
+
+  /** #5: the combat is won when every enemy is dead. */
+  private won(): boolean {
+    return this.enemies.every((e) => e.hp <= 0);
+  }
+
+  /** #5: indexes of the living enemies, left to right. */
+  private living(): number[] {
+    const out: number[] = [];
+    this.enemies.forEach((e, i) => {
+      if (e.hp > 0) out.push(i);
+    });
+    return out;
+  }
+
+  /**
+   * #5: target enemy `wanted` when it is alive; otherwise keep the current enemy if alive, else the
+   * leftmost living one. (Random targets are #45; until then the engine picks deterministically.)
+   */
+  private retarget(wanted?: number): void {
+    if (wanted !== undefined && (this.enemies[wanted]?.hp ?? 0) > 0) this.focusOn(wanted);
+    else if (this.enemy.hp <= 0) {
+      const first = this.living()[0];
+      if (first !== undefined) this.focusOn(first);
+    }
+  }
+
+  /**
+   * #5: run `fn` on the current enemy, or with `all` on every living enemy left to right (each
+   * becomes the current enemy in turn; the current enemy is restored after). A dead current enemy
+   * is skipped. Returns 'player' or 'enemy' (all enemies dead) when combat ended.
+   */
+  private onEnemies(all: boolean | undefined, fn: () => Side | null | void): Side | null {
+    if (!all || this.enemies.length === 1) {
+      if (this.enemy.hp <= 0) return null;
+      return fn() ?? (this.won() ? 'enemy' : null);
+    }
+    const keep = this.focus;
+    let died: Side | null = null;
+    for (const i of this.living()) {
+      if (this.enemies[i]!.hp <= 0) continue;
+      this.focusOn(i);
+      died = fn() ?? (this.won() ? 'enemy' : null);
+      if (died) break;
+    }
+    if (!died) this.focusOn(keep);
+    return died;
+  }
+
+  /** #4/#5: Shrink ends when the enemy that applied it is dead. */
+  private clearDeadShrink(): void {
+    const src = this.shrinkSource;
+    if (src === null || (this.enemies[src]?.hp ?? 0) > 0) return;
+    this.shrinkSource = null;
+    if ((this.player.shrink ?? 0) > 0) {
+      this.player.shrink = 0;
+      this.log?.push({ t: 'shrink', percent: 0 });
+    }
   }
 
   /** Turns until one side dies or the turn cap is reached. */
@@ -564,7 +678,7 @@ class Combat {
     for (let i = 0; i < draw; i++) {
       if (!this.drawOne()) break;
       if (player.hp <= 0) return 'loss';
-      if (this.enemy.hp <= 0) return 'win';
+      if (this.won()) return 'win';
     }
     // #110: effects scheduled for this turn's start (Outmaneuver, Relax, Toric Toughness, Prolong), after the draw.
     const scheduled = this.runScheduled('turnStart');
@@ -579,7 +693,7 @@ class Combat {
    * Block they gain is not changed by Dexterity or Frail. Returns the outcome if one ended combat.
    */
   private runScheduled(at: 'turnStart' | 'turnEnd'): Outcome | null {
-    const { player, enemy } = this;
+    const { player } = this;
     const due = (player.scheduled ?? []).filter((s) => s.turn === this.state.turn && s.at === at);
     if (due.length === 0) return null;
     player.scheduled = (player.scheduled ?? []).filter((s) => !due.includes(s));
@@ -588,7 +702,7 @@ class Combat {
       const died = this.resolveEffects('player', s.effects);
       this.unpowered = false;
       if (died === 'player' || player.hp <= 0) return 'loss';
-      if (died === 'enemy' || enemy.hp <= 0) return 'win';
+      if (died === 'enemy' || this.won()) return 'win';
     }
     return null;
   }
@@ -614,7 +728,7 @@ class Combat {
     if (!player.powers) return null;
     for (const id of Object.keys(player.powers) as PowerId[]) {
       // #113: an earlier power (Rolling Boulder, Inferno, Mayhem's card) may have won the combat.
-      if (this.enemy.hp <= 0) return 'win';
+      if (this.won()) return 'win';
       const amount = this.power(id);
       if (amount <= 0) continue;
       switch (id) {
@@ -639,7 +753,7 @@ class Combat {
         case 'rollingBoulder':
           // #135: every instance hits and grows on its own.
           for (let i = 0; i < this.boulders.length; i++) {
-            if (this.powerDamage(this.boulders[i]!)) return 'win';
+            if (this.powerDamage(this.boulders[i]!, 'all')) return 'win';
             this.boulders[i]! += ROLLING_BOULDER_GROWTH;
             player.powers!.rollingBoulder = (player.powers!.rollingBoulder ?? 0) + ROLLING_BOULDER_GROWTH;
             log?.push({
@@ -685,7 +799,7 @@ class Combat {
           break;
       }
     }
-    return this.enemy.hp <= 0 ? 'win' : null;
+    return this.won() ? 'win' : null;
   }
 
   /**
@@ -720,22 +834,27 @@ class Combat {
    */
   private blockGained(amount: number): void {
     const juggernaut = this.power('juggernaut');
-    if (amount > 0 && juggernaut > 0) this.powerDamage(juggernaut);
+    if (amount > 0 && juggernaut > 0) this.powerDamage(juggernaut, 'any');
   }
 
   /**
    * #109: damage to the enemy from a power (Rolling Boulder, Thorns): not an Attack, so Strength,
    * Weak, Vigor, Vulnerable and Cruelty don't change it; the enemy's Block absorbs it.
-   * Returns true if the enemy died.
+   * #5: 'target' = the current enemy (skipped if dead); 'all' = every living enemy (Rolling Boulder,
+   * Panache, Inferno, The Bomb); 'any' = the current enemy, or the leftmost living one if it is dead
+   * (Juggernaut's random enemy, #45). Returns true if every enemy is dead.
    */
-  private powerDamage(amount: number): boolean {
-    const { enemy } = this;
-    const blocked = Math.min(enemy.block, amount);
-    enemy.block -= blocked;
-    const hpLoss = this.slipperyLoss(amount - blocked);
-    enemy.hp -= hpLoss;
-    this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
-    return enemy.hp <= 0;
+  private powerDamage(amount: number, to: 'target' | 'all' | 'any' = 'target'): boolean {
+    if (to === 'any') this.retarget();
+    const died = this.onEnemies(to === 'all', () => {
+      const { enemy } = this;
+      const blocked = Math.min(enemy.block, amount);
+      enemy.block -= blocked;
+      const hpLoss = this.slipperyLoss(amount - blocked);
+      enemy.hp -= hpLoss;
+      this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
+    });
+    return died === 'enemy' || this.won();
   }
 
   /**
@@ -761,7 +880,7 @@ class Combat {
    * `potion` event is logged first. Returns 'win' when the potion kills the enemy.
    */
   private usePotions(): Outcome | null {
-    const { player, enemy } = this;
+    const { player } = this;
     const slots = player.potions;
     if (!slots || !this.strategy.usePotion) return null;
     for (let used = 0; used <= slots.length; used++) {
@@ -772,9 +891,10 @@ class Combat {
       if (!id || !def) throw new Error(`Strategy tried to use empty or unknown potion slot ${use.slot}`);
       slots[use.slot] = null;
       this.log?.push({ t: 'potion', potionId: id, slot: use.slot });
+      this.retarget(use.target);
       const died = this.resolveEffects('player', def.effects);
       if (died === 'player' || player.hp <= 0) return 'loss';
-      if (died === 'enemy' || enemy.hp <= 0) return 'win';
+      if (died === 'enemy' || this.won()) return 'win';
     }
     return null;
   }
@@ -782,10 +902,11 @@ class Combat {
   /**
    * The strategy plays cards until it ends its turn. Each decision gets a fresh view (current
    * hand and energy), so cards drawn mid-turn are considered. Returns the outcome if combat ended:
-   * 'win' when the enemy died, 'loss' when the player's own card dropped them to 0 HP.
+   * 'win' when every enemy died, 'loss' when the player's own card dropped them to 0 HP.
+   * #5: the card's single-target effects hit `decision.target` (or the engine's pick, see retarget).
    */
   private playCards(): Outcome | null {
-    const { player, enemy } = this;
+    const { player } = this;
     for (let decisions = 0; decisions < MAX_DECISIONS_PER_TURN; decisions++) {
       const potionOutcome = this.usePotions();
       if (potionOutcome) return potionOutcome;
@@ -808,9 +929,10 @@ class Combat {
       // X-cost: X is all the energy available, and the card spends all of it.
       const x = card.xCost ? player.energy : 0;
       player.energy -= free ? 0 : card.xCost ? x : (cost as number);
+      this.retarget(decision.target);
       const died = this.playCard(card, x);
       if (died === 'player' || player.hp <= 0) return 'loss';
-      if (died === 'enemy' || enemy.hp <= 0) return 'win';
+      if (died === 'enemy' || this.won()) return 'win';
       // #116 Calamity: after an Attack is played, add random Attack(s) to the hand.
       const calamity = card.type === 'attack' ? this.power('calamity') : 0;
       if (calamity > 0) {
@@ -838,7 +960,9 @@ class Combat {
     by?: 'effect' | 'trigger' | 'power',
     exhaust = false,
   ): Side | null {
-    const { player, enemy, log, counters } = this;
+    const { player, log, counters } = this;
+    // #5: a card played by an effect, power or trigger keeps the current target while it lives (#45: random).
+    this.retarget();
     // #205 Chemical X: X-cost cards act as if X were higher (the energy spent is unchanged).
     const x = card.xCost ? xPaid + modifierTotal(this.relics, 'xBonus') : xPaid;
     const logPlay = (how?: 'effect' | 'replay' | 'trigger' | 'power') => {
@@ -873,7 +997,7 @@ class Combat {
     if (toDrawTop) this.applyPower('nextCardToDrawTop', -1);
     // Rage: Block from the power, not the card (no Dexterity or Frail).
     if (card.type === 'attack' && this.power('rage') > 0) this.gainPowerBlock(this.power('rage'));
-    if (enemy.hp <= 0) {
+    if (this.won()) {
       // Juggernaut, triggered by Rage's Block.
       this.activeVigor = 0;
       return 'enemy';
@@ -889,7 +1013,8 @@ class Combat {
     if (vigor > 0) this.applyPower('vigor', -vigor);
     // #110 One-Two Punch: the Attack is played one more time, like a Replay (never uses Replay up).
     const replays = (card.replay ?? 0) + (again ? 1 : 0);
-    for (let left = replays - 1; left >= 0 && !died && player.hp > 0 && enemy.hp > 0; left--) {
+    for (let left = replays - 1; left >= 0 && !died && player.hp > 0 && !this.won(); left--) {
+      this.retarget();
       log?.push({ t: 'replay', uid: card.uid, cardId: card.cardId, left });
       logPlay('replay');
       died = this.resolveEffects('player', card.effects, x, card);
@@ -911,9 +1036,9 @@ class Combat {
     } else {
       player.discardPile.push(card);
     }
-    if (!died && enemy.hp > 0) died = this.afterPlay(card, panacheOn);
-    if (!died && enemy.hp > 0 && player.hp > 0) died = this.relicCardPlayed(card);
-    return died ?? (enemy.hp <= 0 ? 'enemy' : null);
+    if (!died && !this.won()) died = this.afterPlay(card, panacheOn);
+    if (!died && !this.won() && player.hp > 0) died = this.relicCardPlayed(card);
+    return died ?? (this.won() ? 'enemy' : null);
   }
 
   /**
@@ -923,7 +1048,7 @@ class Combat {
    */
   private afterPlay(card: CardInstance, panacheOn: boolean): Side | null {
     if (panacheOn && this.power('panache') > 0 && ++this.panacheCount % PANACHE_CARDS === 0) {
-      if (this.powerDamage(this.power('panache'))) return 'enemy';
+      if (this.powerDamage(this.power('panache'), 'all')) return 'enemy';
     }
     const juggling = this.power('juggling');
     if (juggling > 0 && card.type === 'attack' && this.counters.attacksPlayedThisTurn === JUGGLING_ATTACK) {
@@ -932,14 +1057,16 @@ class Combat {
     return null;
   }
 
-  /** What the strategy sees right now: current hand, energy and the enemy's intent. */
+  /** What the strategy sees right now: current hand, energy and the enemies' intents (#5: combined in `intent`). */
   private view(): StrategyView {
     const { player } = this;
-    const { id: moveId, move } = this.currentMove();
+    this.clearDeadShrink();
     const state = this.stateWithCosts();
+    const intents = this.enemies.map((_, i) => this.intentOf(i));
     return {
       state,
-      intent: this.intent(moveId, move),
+      intent: combineIntents(intents, this.enemies),
+      intents,
       playable: state.player.hand.filter((c) => isPlayable(c, player.energy) && this.playableNow(c)),
     };
   }
@@ -961,10 +1088,17 @@ class Combat {
     return changed ? { ...this.state, player: { ...player, hand } } : this.state;
   }
 
-  /** #115: the intent the player sees: a Stunned enemy does nothing; Intangible makes every hit 1. */
-  private intent(moveId: string, move: EnemyMove): EnemyIntent {
-    const { enemy, player } = this;
-    if (this.enemyStunned()) return { moveId, name: move.name, attacks: [], totalIncoming: 0 };
+  /**
+   * #115: the intent the player sees from enemy `i`: a Stunned enemy does nothing; Intangible makes
+   * every hit 1. #5: a dead enemy does nothing.
+   */
+  private intentOf(i: number): EnemyIntent {
+    const { player } = this;
+    const enemy = this.enemies[i]!;
+    const moveId = enemy.nextMoveId as string;
+    const move = this.enemyDefs[i]!.moves[moveId]!;
+    if (enemy.hp <= 0 || (enemy.powers?.stun ?? 0) > 0)
+      return { moveId, name: move.name, attacks: [], totalIncoming: 0 };
     const intent = computeIntent(moveId, move, enemy, player);
     if (this.power('intangible') <= 0) return intent;
     const attacks = intent.attacks.map((a) => ({ ...a, damagePerHit: Math.min(a.damagePerHit, 1) }));
@@ -988,7 +1122,7 @@ class Combat {
     // #109 Plating: gain Block equal to it at the end of your turn.
     const plating = this.power('plating');
     if (plating > 0) this.gainPowerBlock(plating);
-    if (this.enemy.hp <= 0) return 'win';
+    if (this.won()) return 'win';
     // #110: The Bomb and other end-of-turn scheduled effects.
     const scheduled = this.runScheduled('turnEnd');
     if (scheduled) return scheduled;
@@ -1005,7 +1139,7 @@ class Combat {
     // #115: curses and statuses in hand act (Burn, Bad Luck), before the hand is discarded.
     for (const card of [...player.hand]) {
       if (this.runJunkTriggers(card, 'turnEndInHand')) return 'loss';
-      if (this.enemy.hp <= 0) return 'win';
+      if (this.won()) return 'win';
     }
     // #110 Equilibrium, Salvo: the whole hand is retained this turn (Ethereal cards still exhaust).
     // #205 Runic Pyramid: the hand is kept like Retain (Ethereal cards still exhaust).
@@ -1067,59 +1201,78 @@ class Combat {
   }
 
   /**
-   * #110: after the enemy's move, the powers that cover "the enemy turn that follows" end: Flame
-   * Barrier, the enemy's temporary Strength loss; Colossus and Panic Button's no-Block go down by 1.
+   * #110: after the enemies' moves, the player's powers that cover "the enemy turn that follows" end:
+   * Flame Barrier ends; Colossus and Panic Button's no-Block go down by 1.
    */
   private endEnemyTurnPowers(): void {
     for (const id of ['colossus', 'noBlockFromCards'] as const) {
       if (this.power(id) > 0) this.applyPower(id, -1);
     }
     if (this.power('flameBarrier') > 0) this.applyPower('flameBarrier', -this.power('flameBarrier'));
-    const loss = this.enemy.powers?.strengthLossThisTurn ?? 0;
-    if (loss > 0) this.applyEnemyPower('strengthLossThisTurn', -loss);
   }
 
-  /** Block resets, Poison, the move, pattern advance, then enemy debuffs tick. Returns the outcome if combat ended. */
+  /**
+   * Block resets, Poison, the move, pattern advance, then enemy debuffs tick. Returns the outcome if
+   * combat ended. #5: each step runs for every living enemy, left to right, before the next step;
+   * a dead enemy is skipped. Combat ends only when every enemy is dead.
+   */
   private enemyTurn(): Outcome | null {
-    const { player, enemy, log } = this;
+    const { player, log } = this;
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'enemy' });
     this.playerTurn = false;
     this.relicTurnLoss = 0;
-    enemy.block = 0;
-    log?.push({ t: 'blockReset', side: 'enemy' });
+    for (const i of this.living()) {
+      this.focusOn(i);
+      this.enemy.block = 0;
+      log?.push({ t: 'blockReset', side: 'enemy' });
+    }
     // Poison: HP loss equal to stacks (ignores Block and modifiers), then -1. A kill ends combat before the move.
-    if (enemy.poison > 0) {
+    for (const i of this.living()) {
+      this.focusOn(i);
+      const { enemy } = this;
+      if (enemy.poison <= 0) continue;
       const amount = this.slipperyLoss(enemy.poison);
       enemy.hp -= amount;
       enemy.poison--;
       log?.push({ t: 'poisonDamage', amount, hpAfter: Math.max(enemy.hp, 0) });
-      if (enemy.hp <= 0) return 'win';
+      if (this.won()) return 'win';
     }
-    const { id: moveId, move } = this.currentMove();
-    let died: Side | null = null;
-    if (this.enemyStunned()) {
-      // #115 Stun: the move is skipped (no damage) but the pattern still advances (#148 confirms).
-      log?.push({ t: 'enemySkip', reason: 'stun' });
-      this.applyEnemyPower('stun', -1);
-    } else {
-      log?.push({ t: 'enemyMove', moveId, name: move.name });
-      died = this.resolveEffects('enemy', move.effects);
+    for (const i of this.living()) {
+      // #109 Thorns can kill an enemy during its own move; the others still act.
+      if (this.enemies[i]!.hp <= 0) continue;
+      this.focusOn(i);
+      const { id: moveId, move } = this.currentMove();
+      let died: Side | null = null;
+      if (this.enemyStunned()) {
+        // #115 Stun: the move is skipped (no damage) but the pattern still advances (#148 confirms).
+        log?.push({ t: 'enemySkip', reason: 'stun' });
+        this.applyEnemyPower('stun', -1);
+      } else {
+        log?.push({ t: 'enemyMove', moveId, name: move.name });
+        died = this.resolveEffects('enemy', move.effects);
+      }
+      this.advancePattern(moveId);
+      if (died === 'player' || player.hp <= 0) return 'loss';
+      if (died === 'enemy' || this.won()) return 'win';
     }
-    this.advancePattern(moveId);
-    if (died === 'player' || player.hp <= 0) return 'loss';
-    // #109 Thorns can kill the enemy during its own move.
-    if (died === 'enemy' || enemy.hp <= 0) return 'win';
     // #115 Intangible lasts through the enemy's next move, then goes down by 1.
     if (this.power('intangible') > 0) this.applyPower('intangible', -1);
     this.endEnemyTurnPowers();
-    // #203 Strength per turn (Byrdonis): at the end of its own turn, after the move.
-    const perTurn = enemy.powers?.strengthPerTurn ?? 0;
-    if (perTurn > 0) {
-      enemy.strength += perTurn;
-      log?.push({ t: 'strength', side: 'enemy', amount: perTurn, total: enemy.strength });
+    for (const i of this.living()) {
+      this.focusOn(i);
+      const { enemy } = this;
+      // #110: the enemy's temporary Strength loss ends with its turn.
+      const loss = enemy.powers?.strengthLossThisTurn ?? 0;
+      if (loss > 0) this.applyEnemyPower('strengthLossThisTurn', -loss);
+      // #203 Strength per turn (Byrdonis): at the end of its own turn, after the move.
+      const perTurn = enemy.powers?.strengthPerTurn ?? 0;
+      if (perTurn > 0) {
+        enemy.strength += perTurn;
+        log?.push({ t: 'strength', side: 'enemy', amount: perTurn, total: enemy.strength });
+      }
+      // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
+      this.tickDebuffs('enemy');
     }
-    // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
-    this.tickDebuffs('enemy');
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'enemy' });
     return null;
   }
@@ -1130,17 +1283,15 @@ class Combat {
   }
 
   /**
-   * #4: the pool move after `last` (null at combat start). Cycle: order[patternIndex].
+   * #4: enemy `i`'s pool move after `last` (null at combat start). Cycle: order[patternIndex].
    * Random: a seeded pick from the pool, skipping `last` when the pattern says noRepeat.
    */
-  /** #226: once-per-fight enemy moves already made. */
-  private readonly usedOnce = new Set<string>();
-
-  private poolMove(patternIndex: number, last: string | null): string {
-    const { pattern } = this.enemyDef;
+  private poolMove(i: number, patternIndex: number, last: string | null): string {
+    const { pattern } = this.enemyDefs[i]!;
+    const usedOnce = this.usedOnce[i]!;
     if (pattern.type === 'cycle') return pattern.order[patternIndex] as string;
     // #226: a once-per-fight move that was already made is out of the pool for good.
-    const fresh = pattern.moves.filter((id) => !this.usedOnce.has(id));
+    const fresh = pattern.moves.filter((id) => !usedOnce.has(id));
     const pool = fresh.length > 0 ? fresh : pattern.moves;
     const notLast = pattern.noRepeat && last !== null ? pool.filter((id) => id !== last) : pool;
     const options = notLast.length > 0 ? notLast : pool;
@@ -1154,7 +1305,7 @@ class Combat {
     const openerLength = pattern.opener?.length ?? 0;
     const made = (enemy.movesMade ?? 0) + 1;
     enemy.movesMade = made;
-    if (this.enemyDef.moves[lastMoveId]?.oncePerFight) this.usedOnce.add(lastMoveId);
+    if (this.enemyDef.moves[lastMoveId]?.oncePerFight) this.usedOnce[this.focus]!.add(lastMoveId);
     if (made < openerLength) {
       enemy.nextMoveId = pattern.opener![made];
       return;
@@ -1162,7 +1313,7 @@ class Combat {
     if (pattern.type === 'cycle' && made > openerLength) {
       enemy.patternIndex = (enemy.patternIndex + 1) % pattern.order.length;
     }
-    enemy.nextMoveId = this.poolMove(enemy.patternIndex, lastMoveId);
+    enemy.nextMoveId = this.poolMove(this.focus, enemy.patternIndex, lastMoveId);
   }
 
   private fighter(side: Side): Fighter {
@@ -1175,14 +1326,18 @@ class Combat {
    * `card` is the player's card being played (its damage bonus, Thrash), absent for enemy moves.
    */
   private resolveEffects(source: Side, effects: readonly Effect[], x = 0, card?: CardInstance): Side | null {
-    const { player, enemy, log } = this;
+    const { player, log } = this;
     const other: Side = source === 'player' ? 'enemy' : 'player';
     const self = this.fighter(source);
     /** #108 `lastEffectCount`: cards exhausted by the previous effect of this list (0 for other effects). */
     let lastCount = 0;
+    /** #5: the previous effect killed its target while other enemies live (Feed's `fatal`). */
+    let prevKilled = false;
     for (const [index, e] of effects.entries()) {
       let count = 0;
       let died: Side | null = null;
+      const target = this.enemy;
+      const targetAlive = target.hp > 0;
       switch (e.type) {
         case 'attack':
           died = this.attack(
@@ -1190,6 +1345,7 @@ class Combat {
             other,
             e.damage + (card?.damageBonus ?? 0) + this.relicCardDamage(card),
             attackHits(e, x),
+            e.allEnemies,
           );
           break;
         case 'gainBlock': {
@@ -1209,11 +1365,13 @@ class Combat {
           log?.push({ t: 'strength', side: source, amount: e.amount, total: self.strength });
           break;
         case 'applyVulnerable':
-          this.applyDebuff(other, 'vulnerable', e.amount);
+        case 'applyWeak': {
+          const kind = e.type === 'applyVulnerable' ? 'vulnerable' : 'weak';
+          // #5: on enemies, `allEnemies` applies it to each living one.
+          if (source === 'player') died = this.onEnemies(e.allEnemies, () => this.applyDebuff(other, kind, e.amount));
+          else this.applyDebuff(other, kind, e.amount);
           break;
-        case 'applyWeak':
-          this.applyDebuff(other, 'weak', e.amount);
-          break;
+        }
         case 'applyFrail':
           this.applyDebuff(other, 'frail', e.amount);
           break;
@@ -1226,9 +1384,11 @@ class Combat {
         }
         case 'applyPoison':
           if (source !== 'player') throw new Error('Poison on the player is not simulated yet');
-          if (e.amount > 0 && this.artifactNegates('poison')) break;
-          enemy.poison += e.amount;
-          log?.push({ t: 'poison', amount: e.amount, total: enemy.poison });
+          died = this.onEnemies(e.allEnemies, () => {
+            if (e.amount > 0 && this.artifactNegates('poison')) return;
+            this.enemy.poison += e.amount;
+            log?.push({ t: 'poison', amount: e.amount, total: this.enemy.poison });
+          });
           break;
         case 'gainEnergy':
           if (source !== 'player') throw new Error('Enemies have no energy');
@@ -1272,8 +1432,10 @@ class Combat {
           if (source !== 'player' || (e.power !== 'stun' && e.power !== 'strengthLossThisTurn')) {
             throw new Error(`Effect "applyEnemyPower" is not simulated yet (power "${e.power}")`);
           }
-          if (e.amount > 0 && this.artifactNegates(e.power)) break;
-          this.applyEnemyPower(e.power, e.amount);
+          died = this.onEnemies(false, () => {
+            if (e.amount > 0 && this.artifactNegates(e.power)) return;
+            this.applyEnemyPower(e.power, e.amount);
+          });
           break;
         case 'schedule':
           if (source !== 'player') throw new Error('Effect "schedule" is not simulated yet on enemy moves');
@@ -1287,7 +1449,7 @@ class Combat {
         case 'dealDamage':
           // The Bomb: fixed damage (no Strength, Weak, Vigor); the enemy's Block absorbs it.
           if (source !== 'player') throw new Error('Effect "dealDamage" is not simulated yet on enemy moves');
-          if (this.powerDamage(e.amount)) died = 'enemy';
+          if (this.powerDamage(e.amount, e.allEnemies ? 'all' : 'target')) died = 'enemy';
           break;
         case 'enemyLoseHp':
           if (source !== 'player') throw new Error('Effect "enemyLoseHp" is not simulated yet on enemy moves');
@@ -1295,8 +1457,10 @@ class Combat {
           break;
         case 'enemyGainStrength':
           if (source !== 'player') throw new Error('Effect "enemyGainStrength" is not simulated yet on enemy moves');
-          enemy.strength += e.amount;
-          log?.push({ t: 'strength', side: 'enemy', amount: e.amount, total: enemy.strength });
+          died = this.onEnemies(false, () => {
+            this.enemy.strength += e.amount;
+            log?.push({ t: 'strength', side: 'enemy', amount: e.amount, total: this.enemy.strength });
+          });
           break;
         case 'setCost':
           if (source !== 'player') throw new Error('Effect "setCost" is not simulated yet on enemy moves');
@@ -1328,7 +1492,7 @@ class Combat {
           this.checkCounters(e.bonusPer, e.extraHitsPer);
           const per = e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount);
           const hits = e.hits + this.perCounter(e.extraHitsPer, lastCount);
-          died = this.attack(source, other, per, Math.max(0, hits));
+          died = this.attack(source, other, per, Math.max(0, hits), e.allEnemies);
           break;
         }
         case 'gainBlockFrom': {
@@ -1394,9 +1558,9 @@ class Combat {
         case 'conditional': {
           if (source !== 'player') throw new Error('Effect "conditional" is not simulated yet on enemy moves');
           if (e.if.kind === 'fatal') {
-            // #104: a kill returns early, so a fatal conditional right after the killing attack is
-            // resolved at the return below; if this is reached, nothing was killed.
-            died = this.resolveEffects(source, e.else ?? [], x, card);
+            // #104: a kill that wins returns early, so a fatal conditional right after the killing attack
+            // is resolved at the return below. #5: a kill with other enemies alive is `prevKilled`.
+            died = this.resolveEffects(source, prevKilled ? e.then : (e.else ?? []), x, card);
             break;
           }
           this.checkCondition(e.if);
@@ -1427,7 +1591,9 @@ class Combat {
           throw new Error(`Effect "${(e as Effect).type}" is not simulated yet`);
       }
       // #113: a trigger (Juggernaut, Vicious's draw, Hellraiser's Strike...) can end combat during any effect.
-      if (!died && source === 'player') died = player.hp <= 0 ? 'player' : enemy.hp <= 0 ? 'enemy' : null;
+      if (!died && source === 'player') died = player.hp <= 0 ? 'player' : this.won() ? 'enemy' : null;
+      // #5: an enemy killed during its own move (Thorns) stops there; the others still act.
+      if (!died && source === 'enemy' && this.enemy.hp <= 0) return this.won() ? 'enemy' : null;
       if (died) {
         // #104: the killing attack was followed by a fatal conditional: its `then` still resolves.
         const next = effects[index + 1];
@@ -1437,6 +1603,7 @@ class Combat {
         return died;
       }
       lastCount = count;
+      prevKilled = targetAlive && target.hp <= 0;
     }
     return null;
   }
@@ -1480,8 +1647,8 @@ class Combat {
     const feelNoPain = this.power('feelNoPain');
     if (feelNoPain > 0) this.gainPowerBlock(feelNoPain);
     const darkEmbrace = this.power('darkEmbrace');
-    if (darkEmbrace > 0 && this.enemy.hp > 0) this.drawCards(darkEmbrace);
-    return player.hp <= 0 ? 'player' : this.enemy.hp <= 0 ? 'enemy' : null;
+    if (darkEmbrace > 0 && !this.won()) this.drawCards(darkEmbrace);
+    return player.hp <= 0 ? 'player' : this.won() ? 'enemy' : null;
   }
 
   /** #108: take these cards out of `from` and exhaust them one by one, in order. */
@@ -1798,13 +1965,17 @@ class Combat {
     return 1;
   }
 
-  /** #110: the enemy loses HP directly (ignores Block and modifiers). Returns true if it died. */
+  /**
+   * #110: the current enemy loses HP directly (ignores Block and modifiers); nothing if it is dead (#5).
+   * Returns true if every enemy is dead.
+   */
   private enemyLoseHp(requested: number): boolean {
     const { enemy } = this;
+    if (enemy.hp <= 0) return this.won();
     const amount = this.slipperyLoss(requested);
     enemy.hp -= amount;
     this.log?.push({ t: 'loseHp', side: 'enemy', amount, hpAfter: Math.max(enemy.hp, 0) });
-    return enemy.hp <= 0;
+    return this.won();
   }
 
   /**
@@ -2310,7 +2481,7 @@ class Combat {
       this.log?.push({ t: 'strength', side: 'player', amount: rupture, total: player.strength });
     }
     const inferno = this.power('inferno');
-    if (inferno > 0) this.powerDamage(inferno);
+    if (inferno > 0) this.powerDamage(inferno, 'all');
   }
 
   /**
@@ -2357,7 +2528,7 @@ class Combat {
   /** #107: draw `amount` cards one by one (full hand → discarded, as at turn start). */
   private drawCards(amount: number): void {
     for (let i = 0; i < amount; i++) {
-      if (this.drawBlocked() || this.enemy.hp <= 0 || !this.drawOne()) return;
+      if (this.drawBlocked() || this.won() || !this.drawOne()) return;
     }
   }
 
@@ -2368,7 +2539,7 @@ class Combat {
    */
   private drawUntil(stopOn: CardFilter | undefined): void {
     for (let i = 0; i < MAX_DRAW_UNTIL; i++) {
-      if (this.drawBlocked() || this.player.hand.length >= HAND_LIMIT || this.enemy.hp <= 0) return;
+      if (this.drawBlocked() || this.player.hand.length >= HAND_LIMIT || this.won()) return;
       const card = this.drawOne();
       if (!card) return;
       if (stopOn && matchesFilter(card, stopOn)) return;
@@ -2377,41 +2548,81 @@ class Combat {
 
   /**
    * Deal one attack effect, hit by hit (Block absorbs hits in order). The player's attacks add
-   * Vigor to the base (#109) and Cruelty to Vulnerable. After each enemy hit on the player
-   * (blocked or not) Thorns deals its damage back (#109). Returns the side that died, if one did.
+   * Vigor to the base (#109) and Cruelty to Vulnerable (playerAttack). After each enemy hit on the
+   * player (blocked or not) Thorns deals its damage back (#109). Returns the side that died, if one did.
    */
-  private attack(source: Side, target: Side, damage: number, hits: number): Side | null {
-    const a = this.fighter(source);
-    const t = this.fighter(target);
-    const base = damage + (source === 'player' ? this.activeVigor : 0);
-    const cruelty = target === 'enemy' ? this.power('cruelty') : 0;
-    // #4 Shrink is on the player only (v1), so only the player's attacks shrink.
-    const shrink = source === 'player' ? (this.player.shrink ?? 0) : 0;
+  private attack(source: Side, _target: Side, damage: number, hits: number, all = false): Side | null {
+    if (source === 'player') return this.playerAttack(damage, hits, all);
+    // An enemy's attack: the current enemy hits the player.
+    const { player, enemy } = this;
     // #110: the enemy's Strength is lowered through its turn by Mangle / Dark Shackles (0 damage at worst),
     // and Colossus cuts what a Vulnerable enemy deals.
-    const strength = source === 'enemy' ? a.strength - (this.enemy.powers?.strengthLossThisTurn ?? 0) : a.strength;
-    const reduce = source === 'enemy' ? colossusReduction(this.player.powers, this.enemy.debuffs) : 0;
-    let perHit = attackDamage(base, strength, a.debuffs.weak, t.debuffs.vulnerable, cruelty, shrink, reduce);
-    if (source === 'player') this.lastAttackDamage = 0;
+    const strength = enemy.strength - (enemy.powers?.strengthLossThisTurn ?? 0);
+    const reduce = colossusReduction(player.powers, enemy.debuffs);
+    let perHit = attackDamage(damage, strength, enemy.debuffs.weak, player.debuffs.vulnerable, 0, 0, reduce);
     // #115 Intangible: every hit on the player is 1 (a 0-damage hit stays 0).
-    if (target === 'player' && this.power('intangible') > 0) perHit = Math.min(perHit, 1);
+    if (this.power('intangible') > 0) perHit = Math.min(perHit, 1);
     for (let h = 0; h < hits; h++) {
-      const blocked = Math.min(t.block, perHit);
-      t.block -= blocked;
-      // #205 The Boot / Tungsten Rod / Beating Remnant first, then #213 Slippery on the enemy.
-      const raw = this.attackHpLoss(target, perHit - blocked);
-      const hpLoss = target === 'enemy' ? this.slipperyLoss(raw) : raw;
-      t.hp -= hpLoss;
-      this.log?.push({ t: 'damage', source, target, amount: perHit, blocked, hpLoss });
-      if (source === 'player') this.lastAttackDamage += perHit;
-      if (target === 'player') this.recordHpLoss(hpLoss);
+      const blocked = Math.min(player.block, perHit);
+      player.block -= blocked;
+      // #205 The Boot / Tungsten Rod / Beating Remnant.
+      const hpLoss = this.attackHpLoss('player', perHit - blocked);
+      player.hp -= hpLoss;
+      this.log?.push({ t: 'damage', source: 'enemy', target: 'player', amount: perHit, blocked, hpLoss });
+      this.recordHpLoss(hpLoss);
       // #115 The Gambit: unblocked attack damage from the enemy loses the combat.
-      if (target === 'player' && hpLoss > 0 && this.power('gambit') > 0) t.hp = 0;
-      if (t.hp <= 0) return target;
+      if (hpLoss > 0 && this.power('gambit') > 0) player.hp = 0;
+      if (player.hp <= 0) return 'player';
       // Thorns and #110 Flame Barrier hit back after every hit, even one reduced to 0 damage.
-      const thorns = target === 'player' ? this.power('thorns') + this.power('flameBarrier') : 0;
-      if (thorns > 0 && this.powerDamage(thorns)) return source;
+      const thorns = this.power('thorns') + this.power('flameBarrier');
+      if (thorns > 0 && this.powerDamage(thorns)) return 'enemy';
+      // #5: the attacker died to Thorns while other enemies live: its attack stops.
+      if (enemy.hp <= 0) return null;
     }
+    return null;
+  }
+
+  /**
+   * The player's attack (see `attack`). #5: a single-target attack hits the current enemy and stops
+   * when it dies (the remaining hits are lost); with `all`, each hit lands on every living enemy,
+   * left to right, before the next hit. Vulnerable is read per enemy. Returns 'enemy' when every
+   * enemy is dead.
+   */
+  private playerAttack(damage: number, hits: number, all: boolean): Side | null {
+    const { player } = this;
+    this.clearDeadShrink();
+    const base = damage + this.activeVigor;
+    const cruelty = this.power('cruelty');
+    const shrink = player.shrink ?? 0;
+    this.lastAttackDamage = 0;
+    const multi = all && this.enemies.length > 1;
+    const keep = this.focus;
+    for (let h = 0; h < hits; h++) {
+      const targets = multi ? this.living() : this.enemy.hp > 0 ? [this.focus] : [];
+      if (targets.length === 0) break;
+      for (const i of targets) {
+        this.focusOn(i);
+        const t = this.enemy;
+        const perHit = attackDamage(
+          base,
+          player.strength,
+          player.debuffs.weak,
+          t.debuffs.vulnerable,
+          cruelty,
+          shrink,
+          0,
+        );
+        const blocked = Math.min(t.block, perHit);
+        t.block -= blocked;
+        // #205 The Boot first, then #213 Slippery.
+        const hpLoss = this.slipperyLoss(this.attackHpLoss('enemy', perHit - blocked));
+        t.hp -= hpLoss;
+        this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount: perHit, blocked, hpLoss });
+        this.lastAttackDamage += perHit;
+        if (this.won()) return 'enemy';
+      }
+    }
+    if (multi) this.focusOn(keep);
     return null;
   }
 
@@ -2429,6 +2640,8 @@ class Combat {
   }
 
   private applyDebuff(side: Side, kind: DebuffKind, amount: number): void {
+    // #5: a dead enemy gets nothing.
+    if (side === 'enemy' && this.enemy.hp <= 0) return;
     if (side === 'enemy' && amount > 0 && this.artifactNegates(kind)) return;
     const f = this.fighter(side);
     f.debuffs[kind] += amount;
@@ -2509,7 +2722,7 @@ class Combat {
         isStrikeName(card.name) &&
         this.canPlayFree(card) &&
         player.hp > 0 &&
-        this.enemy.hp > 0
+        !this.won()
       ) {
         const at = player.hand.indexOf(card);
         if (at >= 0) {
@@ -2553,7 +2766,7 @@ class Combat {
   /** The outcome after a relic effect, or null when both sides live. */
   private relicOutcome(died: Side | null): Outcome | null {
     if (died === 'player' || this.player.hp <= 0) return 'loss';
-    if (died === 'enemy' || this.enemy.hp <= 0) return 'win';
+    if (died === 'enemy' || this.won()) return 'win';
     return null;
   }
 
@@ -2571,7 +2784,8 @@ class Combat {
   private relicCombatStart(): Outcome | null {
     const out = this.relicHooks('combatStart');
     if (out) return out;
-    if (this.enemyDef.difficulty !== 'elite') return null;
+    // #5: with several enemies, any Elite among them counts.
+    if (!this.enemyDefs.some((d) => d.difficulty === 'elite')) return null;
     for (const { relic, mod } of scriptMods(this.relics, 'slingOfCourage')) {
       const died = this.resolveRelic(relic, [{ type: 'gainStrength', amount: mod.amount ?? 0 }]);
       if (died) return this.relicOutcome(died);
@@ -2666,7 +2880,7 @@ class Combat {
    * overheal: every heal counts in full, so it can be negative (lose 5, heal 8 → −3).
    */
   private finish(outcome: Outcome): CombatResult {
-    const { player, enemy, log } = this;
+    const { player, log } = this;
     if (outcome === 'win') {
       for (const { relic, hook } of hooksFor(this.relics, 'combatEnd')) {
         this.resolveRelic(relic, hookEffects(hook, relic.choice));
@@ -2678,7 +2892,7 @@ class Combat {
       outcome,
       turns: this.state.turn,
       hpLost,
-      enemyHpRemaining: Math.max(enemy.hp, 0),
+      enemyHpRemaining: this.enemies.reduce((n, e) => n + Math.max(e.hp, 0), 0),
     };
     if (this.healedTotal > 0) result.healed = this.healedTotal;
     if (this.gold > 0 || this.potions > 0) result.rewards = { gold: this.gold, potions: this.potions };
@@ -2702,9 +2916,9 @@ export function simulateCombat(
 ): CombatResult {
   const character = data.characters[config.characterId];
   if (!character) throw new Error(`Unknown character "${config.characterId}"`);
-  const enemyDef = resolveCheckedEnemy(data, config);
+  const enemyDefs = combatEnemyIds(config).map((id) => resolveCheckedEnemy(data, id, config.ascension));
   const deck = buildDeck(data, config);
-  return new Combat(data, config, character, enemyDef, deck, strategy, options?.log === true).run();
+  return new Combat(data, config, character, enemyDefs, deck, strategy, options?.log === true).run();
 }
 
 export const runCombat: RunCombat = (data, config, options) =>

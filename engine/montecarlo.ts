@@ -29,6 +29,7 @@ export function runCombatRange(
         characterId: config.characterId,
         deck: config.deck,
         enemyId: config.enemyId,
+        ...(config.enemyIds && config.enemyIds.length > 0 ? { enemyIds: config.enemyIds } : {}),
         ascension: config.ascension,
         strategy,
         ...(config.potions ? { potions: config.potions } : {}),

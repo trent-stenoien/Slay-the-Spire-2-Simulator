@@ -34,6 +34,10 @@ export function checkEffects(r: Reporter, list: unknown, path: string): void {
       checkXBonus(r, e, p);
     } else if (isOneOf(e.type, AMOUNT_EFFECTS)) {
       r.int(e, 'amount', 0, `${p}.amount`);
+      // #5: debuffs on enemies may hit every enemy.
+      if (e.type === 'applyVulnerable' || e.type === 'applyWeak' || e.type === 'applyPoison') {
+        optBool(r, e, 'allEnemies', p);
+      }
     } else if (isOneOf(e.type, CONTRACT_EFFECTS)) {
       checkContractEffect(r, e, p);
     } else {

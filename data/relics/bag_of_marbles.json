@@ -10,7 +10,8 @@
       "effects": [
         {
           "type": "applyVulnerable",
-          "amount": 1
+          "amount": 1,
+          "allEnemies": true
         }
       ]
     }
