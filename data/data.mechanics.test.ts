@@ -341,3 +341,21 @@ describe('#208 main-release values', () => {
     }
   });
 });
+
+describe('#5 debuffs on ALL enemies', () => {
+  it('Thunderclap, Shockwave, Scare and Bag of Marbles debuff every enemy', () => {
+    const debuffs = (effects: readonly { type: string; allEnemies?: boolean }[]) =>
+      effects.filter((e) => e.type === 'applyVulnerable' || e.type === 'applyWeak');
+    for (const id of ['thunderclap', 'shockwave', 'scare']) {
+      const card = c[id]!;
+      const all = [...debuffs(card.effects), ...debuffs(card.upgraded?.effects ?? [])];
+      expect(all.length, id).toBeGreaterThan(0);
+      expect(
+        all.every((e) => e.allEnemies === true),
+        id,
+      ).toBe(true);
+    }
+    const marbles = gameData.relics!.bag_of_marbles!.hooks[0]!.effects;
+    expect(marbles).toEqual([{ type: 'applyVulnerable', amount: 1, allEnemies: true }]);
+  });
+});

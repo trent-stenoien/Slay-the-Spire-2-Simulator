@@ -1228,9 +1228,9 @@ class Combat {
     }
     // Poison: HP loss equal to stacks (ignores Block and modifiers), then -1. A kill ends combat before the move.
     for (const i of this.living()) {
+      if (this.enemies[i]!.poison <= 0) continue;
       this.focusOn(i);
       const { enemy } = this;
-      if (enemy.poison <= 0) continue;
       const amount = this.slipperyLoss(enemy.poison);
       enemy.hp -= amount;
       enemy.poison--;
@@ -1259,6 +1259,10 @@ class Combat {
     if (this.power('intangible') > 0) this.applyPower('intangible', -1);
     this.endEnemyTurnPowers();
     for (const i of this.living()) {
+      const e = this.enemies[i]!;
+      const due =
+        e.powers?.strengthLossThisTurn || e.powers?.strengthPerTurn || DEBUFF_KINDS.some((k) => e.debuffs[k] > 0);
+      if (!due) continue;
       this.focusOn(i);
       const { enemy } = this;
       // #110: the enemy's temporary Strength loss ends with its turn.
@@ -1378,6 +1382,8 @@ class Combat {
         case 'applyShrink': {
           // #4: enemy moves only. Does not stack: a second Shrink keeps the larger percent.
           if (source !== 'enemy') throw new Error('Shrink on enemies is not simulated yet');
+          // #5: Shrink ends when the enemy whose Shrink is kept dies.
+          if (e.amount >= (player.shrink ?? 0)) this.shrinkSource = this.focus;
           player.shrink = Math.max(player.shrink ?? 0, e.amount);
           log?.push({ t: 'shrink', percent: player.shrink });
           break;
