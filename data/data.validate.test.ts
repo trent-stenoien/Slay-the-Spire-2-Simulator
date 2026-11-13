@@ -62,6 +62,14 @@ describe('validateGameData on broken fixtures', () => {
     expect(errorsOf(d)).toContainEqual(expect.stringMatching(/enemies\/nibbit.*ascension\.8\.hp/));
   });
 
+  it('reports a bad character ascension override (#286)', () => {
+    const d = fixture();
+    d.characters.ironclad.ascension = { x: { startHp: 64 }, '2': { startHp: 999 } };
+    const errs = errorsOf(d);
+    expect(errs).toContainEqual(expect.stringMatching(/characters\/ironclad.*ascension\.x.*numeric/));
+    expect(errs).toContainEqual(expect.stringMatching(/characters\/ironclad.*ascension\.2\.startHp.*maxHp/));
+  });
+
   it('reports an unknown card id in a starting deck', () => {
     const d = fixture();
     d.characters.ironclad.startingDeck[0].cardId = 'strike_silent';

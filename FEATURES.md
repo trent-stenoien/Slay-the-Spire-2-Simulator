@@ -13,7 +13,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    turn, enemy debuffs at the end of the enemy's turn; Poison at enemy turn start (ignores Block,
    a kill wins before the move, then −1); Howl from Beyond plays itself from the Exhaust pile at
    the end of the player's turn, then goes to discard (#114).
-4. **HP lost (#115, #205)** = start HP (default Max HP; `startHp` can start a combat lower) − final HP,
+4. **HP lost (#115, #205)** = start HP (default Max HP; `startHp` can start a combat lower; without it, A2+ starts lower per character: Ironclad 64/80, Silent 56/70, cumulative per-character `ascension` overrides, Max HP unchanged, #286) − final HP,
    and can be negative: every heal from cards and relics counts in full, past the damage taken and
    past Max HP (Trent: start 70/80, Blood Vial 2, lose 5, Burning Blood 6 → −3; no damage + Burning
    Blood → −6; Not Yet 10 at full HP → −10). HP itself stops at Max HP. It includes self-damage
