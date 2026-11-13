@@ -128,7 +128,7 @@ describe('#5 multi-enemy setup', () => {
 });
 
 describe('#5 enemy turn order', () => {
-  it('every Block resets, then each enemy moves left to right, then enemy debuffs tick', () => {
+  it('each enemy finishes its whole turn (Block reset, move, debuff tick) before the next starts', () => {
     const data = world(attacker('a', 30, 5), attacker('b', 30, 3));
     const r = run(
       data,
@@ -142,22 +142,53 @@ describe('#5 enemy turn order', () => {
       ),
     );
     // The clap left enemy 0 current, so the turn starts on it without a target event.
-    expect(trace(r.log, enemyTurn1).slice(0, 14)).toEqual([
+    expect(trace(r.log, enemyTurn1)).toEqual([
       'turnStart enemy',
       'blockReset enemy',
-      'target 1',
-      'blockReset enemy',
-      'target 0',
       'move Bite',
       'damage player 5',
+      'tick enemy vulnerable 0',
       'target 1',
+      'blockReset enemy',
       'move Bite',
       'damage player 3',
-      'target 0',
       'tick enemy vulnerable 0',
-      'target 1',
-      'tick enemy vulnerable 0',
+      'turnEnd enemy',
     ]);
+  });
+
+  it('Poison ticks in each enemy own turn, right before its move', () => {
+    const data = world(attacker('a', 30, 5), attacker('b', 30, 3));
+    const r = run(
+      data,
+      aimed((t) => (t === 1 ? [['fog']] : [])),
+      conf(
+        ['a', 'b'],
+        [
+          ['fog', 1],
+          ['defend', 4],
+        ],
+      ),
+    );
+    const t = trace(r.log, enemyTurn1).filter((l) => /^(poison |move |target)/.test(l));
+    expect(t).toEqual(['poison 3', 'move Bite', 'target 1', 'poison 3', 'move Bite']);
+  });
+
+  it('a Poison kill of an earlier enemy skips only its move; later enemies still take their turns', () => {
+    const data = world(attacker('a', 3, 5), attacker('b', 30, 3));
+    const r = run(
+      data,
+      aimed((t) => (t === 1 ? [['fog']] : [])),
+      conf(
+        ['a', 'b'],
+        [
+          ['fog', 1],
+          ['defend', 4],
+        ],
+      ),
+    );
+    const t = trace(r.log, enemyTurn1).filter((l) => /^(poison |move )/.test(l));
+    expect(t.slice(0, 3)).toEqual(['poison 3', 'poison 3', 'move Bite']);
   });
 
   it('a dead enemy no longer acts', () => {

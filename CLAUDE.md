@@ -65,7 +65,11 @@ The "Contract map" at the top of `engine/types.ts` says which declared-but-unsim
   Block and modifiers; a kill wins before the move), then Poison −1 → enemy move →
   pattern advances → end of enemy turn:
   debuffs on the ENEMY tick down by 1 (so 1 Vulnerable applied by the player
-  lasts through that player turn and the enemy's next move).
+  lasts through that player turn and the enemy's next move). With several enemies (#281) the
+  enemy part (block reset → Poison → move → pattern advance → debuff tick) runs for one enemy
+  at a time, left to right, each finishing its whole turn before the next starts; a dead enemy
+  is skipped, and the player's own "until the enemy turn ends" powers (Intangible, Colossus,
+  Flame Barrier) wear off after the last enemy's move.
 - Ascension overrides are cumulative (A9 applies A8 then A9). Ascender's Bane is
   added automatically at A5+ via `manifest.ascensionCards`.
 - `hpLost` = start HP (`startHp`, default Max HP) − final HP − overheal, and can be negative (#205,

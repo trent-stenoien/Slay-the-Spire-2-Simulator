@@ -244,7 +244,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 
 | # | Rule | Test file > test name | Break-it |
 |---|------|-----------------------|----------|
-| 40a | Enemy turn: all Block resets, each moves left to right, then debuffs tick; dead enemies don't act | engine/combat.multiEnemy.test.ts > #5 enemy turn order > every Block resets, then each enemy moves left to right, then enemy debuffs tick; a dead enemy no longer acts | n/a |
+| 40a | Enemy turn (#281): each enemy finishes its whole turn (Block, Poison, move, debuff tick) left to right before the next starts; dead enemies don't act | engine/combat.multiEnemy.test.ts > #5 enemy turn order > each enemy finishes its whole turn...; Poison ticks in each enemy own turn...; a Poison kill of an earlier enemy skips only its move...; a dead enemy no longer acts | n/a |
 | 40b | Won only when every enemy is dead; HP left summed | engine/combat.multiEnemy.test.ts > #5 win condition (3 tests) | caught (won() = some enemy dead) |
 | 40c | Single-target cards hit the chosen target; dead target falls back; lost hits; targeted debuffs/Poison | engine/combat.multiEnemy.test.ts > #5 targets (4 tests) | caught (Decision.target ignored) |
 | 40c2 | #262 Shiv cards (Blade Dance, Leading Strike, Shivs) hit the strategy target | engine/combat.multiEnemy.test.ts > #5 with #262 Shiv cards | n/a |
