@@ -279,6 +279,14 @@ describe('#205 turn relics', () => {
     ).toEqual([7, 7]);
   });
 
+  it('Ring of the Snake draws 2 more on turn 1 only: 7 then 5 cards (#258)', () => {
+    expect(
+      turns(['ring_of_the_snake'])
+        .views.slice(0, 2)
+        .map((v) => v.state.player.hand.length),
+    ).toEqual([7, 5]);
+  });
+
   it('Snecko Eye (Confused): drawn cards cost a random 0–3, the same for the same seed', () => {
     const a = turns(['snecko_eye']);
     const costs = a.views[0]!.state.player.hand.map((c) => c.costThisCombat);

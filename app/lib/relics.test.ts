@@ -10,9 +10,10 @@ import { describeEvent, hpLostPhrase } from './logReplay';
 import type { StrategySummary } from '../../engine/types';
 
 describe('#205 relic setup', () => {
-  it('the Ironclad starts with Burning Blood; other characters with nothing simulated', () => {
+  it('the Ironclad starts with Burning Blood, the Silent with Ring of the Snake; characters without a simulated relic with nothing', () => {
     expect(startingRelics(gameData, 'ironclad')).toEqual([{ relicId: 'burning_blood' }]);
-    expect(startingRelics(gameData, 'silent')).toEqual([]);
+    expect(startingRelics(gameData, 'silent')).toEqual([{ relicId: 'ring_of_the_snake' }]);
+    expect(startingRelics(gameData, 'defect')).toEqual([]);
     expect(setupRelics(gameData, defaultSetup(gameData))).toEqual([{ relicId: 'burning_blood' }]);
     expect(setupRelics(gameData, { characterId: 'ironclad', relics: [] })).toEqual([]);
   });
