@@ -215,6 +215,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     attack first" (ties: lowest HP); further ties go to the leftmost enemy. Strategies in one run can use
     different priorities. The Block group plans against all enemies' incoming damage combined. URL
     strategy codes end in "i" for Biggest attack; older codes and saved strategies mean Lowest HP.
+    Lowest HP ranks by effective HP (HP + Block, #282); only HP-direct effects (Poison, Doom, Capture Spirit:
+    cards that lose HP past Block) rank by HP alone.
 42. **Multi-enemy UI (#5):** Setup has "Add enemy" / "Remove enemy N" (any enemy), the link holds one
     enemy code per enemy (`e=NbSe`), the results text joins the names ("Ironclad vs A and B"), the
     combat log shows one HP bar per enemy, lines "Enemy N:" before that enemy's events, and one intent
