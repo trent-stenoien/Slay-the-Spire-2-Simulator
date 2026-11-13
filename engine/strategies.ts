@@ -1931,6 +1931,13 @@ export function createStrategy(config: StrategyConfig): Strategy {
     decide: (raw) => {
       const { target, view } = aim(raw);
       tally.observe(view);
+      const first = randomTargetFirst(raw);
+      if (first) {
+        // #45: random-target attacks first (or a targeted kill); the next decision re-plans the rest.
+        tally.record(view, first.decision);
+        playing = view.playable.find((p) => p.uid === first.decision.uid);
+        return first.decision;
+      }
       const d = decide(view, withTally());
       tally.record(view, d);
       playing = d.kind === 'play' ? view.playable.find((p) => p.uid === d.uid) : undefined;
@@ -1951,6 +1958,49 @@ export function createStrategy(config: StrategyConfig): Strategy {
         : chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined);
     },
   };
+}
+
+function isRandomTargetAttack(card: Card): boolean {
+  return card.effects.some((e) => e.type === 'attack' && e.randomTarget === true);
+}
+
+/** #45: damage a targeted attack card would deal to `enemy` now (Strength, Weak, Vulnerable; Block counts as HP). */
+function wouldKill(card: Card, state: State, enemy: { hp: number; block: number; debuffs: { vulnerable: number } }) {
+  const x = card.xCost ? state.player.energy : 0;
+  let dmg = 0;
+  for (const e of card.effects) {
+    if (e.type !== 'attack' || e.allEnemies) continue;
+    const per = attackDamage(
+      e.damage + (card.damageBonus ?? 0),
+      state.player.strength,
+      state.player.debuffs.weak,
+      enemy.debuffs.vulnerable,
+    );
+    dmg += per * attackHits(e, x);
+  }
+  return dmg >= enemy.hp + enemy.block;
+}
+
+/**
+ * #45 (Trent): with 2+ enemies alive, random-target attacks (Sword Boomerang, Rip and Tear, ...) are
+ * played first, and the turn is then re-planned with the new board (every decision is made afresh).
+ * Exception: a targeted attack that would kill a living enemy goes first (the cheapest such card, at
+ * the leftmost enemy it kills). The biggest random attack goes first. Undefined when the rule does not apply.
+ */
+function randomTargetFirst(view: StrategyView): { decision: Extract<Decision, { kind: 'play' }> } | undefined {
+  const enemies = view.state.enemies;
+  if (!enemies || enemies.filter((e) => e.hp > 0).length < 2) return undefined;
+  const random = best(view.playable.filter(isRandomTargetAttack), (c) => [
+    totalBaseDamage(c, view.state.player.energy, view.state),
+  ]);
+  if (!random) return undefined;
+  for (const c of [...view.playable]
+    .filter((c) => isAttackCard(c) && !isRandomTargetAttack(c))
+    .sort((a, b) => (a.cost as number) - (b.cost as number))) {
+    const i = enemies.findIndex((e) => e.hp > 0 && wouldKill(c, view.state, e));
+    if (i >= 0) return { decision: { kind: 'play', uid: c.uid, target: i } };
+  }
+  return { decision: { kind: 'play', uid: random.uid } };
 }
 
 /**

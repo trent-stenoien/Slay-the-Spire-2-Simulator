@@ -15,7 +15,8 @@
     {
       "type": "attack",
       "damage": 3,
-      "hits": 4
+      "hits": 4,
+      "randomTarget": true
     }
   ],
   "upgraded": {
@@ -23,7 +24,8 @@
       {
         "type": "attack",
         "damage": 3,
-        "hits": 5
+        "hits": 5,
+        "randomTarget": true
       }
     ]
   },

@@ -227,6 +227,12 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     combat log shows one HP bar per enemy, lines "Enemy N:" before that enemy's events, and one intent
     line naming every living enemy's move with the total incoming damage. The strategy editor and the
     New Strategy form have a Target picker.
+43. **Random-target cards (#45, Trent):** an `attack` effect with `randomTarget` (Sword Boomerang, Rip and
+    Tear, Volley, Ricochet) sends each hit to a random living enemy through the seeded Rng, one draw per hit,
+    only while 2+ enemies live (a one-enemy fight draws nothing and is unchanged); hits continue after a kill.
+    Juggernaut's damage also picks a random living enemy. Strategies, with 2+ enemies alive, play random-target
+    attacks first and re-plan the rest of the turn on the new board, except that a targeted attack that would
+    kill a living enemy goes first, aimed at it.
 
 ## Known failure points
 

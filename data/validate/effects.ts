@@ -31,6 +31,7 @@ export function checkEffects(r: Reporter, list: unknown, path: string): void {
       r.int(e, 'hits', 1, `${p}.hits`);
       optBool(r, e, 'allEnemies', p);
       optBool(r, e, 'xTimes', p);
+      optBool(r, e, 'randomTarget', p);
       checkXBonus(r, e, p);
     } else if (isOneOf(e.type, AMOUNT_EFFECTS)) {
       r.int(e, 'amount', 0, `${p}.amount`);
