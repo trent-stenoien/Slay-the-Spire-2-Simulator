@@ -170,6 +170,17 @@ describe('real game data', () => {
     expect(characterByCode('X')).toBeUndefined();
   });
 
+  it('FEATURES item 18: every Ironclad and Colorless card is simulated except the named exceptions', () => {
+    const exceptions = ['splash', 'sovereign_blade', 'expect_a_fight', 'sweeping_gaze', 'mad_science'];
+    const notCards = ['curse', 'status', 'quest'];
+    const own = Object.values(gameData.cards).filter(
+      (c) => (c.character === 'I' || c.character === 'colorless') && !notCards.includes(c.type),
+    );
+    const unsimulated = own.filter((c) => !c.simulated && !c.multiplayerOnly && !exceptions.includes(c.id));
+    expect(unsimulated.map((c) => c.id)).toEqual([]);
+    for (const id of exceptions) expect(gameData.cards[id]?.simulated, id).toBe(false);
+  });
+
   it("Ascender's Bane referenced by the manifest exists", () => {
     for (const { cardId } of gameData.manifest.ascensionCards) {
       expect(gameData.cards[cardId]).toBeDefined();
