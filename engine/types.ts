@@ -141,7 +141,7 @@ export type Effect =
    */
   | { type: 'applyShrink'; amount: number }
   // ----- #105 additions below: declared, not simulated yet. -----
-  /** #106: the player loses `amount` HP (ignores Block). Whether it counts toward hpLost or can kill is open (#106). */
+  /** #106: the player loses `amount` HP (ignores Block). Counts toward hpLost and can kill (a loss) (#106). */
   | { type: 'loseHp'; amount: number }
   /** #107: draw `amount` cards (same hand-limit rule as the turn-start draw). */
   | { type: 'draw'; amount: number }
@@ -169,7 +169,8 @@ export type Effect =
   | { type: 'schedule'; delay: number; at?: 'turnStart' | 'turnEnd'; effects: Effect[] }
   /**
    * #110: fixed damage to the enemy that Strength, Weak and Vigor do not change
-   * (The Bomb, Rolling Boulder, Caltrops-style). Block absorbs it. Vulnerable: open.
+   * (The Bomb, Rolling Boulder, Caltrops-style). Block absorbs it. Vulnerable applies only to attack
+   * damage from the player or its pets (Osty, v2), so it does not change this (Trent, #245).
    */
   | { type: 'dealDamage'; amount: number; allEnemies?: boolean }
   /** #110: the enemy loses `amount` HP directly (ignores Block and modifiers), like Poison damage. */
@@ -274,9 +275,9 @@ export type Effect =
     }
   /** #116: replace cards (Primal Force: all Attacks in hand → Giant Rock; Entropy: 1 random card). */
   | { type: 'transformCards'; from: PileName; count?: number; mode: SelectMode; filter?: CardFilter; into: CardSource }
-  /** #115: the player heals `amount` HP, up to Max HP. Effect on hpLost: open (#115). */
+  /** #115: the player heals `amount` HP, up to Max HP. Every heal counts in full toward hpLost, even past Max HP (#115, #205). */
   | { type: 'heal'; amount: number }
-  /** #115: Max HP rises by `amount` (Feed). Current HP rises too. Effect on hpLost: open (#115). */
+  /** #115: Max HP rises by `amount` (Feed). Current HP rises too, which lowers hpLost (#115, #205). */
   | { type: 'gainMaxHp'; amount: number }
   /** #115: Max HP drops by `amount` (Brightest Flame); HP is capped at the new Max HP. */
   | { type: 'loseMaxHp'; amount: number }
@@ -318,7 +319,7 @@ export interface CardFilter {
   notTypes?: CardType[];
   /** Rarity is one of these (Anointed: rare). Needs CardInstance.rarity. */
   rarity?: CardRarity[];
-  /** Card name contains this text ("Strike"). Exact rule (case, upgraded "+") open: #111, #113. */
+  /** Card name contains this text ("Strike"). Case-sensitive; the upgraded "+" does not matter (#111, #113). */
   nameIncludes?: string;
   cardId?: string;
   /** false = only cards not yet upgraded (Armaments). */
@@ -332,13 +333,13 @@ export type Counter =
   | 'playerBlock'
   | 'playerStrength'
   | 'enemyVulnerable'
-  /** Distinct debuffs on the enemy (Rend). Which ones count: open (#111). */
+  /** Distinct debuffs on the enemy (Rend). Every modelled debuff counts once (#111). */
   | 'enemyUniqueDebuffs'
   | 'handSize'
   | 'drawPileSize'
   | 'discardPileSize'
   | 'exhaustPileSize'
-  /** Number of separate HP-loss events this combat (Tear Asunder). What counts: open (#106). */
+  /** Number of separate HP-loss events this combat (Tear Asunder). Any HP drop; fully blocked hits do not count (#106). */
   | 'hpLossesThisCombat'
   | 'cardsPlayedThisTurn'
   | 'cardsPlayedThisCombat'
@@ -347,7 +348,7 @@ export type Counter =
   | 'cardsExhaustedThisCombat'
   /** Cards moved, exhausted, created or upgraded by the previous effect of the same card (Second Wind, Stoke). */
   | 'lastEffectCount'
-  /** Damage dealt by the previous attack effect of the same card (Fisticuffs). HP lost or pre-Block: open (#111). */
+  /** Damage dealt by the previous attack effect of the same card (Fisticuffs). Counts Block and HP after all modifiers, overkill included (#111). */
   | 'lastAttackDamage';
 
 /** "`amount` for each `per`": adds amount × counter. */
@@ -371,7 +372,7 @@ export type Condition =
   /** The previous attack effect of this card killed the enemy (Feed). */
   | { kind: 'fatal' };
 
-/** Which cards a random-generation effect draws from. Pool membership rule: open (#116). */
+/** Which cards a random-generation effect draws from. Only simulated cards of the player's own character, no Colorless (#116). */
 export interface CardPool {
   /** 'own' = the player's character; 'otherCharacters' = Splash. */
   character?: 'own' | 'colorless' | 'otherCharacters';
@@ -409,8 +410,7 @@ export interface CardTrigger {
 
 /**
  * Player powers, stored in PlayerState.powers as id → amount. A power with
- * amount 0 or absent is off. Meanings (amount in brackets); rules marked open
- * are not decided yet.
+ * amount 0 or absent is off. Meanings (amount in brackets).
  */
 export type PowerId =
   // #109 simple powers
@@ -430,13 +430,13 @@ export type PowerId =
   | 'cruelty'
   /** +[amount] Block per Block gain from cards (Prowess, Expertise). */
   | 'dexterity'
-  /** Defend cards give [amount] extra Block (Fasten). Which cards: open (#109). */
+  /** Defend cards give [amount] extra Block (Fasten). Only cards named "Defend" (#109). */
   | 'fasten'
   /** When attacked, deal [amount] damage back (Caltrops). */
   | 'thorns'
   /** Start of turn: gain [amount] Vigor (Prep Time). */
   | 'vigorPerTurn'
-  /** Next Attack deals +[amount] damage, then Vigor is used up. Per hit or once: open (#109). */
+  /** Next Attack deals +[amount] damage, then Vigor is used up. Applies to every hit of that Attack (#109). */
   | 'vigor'
   /** Powers cost [amount] less (Master of Strategy: Curious). */
   | 'powersCostLess'
@@ -449,9 +449,9 @@ export type PowerId =
   | 'strengthThisTurn'
   /** This turn: gain [amount] Block whenever you play an Attack (Rage). */
   | 'rage'
-  /** Thorns until your next turn (Flame Barrier). Exact duration: open (#110). */
+  /** Thorns until your next turn (Flame Barrier). Lasts through the following enemy turn (#110). */
   | 'flameBarrier'
-  /** Take 50% less damage from Vulnerable enemies (Colossus). Duration and rounding: open (#110). */
+  /** Take 50% less damage from Vulnerable enemies (Colossus). Multiplies with Weak, floored once; lasts the following enemy turn (#110). */
   | 'colossus'
   /** Cannot gain Block from cards for [amount] turns (Panic Button). */
   | 'noBlockFromCards'
@@ -466,7 +466,7 @@ export type PowerId =
   /** This turn, the enemy loses [amount] HP whenever you play a card (Master of Strategy: Choking). */
   | 'choking'
   // #107
-  /** You cannot draw more cards this turn (Battle Trance). Which draws it blocks: open (#107). */
+  /** You cannot draw more cards this turn (Battle Trance). Blocks all further draws that turn (#107). */
   | 'noDraw'
   // #113 trigger powers
   /** Whenever a card is exhausted, draw [amount] (Dark Embrace). */
@@ -491,7 +491,7 @@ export type PowerId =
   | 'juggling'
   /** Start of turn: move a random Attack from discard to hand and upgrade it (Aggression). */
   | 'aggression'
-  /** Drawing a card containing "Strike" plays it (Hellraiser). Name rule: open (#113). */
+  /** Drawing a card containing "Strike" plays it (Hellraiser). Any card with Strike in its name (#113). */
   | 'hellraiser'
   /** End of turn: play [amount] random Attack(s) from your hand (Stampede). */
   | 'stampede'
@@ -502,9 +502,9 @@ export type PowerId =
   /** Whenever you shuffle your draw pile, choose a card from it to put into your hand (Stratagem). */
   | 'stratagem'
   // #115
-  /** Damage taken is reduced to 1 per hit (Apparition). Which damage counts: open (#115). */
+  /** Damage taken is reduced to 1 per hit (Apparition). Every enemy hit, and curse/status damage (#115). */
   | 'intangible'
-  /** Taking unblocked attack damage loses the combat (The Gambit). Whether simulated: open (#115). */
+  /** Taking unblocked attack damage loses the combat (The Gambit). Simulated (#115). */
   | 'gambit'
   // #116
   /** Whenever you play an Attack, add a random Attack into your hand (Calamity). */
@@ -516,20 +516,20 @@ export type PowerId =
 
 /** Enemy powers, stored in EnemyState.powers. */
 export type EnemyPowerId =
-  /** The enemy has [amount] less Strength this turn (Mangle, Dark Shackles). When it comes back: open (#110). */
+  /** The enemy has [amount] less Strength this turn (Mangle, Dark Shackles). Comes back after the end of the enemy's turn (#110). */
   | 'strengthLossThisTurn'
-  /** The enemy skips its next move (Whistle). Whether its pattern advances: open (#115). */
+  /** The enemy skips its next move (Whistle). Its pattern still advances (#115, #148). */
   | 'stun'
   /**
    * #203: each stack negates the next debuff applied to the enemy (the debuff is not applied,
-   * one stack is used). Which statuses count as debuffs (Poison, Strength loss, Stun): open (#203).
+   * one stack is used). Vulnerable, Weak, Frail, Poison, Stun and temporary Strength loss all count (#203).
    */
   | 'artifact'
-  /** #203: the enemy gains [amount] Strength each turn (Byrdonis). Exact timing (start or end of its turn): open (#203). */
+  /** #203: the enemy gains [amount] Strength each turn (Byrdonis). Gained at the end of the enemy's own turn, after its move (#203). */
   | 'strengthPerTurn'
   /**
    * #213: the next [amount] times the enemy loses HP, it loses only 1 (one stack per loss).
-   * Whether Poison / `enemyLoseHp` losses count, and whether a fully blocked hit uses a stack: open (#213).
+   * Poison and `enemyLoseHp` losses count; a fully blocked hit (0 HP loss) uses no stack (#213).
    */
   | 'slippery';
 
@@ -1036,8 +1036,9 @@ export interface ChoiceResponse {
 export interface Strategy {
   decide(view: StrategyView): Decision;
   /**
-   * #105: answer a "choose a card" prompt. Optional; what the engine does when
-   * a strategy has no `choose` is open (#108, #112).
+   * #105: answer a "choose a card" prompt. Optional: without it, generate/move/upgrade picks use the
+   * priority list (`chooseGenerated`) and other picks the shared exhaust order (`chooseExhaust`)
+   * (#108, #112). Every built-in strategy has `choose`.
    */
   choose?(view: StrategyView, request: ChoiceRequest): ChoiceResponse;
   /**

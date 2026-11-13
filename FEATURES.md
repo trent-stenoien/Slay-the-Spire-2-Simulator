@@ -7,6 +7,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 
 1. **Determinism:** same config + seed gives an identical event log; no `Math.random()` in `engine/`.
 2. **Damage:** per hit = floor((base + Strength) × modifiers); Vulnerable ×1.5; Block absorbs hits in order.
+   Vulnerable multiplies only attack damage from the player or its pets (Osty, v2). Fixed damage (The Bomb,
+   Rolling Boulder, Juggernaut) ignores it. (Trent, #245)
 3. **Turn order** exactly as in CLAUDE.md, including: player debuffs tick at the end of the player's
    turn, enemy debuffs at the end of the enemy's turn; Poison at enemy turn start (ignores Block,
    a kill wins before the move, then −1); Howl from Beyond plays itself from the Exhaust pile at
