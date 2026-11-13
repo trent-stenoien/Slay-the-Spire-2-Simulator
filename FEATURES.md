@@ -50,7 +50,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     1, 2, 3). An enemy move may add a named card to a pile (Vantom's Dismember: 3 Wounds to discard).
 10. **Statuses, curses and defensive effects (#115):** "Lose X HP" curses/statuses (Bad Luck, Beckon,
     Regret) ignore Block; "Take X damage" ones (Burn, Decay, Disintegration, Infection, Toxic, Wither)
-    are blockable. Intangible makes every hit that turn 1, Poison included (Accelerant = 1 twice).
+    are blockable. Intangible makes every hit that turn 1.
+    (v2 note, #25: Poison on the player does not exist in v1, so "Poison included, Accelerant = 1 twice" is not a v1 test item.)
     The Gambit loses the combat on any unblocked enemy attack damage.
 11. **Kill rewards (#104, #115):** Feed's Max HP and Hand of Greed's gold count only when the hit
     kills. Alchemize gains a Random Potion when played.
@@ -76,8 +77,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 17. **Void (#206):** drawing Void (at turn start after the energy refill, or mid-turn) loses 1 Energy,
     never below 0. It is Unplayable and Ethereal, so an unplayed Void exhausts at end of turn.
 18. **Card coverage:** every main-release Ironclad and Colorless card is simulated and matches its
-    wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20) and the multiplayer-only
-    cards (#117).
+    wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20), Expect a Fight (#246, needs a
+    contract change), Sweeping Gaze (waits for Osty, #19), the hidden Mad Science placeholder (its
+    `mad_science_*` variants are the simulated cards) and the multiplayer-only cards (#117).
 17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
     in pick order: combat start (before the first draw), turn start (after the draw and start-of-turn
     powers), turn end (before Plating), after a card is played, combat end (wins only). "Start each
