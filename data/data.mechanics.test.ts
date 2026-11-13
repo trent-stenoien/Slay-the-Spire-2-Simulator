@@ -341,3 +341,35 @@ describe('#208 main-release values', () => {
     }
   });
 });
+
+describe('#262 Silent Shiv cards (main-release values)', () => {
+  const shiv = (count: number, extra: object = {}) => ({
+    type: 'addCards',
+    source: { kind: 'card', cardId: 'shiv' },
+    count,
+    to: 'hand',
+    ...extra,
+  });
+  const mover = { type: 'moveCards', from: 'hand', to: 'discard', mode: 'all' };
+  const sleeve = { type: 'script', id: 'upMySleeve' };
+
+  it.each([
+    ['blade_dance', 1, [shiv(3)], [shiv(4)]],
+    ['cloak_and_dagger', 1, [block(6), shiv(1)], [block(6), shiv(2)]],
+    ['leading_strike', 1, [atk(3), shiv(2)], [atk(6), shiv(2)]],
+    ['up_my_sleeve', 2, [shiv(3), sleeve], [shiv(4), sleeve]],
+    [
+      'storm_of_steel',
+      1,
+      [mover, { type: 'repeat', per: 'lastEffectCount', effects: [shiv(1)] }],
+      [mover, { type: 'repeat', per: 'lastEffectCount', effects: [shiv(1, { upgraded: true })] }],
+    ],
+  ])('%s costs %i and adds Shivs to the hand', (id, cost, base, up) => {
+    expect(c[id!]).toMatchObject({ simulated: true, cost, effects: base, upgraded: { effects: up } });
+  });
+
+  it('Hidden Daggers (needs the discard choice, #259) and Blade of Ink (Inky unknown) stay unsimulated', () => {
+    expect(c.hidden_daggers).toMatchObject({ simulated: false });
+    expect(c.blade_of_ink).toMatchObject({ simulated: false });
+  });
+});

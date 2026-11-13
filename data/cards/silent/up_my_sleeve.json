@@ -9,11 +9,41 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "card",
+        "cardId": "shiv"
+      },
+      "count": 3,
+      "to": "hand"
+    },
+    {
+      "type": "script",
+      "id": "upMySleeve"
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "card",
+          "cardId": "shiv"
+        },
+        "count": 4,
+        "to": "hand"
+      },
+      {
+        "type": "script",
+        "id": "upMySleeve"
+      }
+    ]
+  },
   "description": "Add 3 Shivs into your Hand. / Reduce this card's cost by 1.",
   "upgradedDescription": "Add 4 Shivs into your Hand. / Reduce this card's cost by 1.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

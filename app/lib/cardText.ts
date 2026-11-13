@@ -124,6 +124,7 @@ export function effectText(e: Effect): string {
       if (e.id === 'fiendFire') return `Exhaust your Hand. Deal ${e.values?.[0] ?? 0} damage for each card Exhausted`;
       if (e.id === 'thrash') return 'Exhaust a random Attack in your Hand and add its damage to this card';
       if (e.id === 'expectAFight') return 'Gain 1 Energy for each Attack in your Hand';
+      if (e.id === 'upMySleeve') return "Reduce this card's cost by 1";
       return 'Special effect';
   }
 }

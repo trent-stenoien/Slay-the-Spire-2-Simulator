@@ -84,6 +84,14 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 18. **Card coverage:** every main-release Ironclad and Colorless card is simulated and matches its
     wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20), Sweeping Gaze (waits for Osty, #19), the hidden Mad Science placeholder (its
     `mad_science_*` variants are the simulated cards) and the multiplayer-only cards (#117).
+18a. **Silent Shiv cards (#262):** Blade Dance (3 Shivs, 4 upgraded, Exhaust), Cloak and Dagger (6 Block, 1 Shiv;
+    2 upgraded), Leading Strike (3 damage, 6 upgraded, 2 Shivs), Up My Sleeve (3 Shivs, 4 upgraded; this copy costs
+    1 less for the rest of the combat, never below 0, each copy on its own) and Storm of Steel (discard the
+    hand, not itself; 1 Shiv per discarded card, Shiv+ upgraded) add Shivs to the hand (a full hand sends them to
+    the discard pile). Shivs are 0-cost Attacks (4 damage, 6 upgraded) that Exhaust. Strategies play Blade Dance and
+    Up My Sleeve first in the Attack group and Storm of Steel last, once nothing else is played and the hand still
+    holds cards. Hidden Daggers stays unsimulated until the discard choice exists (#259); Blade of Ink until its
+    Inky Shivs are known.
 17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
     in pick order: combat start (before the first draw), turn start (after the draw and start-of-turn
     powers), turn end (before Plating), after a card is played, combat end (wins only). "Start each
