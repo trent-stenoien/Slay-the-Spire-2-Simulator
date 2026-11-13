@@ -112,6 +112,23 @@ describe('results helpers', () => {
   });
 });
 
+describe('sorting uses the unrounded values', () => {
+  it('two strategies that both show 5.00 are ordered by their real averages, then by the unrounded death rate', () => {
+    const row = (id: string, i: number, avgHpLost: number, deathRate: number): ResultRow => ({
+      strategyId: id,
+      name: id,
+      color: 'blue',
+      strategyIndex: i,
+      summary: fakeSummary(id, { avgHpLost, deathRate, avgTurns: 4 }),
+    });
+    const rows = [row('late', 0, 5.004, 0), row('early', 1, 5.001, 0)];
+    expect(fmtNumber(5.004)).toBe(fmtNumber(5.001));
+    expect(sortResultRows(rows).map((r) => r.strategyId)).toEqual(['early', 'late']);
+    const rates = [row('b', 0, 5, 0.0004), row('a', 1, 5, 0.0001)];
+    expect(sortResultRows(rates).map((r) => r.strategyId)).toEqual(['a', 'b']);
+  });
+});
+
 describe('relicNote', () => {
   it('#205: no note for the Ironclad (Burning Blood is simulated); names unsimulated starting relics', () => {
     expect(relicNote(gameData, 'ironclad')).toBeNull();

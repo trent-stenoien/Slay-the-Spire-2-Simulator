@@ -8,6 +8,7 @@ import {
   createStrategy,
   exhaustOrder,
   exhaustTier,
+  fiendFireThatBeats,
   isPlainBlock,
   planTurn,
   worthExhausting,
@@ -581,6 +582,13 @@ describe('#129 Fiend Fire', () => {
     expect(greedy.decide(viewOf(poor, 1))).toEqual(playsCard(poor[1]!));
   });
 
+  it('a tie is not a beat: Fiend Fire 28 against Bash + Twin + Twin 28 is not chosen, one more card in hand makes it 35', () => {
+    const tie = [card('fiend'), card('bash'), card('twin'), card('twin'), card('dazed')];
+    expect(fiendFireThatBeats(viewOf(tie, 4))).toBeUndefined();
+    const more = [card('fiend'), card('bash'), card('twin'), card('twin'), card('dazed'), card('dazed')];
+    expect(fiendFireThatBeats(viewOf(more, 4))).toBe(more[0]);
+  });
+
   it('Bash goes before Fiend Fire (greedy, and other orders)', () => {
     const hand = () => [card('fiend'), card('bash'), card('strike'), card('strike'), card('defend')];
     const h1 = hand();
@@ -680,6 +688,11 @@ describe('#129 Second Wind', () => {
 
   it('goes before plain Defends, which it exhausts for Block (2 × 5 = 10)', () => {
     const hand = [card('wind'), card('defend'), card('defend'), card('strike')];
+    expect(scared.decide(viewOf(hand, 3, 20))).toEqual(playsCard(hand[0]!));
+  });
+
+  it('a plain Defend does not beat Second Wind even when they give the same Block (5 against 5)', () => {
+    const hand = [card('wind'), card('defend'), card('strike')];
     expect(scared.decide(viewOf(hand, 3, 20))).toEqual(playsCard(hand[0]!));
   });
 

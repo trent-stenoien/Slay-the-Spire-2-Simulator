@@ -793,6 +793,25 @@ describe('#110 scheduled effects', () => {
     expect(next).toMatchObject({ side: 'player', turn: 3 });
   });
 
+  it('The Bomb ignores Vulnerable: a Vulnerable enemy still takes exactly 40 (not 60) (#245)', () => {
+    const r = run(
+      data(),
+      [
+        ['bomb', 1],
+        ['bash', 1],
+        ['defend', 3],
+      ],
+      (t) => (t === 1 ? ['bomb'] : t === 3 ? ['bash'] : []),
+    );
+    const idx = r.log!.findIndex((e) => e.t === 'damage' && e.source === 'player' && e.amount === 40);
+    expect(idx).toBeGreaterThan(-1);
+    // Bash (turn 3) applied Vulnerable before the Bomb went off at the end of that turn.
+    expect(r.log!.slice(0, idx).some((e) => e.t === 'debuff' && e.side === 'enemy' && e.kind === 'vulnerable')).toBe(
+      true,
+    );
+    expect(r.log![idx]).toMatchObject({ amount: 40, blocked: 0, hpLoss: 40 });
+  });
+
   it('The Bomb ignores Strength but the enemy Block absorbs it, and it can win the combat', () => {
     const d = data(makeEnemy('bag', 30, { b: { name: 'B', effects: [{ type: 'gainBlock', amount: 10 }] } }));
     const r = run(

@@ -21,15 +21,15 @@ describe('#106 Lose HP cards', () => {
     expect(c[id]).toMatchObject({ simulated: true, effects: base, upgraded: { effects: up } });
   });
 
-  it('Spite and Tear Asunder are recorded but wait for conditional / attackFrom (#111)', () => {
+  it('Spite and Tear Asunder are simulated (#111)', () => {
     expect(c.spite).toMatchObject({
-      simulated: false,
+      simulated: true,
       effects: [{ type: 'conditional', if: { kind: 'lostHpThisTurn' }, then: [atk(5, { hits: 2 })], else: [atk(5)] }],
       upgraded: { effects: [{ type: 'conditional', then: [atk(5, { hits: 3 })], else: [atk(5)] }] },
     });
     const per = { per: 'hpLossesThisCombat', amount: 1 };
     expect(c.tear_asunder).toMatchObject({
-      simulated: false,
+      simulated: true,
       effects: [{ type: 'attackFrom', damage: 5, hits: 1, extraHitsPer: per }],
       upgraded: { effects: [{ type: 'attackFrom', damage: 7, hits: 1, extraHitsPer: per }] },
     });
@@ -70,15 +70,14 @@ describe('#107 Draw cards', () => {
     });
   });
 
-  it('cards whose other parts belong to later mechanics stay unsimulated', () => {
-    // Impatience, Restlessness: conditional (#111). Drum of Battle is simulated now (#108).
-    // Brightest Flame: Max HP loss (#115).
+  it('Impatience and Restlessness are simulated (#111)', () => {
+    // Drum of Battle (#108) and Brightest Flame (#115) are simulated too.
     expect(c.impatience).toMatchObject({
-      simulated: false,
+      simulated: true,
       effects: [{ type: 'conditional', if: { kind: 'handHasNone', filter: { types: ['attack'] } }, then: [draw(2)] }],
     });
     expect(c.restlessness).toMatchObject({
-      simulated: false,
+      simulated: true,
       keywords: ['retain'],
       effects: [
         { type: 'conditional', if: { kind: 'counter', counter: 'handSize', max: 0 }, then: [draw(2), energy(2)] },
@@ -132,22 +131,22 @@ describe('#108 Exhaust cards', () => {
     });
   });
 
-  it("Evil Eye, Ashen Strike and Pact's End are recorded but wait for conditional / attackFrom (#111)", () => {
+  it("Evil Eye, Ashen Strike and Pact's End are simulated (#111)", () => {
     const exhaustedThisTurn = { kind: 'counter', counter: 'cardsExhaustedThisTurn', min: 1 };
     expect(c.evil_eye).toMatchObject({
-      simulated: false,
+      simulated: true,
       effects: [block(8), { type: 'conditional', if: exhaustedThisTurn, then: [block(8)] }],
       upgraded: { effects: [block(11), { type: 'conditional', if: exhaustedThisTurn, then: [block(11)] }] },
     });
     const per = (amount: number) => ({ per: 'exhaustPileSize', amount });
     expect(c.ashen_strike).toMatchObject({
-      simulated: false,
+      simulated: true,
       effects: [{ type: 'attackFrom', damage: 6, hits: 1, bonusPer: per(3) }],
       upgraded: { effects: [{ type: 'attackFrom', damage: 6, hits: 1, bonusPer: per(4) }] },
     });
     const three = { kind: 'counter', counter: 'exhaustPileSize', min: 3 };
     expect(c.pacts_end).toMatchObject({
-      simulated: false,
+      simulated: true,
       effects: [{ type: 'conditional', if: three, then: [atk(17, { allEnemies: true })] }],
       upgraded: { effects: [{ type: 'conditional', if: three, then: [atk(23, { allEnemies: true })] }] },
     });

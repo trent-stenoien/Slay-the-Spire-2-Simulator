@@ -22,6 +22,8 @@ const hit = (damage: number, hits = 1): Effect => ({ type: 'attack', damage, hit
 
 const extra: Record<string, CardDef> = {
   jab: card('jab', 'Jb', [hit(1)], { type: 'attack' }),
+  jab4: card('jab4', 'J4', [hit(4)], { type: 'attack' }),
+  jab5: card('jab5', 'J5', [hit(5)], { type: 'attack' }),
   ouch5: card('ouch5', 'O5', [{ type: 'loseHp', amount: 5 }]),
   twinstrike: card('twinstrike', 'Tw', [hit(1)], { type: 'attack', name: 'Twin Strike', rarity: 'common', cost: 9 }),
   ouch1: card('ouch1', 'O1', [{ type: 'loseHp', amount: 1 }]),
@@ -489,6 +491,14 @@ describe('#205 card-play relics', () => {
     const r = logged(world(), play(['jab']), { enemyId: 'dummy', deck: deckOf(['jab', 1]), ...relics('the_boot') });
     expect(events(r.log, 'damage')[0]).toMatchObject({ amount: 1, hpLoss: 5 });
   });
+
+  it('The Boot: the edges of the range, 4 becomes 5 and 5 stays 5; without it nothing changes', () => {
+    const run = (card: string, rel: Partial<CombatConfig>) =>
+      events(logged(world(), play([card]), { enemyId: 'dummy', deck: deckOf([card, 1]), ...rel }).log, 'damage')[0];
+    expect(run('jab4', relics('the_boot'))).toMatchObject({ amount: 4, hpLoss: 5 });
+    expect(run('jab5', relics('the_boot'))).toMatchObject({ amount: 5, hpLoss: 5 });
+    expect(run('jab4', {})).toMatchObject({ amount: 4, hpLoss: 4 });
+  });
 });
 
 describe('#205 HP-loss relics', () => {
@@ -512,6 +522,22 @@ describe('#205 HP-loss relics', () => {
         .slice(0, 2)
         .map((e) => e.hpLoss),
     ).toEqual([20, 20]);
+  });
+});
+
+describe('#205 Beating Remnant counts the whole turn', () => {
+  it('two hits in one enemy turn share the 20 HP cap (15 + 5), and the next turn starts again', () => {
+    const d = world();
+    d.enemies.twin = makeEnemy('twin', 999, {
+      hit: { name: 'Hit', effects: [{ type: 'attack', damage: 15, hits: 2 }] },
+    });
+    const r = logged(d, play(), { enemyId: 'twin', deck: deckOf(['defend', 5]), ...relics('beating_remnant') });
+    expect(
+      events(r.log, 'damage')
+        .filter((e) => e.target === 'player')
+        .slice(0, 4)
+        .map((e) => e.hpLoss),
+    ).toEqual([15, 5, 15, 5]);
   });
 });
 

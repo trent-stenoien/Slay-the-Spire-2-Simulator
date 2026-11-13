@@ -3,7 +3,7 @@
 A simulator that tests various card strategies in Slay the Spire 2 combats.
 
 It auto-plays a combat with a shuffled deck against an enemy with scripted moves,
-then runs 1,000 combats per strategy and charts the HP lost.
+then runs 10,000 combats per strategy and charts the HP lost.
 
 ## Development
 

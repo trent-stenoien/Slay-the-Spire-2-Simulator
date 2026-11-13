@@ -55,7 +55,7 @@
   },
   "description": "Retain. / If your Hand is empty, draw 2 cards and gain [E][E].",
   "upgradedDescription": "Retain. / If your Hand is empty, draw 3 cards and gain [E][E][E].",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

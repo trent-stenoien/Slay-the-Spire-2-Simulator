@@ -1,0 +1,244 @@
+# Feature-to-test map
+
+One row per `FEATURES.md` item (or sub-rule). "Test" is `file > describe > test name`. Break-it column:
+**caught** = a small wrong change to the code made the mapped file fail (change in brackets);
+**strengthened** = not caught at first, test added/strengthened, then caught; n/a = UI/data row; **BLOCKED** = code disagrees with FEATURES.md (see the end).
+Round 1, test reviewer. Break edits were never committed.
+
+## Simulation correctness
+
+| # | Rule | Test file > test name | Break-it |
+|---|------|-----------------------|----------|
+| 1a | Same config + seed gives the same log | engine/combat.test.ts > runCombat setup > is deterministic: same config + seed → identical log and result | caught (log depends on Date.now) |
+| 1b | Seeded Rng is a pure sequence; no `Math.random()` in `engine/` | engine/rng.test.ts > createRng > produces the same sequence for the same seed; engine randomness > no engine source file calls Math.random | caught (Math.random mixed into next) |
+| 1c | Each combat index gets its own derived seed | engine/rng.test.ts > deriveSeed > differs across combat indices | caught (index ignored) |
+| 2a | Vulnerable x1.5 | engine/combat.test.ts > rule helpers > attackDamage: Strength, Weak, Vulnerable, floor once, min 0 | caught (x1.25) |
+| 2b | Damage floored once | same test | caught (round instead of floor) |
+| 2c | (base + Strength) per hit | same test; computeIntent: multi-hit with Strength and player Vulnerable | caught (Strength dropped) |
+| 2d | Block absorbs hits in order | engine/combat.turnOrder.test.ts > damage rules in combat > Block absorbs the hits of one attack in order, running out part-way through (added) | strengthened (Block went negative after hit 2) |
+| 2e | Vulnerable only multiplies attack damage; fixed damage (The Bomb, Rolling Boulder, Thorns, Inferno) ignores it (#245) | engine/combat.temporary.test.ts > The Bomb ignores Vulnerable: a Vulnerable enemy still takes exactly 40 (not 60) (added); engine/combat.powers.test.ts > Rolling Boulder ... Vulnerable and Cruelty do not change it; Thorns ignores Strength and Vulnerable | caught (x1.5 under Vulnerable in `powerDamage`; Bomb test, Rolling Boulder, Thorns and Inferno all failed) |
+| 3a | Enemy debuffs tick at end of enemy turn | engine/combat.turnOrder.test.ts > Vulnerable: Bash then Strike = 8 + 9; Vulnerable 2 lasts two player turns | caught (enemy tick removed) |
+| 3b | Player debuffs tick at end of player turn | engine/combat.turnOrder.test.ts > Weak on the player cuts its attacks by 25% for that whole player turn, then ticks off at its end | caught (player tick removed) |
+| 3c | Poison -1 after it fires | engine/combat.poison.test.ts > Poison > ticks at the start of the enemy turn after block reset, before the move; then decreases by 1 | caught (no decrement) |
+| 3d | Poison ignores modifiers (Vulnerable) | engine/combat.poison.test.ts > is HP loss: ignores enemy Block and is not changed by Strength, Weak or Vulnerable | caught (Poison x1.5 under Vulnerable). Enemy Block resets before Poison, so Block cannot be broken separately |
+| 3e | Poison kill wins before the move | engine/combat.poison.test.ts > a Poison kill ends combat as a win before the enemy moves | caught (check removed) |
+| 3f | Enemy Block resets at start of enemy turn | engine/combat.turnOrder.test.ts > enemy block protects it during the next player turn only | caught |
+| 3g | Player Block resets at start of player turn | engine/combat.turnOrder.test.ts > player block resets at the start of each player turn; one full round logs its phases in the documented order | caught |
+| 3h | Howl from Beyond plays itself from Exhaust at end of player turn | engine/combat.playCards.test.ts > #114 Howl from Beyond (turnEndInExhaust) > is played for free at the end of the turn it is in the Exhaust pile, once, and goes to the discard pile | caught (trigger skipped) |
+| 3i | Same, can win the combat | same file > can win the combat at the end of the turn | caught |
+| 4a | Heals count in full past damage / Max HP (overheal) | engine/combat.statuses.test.ts > #115 heal and hpLost > #205 Not Yet heals in full for HP lost, past the damage taken; a heal at full HP still counts in full | caught (overheal dropped) |
+| 4b | hpLost = start - final - overheal; Trent's examples (-3, -6) | engine/combat.relics.test.ts > #205 HP lost with heals and startHp > Trent's example 70/80 ... → −3; a fight with no damage and Burning Blood is −6 | caught (overheal ignored) |
+| 4c | startHp starts a combat lower | engine/combat.relics.test.ts > startHp sets the HP the combat starts at; HP lost is counted from it | covered by 4b break (same formula) |
+| 4d | Feed's Max HP gain raises current HP (Feed at full HP -> -3) | engine/combat.statuses.test.ts > #115 Max HP > #205 HP lost can go below 0 after Feed at full HP (80/80 → 83/83 = −3) | caught (current HP not raised) |
+| 4e | Brightest Flame cap counts as lost (69/70 -> 68/68) | engine/combat.statuses.test.ts > Brightest Flame caps current HP and the HP removed counts as lost | caught (cap removed) |
+| 4f | Burning Blood heals only on a win | engine/combat.relics.test.ts > Burning Blood does not heal on a loss | caught (also heals on loss) |
+| 4g | Self-damage counts as HP lost; dying from it is a loss | engine/combat.mechanics.test.ts > #106 lose HP > HP lost from your own cards counts toward hpLost; a self-damage card that drops you to 0 HP ends the combat as a loss | caught (HP drop not recorded). The death check inside `loseHp` is also done by `playCard`, so removing only that one is an equivalent change |
+| 4h | Turn cap 100 | engine/combat.test.ts > end conditions > turn cap: passive player vs. non-attacking enemy | caught (cap 101) |
+| 4i | `minHpLost` offsets the histogram | engine/combat.relics.test.ts > #205 HP lost with heals and startHp > Monte Carlo hpLostCounts start at minHpLost when HP lost goes negative | caught (minHpLost field dropped) |
+| 5a | Ascension overrides cumulative, none above the level | engine/enemy.test.ts > resolveEnemy (Nibbit) > A8 changes HP and Hesitant Slice block only; A9 applies A8 HP plus the A9 move overrides; A7 does not apply A8 | caught (`<` instead of `<=`) |
+| 5b | Ascender's Bane added at A5+ | engine/combat.piles.test.ts > cards and piles > Ascender's Bane is added only at A5+ and exhausts from hand at end of turn | caught (level < ascension) |
+| 6a | Innate on top; turn 1 still draws 5 | engine/combat.keywords.test.ts > Innate > Innate cards are always in the opening hand, drawn first; turn 1 draws the normal 5 even with more Innate cards | caught (innate placed at bottom) |
+| 6b | Hand limit 10 | engine/combat.mechanics.test.ts > #107 draw > drawing into a full hand discards the drawn card | caught (limit 11) |
+| 6c | Scrawl / Pillage stop at 10 | engine/combat.mechanics.test.ts > Scrawl draws until the hand is full (10) and never discards for the hand limit; Pillage stops at a full hand instead of drawing into it | caught (limit check removed) |
+| 6d | Battle Trance blocks further draws that turn | engine/combat.mechanics.test.ts > Battle Trance: draws, then blocks every later draw this turn; the next turn draws normally | caught |
+| 6e | Retain keeps cards | engine/combat.keywords.test.ts > Retain > Retain cards stay in hand at end of turn; the rest is discarded; next turn still draws drawPerTurn | caught |
+| 7a | Powers leave the deck when played | engine/combat.powers.test.ts > #109 played Power cards > leave the deck for the rest of combat: not discarded, not exhausted, never drawn again | caught |
+| 7b | Turn-start hooks fire in order first played | engine/combat.powers.test.ts > #109 start-of-turn powers > turn-start powers run in the order they were first gained; turn-start powers act after the draw | caught (order reversed) |
+| 7c | Rolling Boulder instances grow independently | engine/combat.powers.test.ts > Rolling Boulder: two copies are separate instances that each grow +5 a turn (#135); a copy played later starts at 5 while the older one keeps growing | caught (shared instance / no growth) |
+| 7d | Crimson Mantle: each copy adds Block and HP loss | engine/combat.powers.test.ts > Crimson Mantle: two copies each add their Block and their 1 HP loss (#135) | caught (HP loss, and Block, each broken separately) |
+| 7e | No copy limit on those two (#135) | data/data.validate.test.ts > does not limit Rolling Boulder or Crimson Mantle copies (#135); app/lib/url.test.ts > allows many copies of Rolling Boulder and Crimson Mantle (#135) | data row (n/a) |
+| 8a | Plating: Block at end of turn, drops 1 per turn | engine/combat.powers.test.ts > #109 Plating > end of turn: gain Block equal to Plating; start of turn: Plating drops by 1 (4 + 3 + 2 + 1), then ends | caught |
+| 8b | Vigor: every hit of the next Attack, then used up | engine/combat.powers.test.ts > #109 Vigor (Prep Time) > adds to EVERY hit of the next Attack: Twin Strike 5+4 twice; that Attack uses it all up | caught |
+| 8c | Thorns: every enemy hit, blocked ones included | engine/combat.powers.test.ts > #109 Thorns (Caltrops) > deals 3 damage back after every enemy hit, blocked or not | caught (only unblocked hits) |
+| 8d | Fasten only on "Defend" cards | engine/combat.powers.test.ts > Fasten: +4 Block on cards named "Defend" (Defend, Ultimate Defend), not on other Block cards | caught |
+| 8e | Fasten added before Frail, rounded once | engine/combat.powers.test.ts > #135 Fasten and Frail > Fasten is added before Frail x0.75, rounded down once floor((5 + 4) x 0.75) = 6 | caught (Fasten dropped) |
+| 8f | Thrash exhausts a random Attack, adds per-hit damage, stacks | engine/combat.exhaust.test.ts > #108 Thrash > hits first, then exhausts a random Attack in hand and adds its PER-HIT damage to this copy; the bonus is permanent and stacks | caught (bonus replaced, not stacked) |
+| 8g | Tear Asunder: any HP drop counts, fully blocked hits don't | engine/combat.mechanics.test.ts > #106 lose HP > counters: every HP drop from any source counts; fully blocked hits do not | caught (0-loss counted). Card itself: row 8l |
+| 8h | Corruption: Skills cost 0 and exhaust; X-cost unchanged; Drum still gains energy | engine/combat.powers.test.ts > #109 Corruption > Skills cost 0 in every pile; Attacks and Powers keep their cost; Drum of Battle played under Corruption costs 0, is exhausted and gains its 2 energy (Trent, Q4) | caught (Attacks exhausted instead) |
+| 8i | X-cost (`xTimes`/`xBonus`) | engine/combat.energy.test.ts > X-cost (#23) > attackHits: hits × (X + xBonus), non-X attacks unchanged; upgraded "X+1" adds 1 to X | caught (xBonus dropped) |
+| 8j | Energy doesn't carry over | engine/combat.energy.test.ts > energy gain (#22) > no carry-over: energy refills to energyPerTurn next turn | caught |
+| 8k | Omnislice = 8/11 vs a single enemy | engine/combat.cards.test.ts > Omnislice with a single enemy (FEATURES 8) > deals 8 once (11 upgraded): no second target, no extra damage (added) | caught (data 8->9, 11->12) |
+| 8l | Tear Asunder: +1 hit per time HP was lost this combat (5, 7 upgraded) | engine/combat.conditional.test.ts > #245 Ironclad and Colorless cards unflagged by the quality loop > Tear Asunder: 5 damage and one more hit per time HP was lost this combat (7 upgraded) | caught (loss counter +2; base damage 5->6) |
+| 8m | Spite: 2 hits (3 upgraded) only if HP lost this turn | engine/combat.conditional.test.ts > #245 Ironclad and Colorless cards unflagged by the quality loop > Spite: 5 damage, 2 hits if HP was lost this turn (3 upgraded); Spite: HP lost on an earlier turn does not count (only this turn) | strengthened (condition widened to this combat was not caught first; added the earlier-turn test), then caught; hits 2->3 caught |
+| 8n | Ashen Strike: 6 + 3 per Exhaust pile card (4 upgraded) | engine/combat.conditional.test.ts > #245 Ironclad and Colorless cards unflagged by the quality loop > Ashen Strike: 6 plus 3 per card in the Exhaust pile (4 upgraded) | caught (per-card 3->2; pile size +1) |
+| 8o | Evil Eye: 8 Block, another 8 (11 + 11 upgraded) if a card was Exhausted this turn | engine/combat.conditional.test.ts > #245 Ironclad and Colorless cards unflagged by the quality loop > Evil Eye: 8 Block, another 8 if a card was Exhausted this turn (11 + 11 upgraded) | caught (min 1->2; exhaust counter not incremented) |
+| 8p | Pact's End: 17 (23 upgraded) damage only with 3+ cards in the Exhaust pile | engine/combat.conditional.test.ts > #245 Ironclad and Colorless cards unflagged by the quality loop > Pact's End: 17 damage (23 upgraded) only with 3+ cards in the Exhaust pile | caught (threshold 3->2; damage 17->16) |
+| 8q | Impatience: draw 2 (3 upgraded) only with no Attack in hand | engine/combat.conditional.test.ts > #245 Ironclad and Colorless cards unflagged by the quality loop > Impatience: draws 2 (3 upgraded) only when the hand holds no Attack | caught (filter attack->skill; upgraded draw 3->2). Dropping the self-card exclusion is an equivalent change (Impatience is a Skill) |
+| 8r | Restlessness: with an empty hand draw 2 and gain 2 Energy (3 and 3 upgraded) | engine/combat.conditional.test.ts > #245 Ironclad and Colorless cards unflagged by the quality loop > Restlessness: with an empty hand, draws 2 and gains 2 Energy (3 and 3 upgraded) | strengthened (empty-hand max 0->1 was not caught first; added the four-of-five-played check), then caught; draw and Energy values, base and upgraded, caught |
+| 9a | Shrink -30% after all modifiers, floored once | engine/combat.shrink.test.ts > attackDamage with Shrink > multiplies by (100 − percent)% after Strength, Weak and Vulnerable, then floors once; Shrink in combat > is applied after Vulnerable | caught (+1) |
+| 9b | Shrink doesn't stack | engine/combat.shrink.test.ts > Shrink in combat > does not stack: a second Shrink keeps the larger percent | caught (stacked) |
+| 9c | Sludge Spinner: opener, then random without repeats | engine/combat.patterns.test.ts > random pattern > noRepeat never plays the same move twice in a row, and uses every move; the last opener move counts as the previous move for noRepeat; data/data.test.ts > Sludge Spinner opens with Oil Spray, then picks at random without repeats | caught (repeat allowed) |
+| 9d | Stunned enemy skips move, no damage | engine/combat.statuses.test.ts > #115 Whistle's Stun > the stunned enemy skips its move (no damage) and its pattern still advances | caught (stun ignored) |
+| 9e | Stun: pattern still advances | same test | caught (early return, no advance) |
+| 9f | Enemy Strength from cards (Fight Me) like player Strength | engine/combat.temporary.test.ts > #169 enemy Strength (Fight Me!) > the enemy gains Strength and its attacks grow by it; the player Strength is separate | caught (enemy Strength gain doubled) |
+| 9g | Slippery: loses only 1, one stack per hit | engine/combat.slippery.test.ts > Slippery > an attack hit loses only 1 HP and uses one stack; a multi-hit attack uses one stack per hit | caught (loss min(amount,2)) |
+| 9h | Slippery: fully blocked hit uses none | engine/combat.slippery.test.ts > a fully blocked hit loses no HP and keeps the stack; a partly blocked one uses it | caught |
+| 9i | Slippery: Poison counts | engine/combat.slippery.test.ts > Poison counts as an HP loss: 1 HP and one stack per tick | caught |
+| 9j | Slippery: most-hits attack first | engine/combat.slippery.test.ts > Slippery strategy > plays the multi-hit attack before a big single hit while Slippery is up | caught (hit-count ranking removed) |
+| 9k | Once-per-fight moves (#226) never repeat; picker always has a move | engine/combat.patterns.test.ts > oncePerFight moves (#226) > is used at most once over a long fight across many seeds, and the picker never stalls; with a two-move pool... | caught (filter removed). Validator part: data/data.validate.test.ts > accepts opener and random no-repeat patterns, and reports broken ones (#4) |
+| 9l | startPowers at combat start, Ascension override replaces | engine/combat.enemies203.test.ts > Enemy start powers and Strength per turn (#203) > start powers are on the enemy at combat start...; an Ascension startPowers override replaces the base value from its level | caught (amount 1 not applied) |
+| 9m | Artifact: one stack per application, negates Vulnerable/Weak/Frail/Poison/Stun | engine/combat.enemies203.test.ts > Artifact (#203) > uses one stack per debuff; negates Poison and Stun too; a large Poison application uses exactly one stack; negates the first debuff only (Cubex golden) | caught (whole stack used; Poison not negated; debuffs not negated) |
+| 9n | Strength per turn at end of enemy's own turn (0,1,2) | engine/combat.enemies203.test.ts > strengthPerTurn adds Strength at the END of the enemy turn, after its move (0, 1, 2 seen) | caught (+1 extra) |
+| 9o | Enemy move may add a named card to a pile (Dismember: 3 Wounds) | engine/combat.enemies203.test.ts > Mawler, Byrdonis, Cubex Construct, Vantom data (#203) > Vantom: boss, 173 HP ... Dismember 26 adds 3 Wounds to discard | caught (data count 3 -> 2) |
+| 10a | "Take X damage" statuses are blockable | engine/combat.statuses.test.ts > #115 curse and status triggers > "take X damage" is blockable | caught |
+| 10b | "Lose X HP" ignores Block | engine/combat.statuses.test.ts > "lose X HP" ignores Block | caught |
+| 10c | Intangible: every hit 1, ends after enemy move | engine/combat.statuses.test.ts > #115 Intangible > every enemy hit becomes 1 for that turn, then ends after the enemy move | caught (cap 2) |
+| 10d | Intangible applies to Take-X-damage statuses, not Lose-X-HP | engine/combat.statuses.test.ts > applies to "take X damage" statuses but not to "lose X HP" | caught |
+| 10e | Gambit loses on any unblocked attack damage | engine/combat.statuses.test.ts > #115 The Gambit > one unblocked point of enemy attack damage loses the combat; a single unblocked point ... (added) | strengthened (threshold >1 not caught first) |
+| 10f | (v2, #25) "Poison included (Accelerant = 1 twice)" under Intangible: marked as a v2 note in FEATURES.md, not a v1 test item | n/a (v2) | - |
+| 11a | Feed Max HP / Hand of Greed gold only on a kill | engine/combat.rewards.test.ts > Hand of Greed gains no gold when it does not kill; engine/combat.statuses.test.ts > Feed does not raise Max HP when the hit does not kill | caught (else branch swapped) |
+| 11b | Alchemize gains a Random Potion when played | engine/combat.rewards.test.ts > Alchemize gains one potion each play, exhausts, and has no other effect | caught (2 potions) |
+| 12a | Mangle / Dark Shackles Strength loss lasts through enemy's turn | engine/combat.temporary.test.ts > #110 enemy Strength loss this turn > a 3×3 attack with 3 Strength lost hits 0×3 and the Strength comes back after its turn | caught (loss never removed / not applied in intent) |
+| 12b | Flame Barrier covers the following enemy turn | engine/combat.temporary.test.ts > #110 Flame Barrier > deals its damage back on every hit...; ends after that enemy turn | caught |
+| 12c | Colossus x Weak = 62.5% less | engine/combat.temporary.test.ts > #110 Colossus > multiplies with Weak: 16 damage becomes 6 (62.5% less) | caught (40% instead of 50%) |
+| 12d | Colossus stacks when replayed, ticks at end of enemy turn | engine/combat.temporary.test.ts > covers the following enemy turn only: one stack ends after it; playing it again in the same turn adds a stack that lasts one more enemy turn | caught |
+| 12e | Panic Button stops Block from cards | engine/combat.temporary.test.ts > #110 Panic Button > gains 30 Block, then no Block from cards for 2 turns | caught |
+| 12f | The Bomb fires at end of third turn | engine/combat.temporary.test.ts > #110 scheduled effects > The Bomb: 40 damage at the end of the third turn (the turn it is played counts as the first) | caught (scheduled turn off by one) |
+| 13a | "Strike" = any name with Strike, upgraded included | engine/combat.conditional.test.ts > #111 name and debuff rules > "Strike" anywhere in the name counts, case-sensitive, upgraded "+" included | caught (startsWith) |
+| 13b | Strike count across Draw, Hand, Discard, Exhaust | engine/combat.conditional.test.ts > countStrikes counts all four piles; #111 Perfected Strike > Strikes created mid-combat count | caught (Exhaust pile dropped) |
+| 13c | Rampage growth stays with its copy | engine/combat.conditional.test.ts > #111 Rampage and Maul > Rampage +5 each play, and the growth stays with that copy across reshuffles | caught (growth no longer per copy) |
+| 13d | Fisticuffs Block = damage dealt after all modifiers, overkill included, then Dex/Frail | engine/combat.conditional.test.ts > #111 Fisticuffs (5 tests) | strengthened (HP lost counted instead of damage dealt was not caught first; test with enemy Block added) |
+| 13e | Rend counts every modelled debuff | engine/combat.conditional.test.ts > uniqueDebuffs counts Vulnerable, Weak, Frail, Poison, negative Strength and temporary Strength loss once each; Rend upgraded: 18 + 8 per unique debuff; Frail counts too | caught (Frail dropped; negative Strength dropped) |
+| 13f | Entrench doubles Block, ignores Dex/Frail, works under Panic Button | engine/combat.conditional.test.ts > Entrench doubles your Block; Dexterity and Frail do not change the doubling; engine/combat.temporary.test.ts > Entrench still doubles current Block under No Block (#170) | caught (Entrench ran through Dexterity/Frail; also off-by-one) |
+| 14a | Replay never used up | engine/combat.playCards.test.ts > #114 Replay (Hidden Gem) > is never used up: every later play of the card replays twice | caught (decrement added) |
+| 14b | Replays stop when the enemy dies | engine/combat.playCards.test.ts > stops replaying once the enemy is dead | caught (kill check removed) |
+| 14c | Replays pay the cost once; X-cost played by an effect gets X = energy left | engine/combat.playCards.test.ts > gives a random draw-pile card Replay 2: the card is played 2 more times, paying its cost once; Havoc ... an X-cost card it plays gets X = the energy left, and spends none | caught (X not passed to played card; replays charged energy) |
+| 14d | Cards played counted in one place (`playCard`) | engine/combat.triggers.test.ts > #113 cards-played tallies > a Replay is the same play, not a second one; cards played by an effect or a power count too | caught (replay counted twice) |
+| 15a | Pools: only `simulated` cards | engine/combat.generate.test.ts > card pools > draw only from simulated, playable cards of the right character, rarity and type; a newly simulated card joins the pool by itself | caught |
+| 15b | Pools: own character, no Colorless | same first test | caught (colorless allowed) |
+| 15c | Jackpot+ includes cards 0-cost when upgraded | engine/combat.generate.test.ts > an upgraded cost pool also takes cards that become that cost when upgraded; the base pool does not (#170) | caught |
+| 15d | Full hand sends new cards to discard; Rng seeded | engine/combat.generate.test.ts > addCards (random) > a full hand sends the new card to the discard pile; same seed gives the same cards | caught (hand limit 11) |
+| 16a | Dark Embrace draws at end-of-turn Ethereal exhaust stay in hand | engine/combat.triggers.test.ts > Dark Embrace: a card drawn by an Ethereal exhaust at the end of the turn stays in the hand (strengthened: checks the turn-2 hand) | strengthened (not caught first: only checked the log) |
+| 16b | Inferno loses 1 HP per copy | engine/combat.triggers.test.ts > Inferno: each copy played loses 1 HP at the start of a turn (added) | strengthened (copies ignored) |
+| 16c | Juggernaut reacts to any Block gain | engine/combat.triggers.test.ts > Juggernaut deals its damage for every Block gain: cards, powers and Feel No Pain | caught (threshold >3) |
+| 17 | Void: loses 1 Energy on draw, never below 0; Ethereal+Unplayable | engine/combat.void.test.ts > #206 Void > loses 1 Energy when drawn at the start of the turn (after the refill); never takes energy below 0; is Ethereal: an unplayed Void is exhausted at the end of the turn | caught (clamp removed) |
+| 18 | Card coverage: all main-release Ironclad/Colorless cards simulated except Splash, Sovereign Blade, Expect a Fight, Sweeping Gaze, Mad Science placeholder, multiplayer-only | data/data.test.ts > real game data > FEATURES item 18: every Ironclad and Colorless card is simulated except the named exceptions (also checks the named exceptions are still unsimulated). "Matches its wiki text" is covered by the golden and per-card tests, not by this row | n/a (data row); caught (Restlessness flipped to `simulated: false`) |
+| 17a-1 | Ornamental Fan: every 3rd Attack per turn | engine/combat.relics.test.ts > #205 card-play relics > Ornamental Fan 4 Block on every 3rd Attack in one turn | caught (4th) |
+| 17a-2 | Happy Flower / Pollinous Core turns; setup start count | engine/combat.relics.test.ts > Happy Flower +1 energy on turns 3, 6…; carried counters start at the setup count | caught |
+| 17a-3 | Iron Club every 4th card per combat, starting count | engine/combat.relics.test.ts > Iron Club with 3 cards already counted draws on the first card played; draws 1 on every 4th card | caught (start count ignored) |
+| 17a-4 | Tungsten Rod takes 1 off every HP loss | engine/combat.relics.test.ts > Tungsten Rod: every HP loss is 1 less | caught |
+| 17a-5 | Beating Remnant caps 20 HP per turn (enemy turn separate) | engine/combat.relics.test.ts > Beating Remnant: at most 20 HP lost in one turn; two hits in one enemy turn share the 20 HP cap (added) | strengthened (per-hit cap not caught first) |
+| 17a-6 | The Boot raises 1-4 to 5 | engine/combat.relics.test.ts > The Boot: 1–4 unblocked attack damage becomes 5; the edges of the range (added) | strengthened (4 not tested) |
+| 17a-7 | Snecko Eye: +2 draw, random 0-3 costs | engine/combat.relics.test.ts > Bag of Preparation draws 2 more on turn 1; Snecko Eye draws 2 more every turn; Snecko Eye (Confused) drawn cards cost a random 0–3, the same for the same seed | caught (draw bonus dropped; fixed cost) |
+| 17a-8 | Ghost Seed: only basic Strike/Defend | engine/combat.relics.test.ts > Runic Pyramid keeps the hand; Ghost Seed exhausts only basic Strikes and Defends left in hand | caught |
+| 17a-9 | Belt Buckle +2 Dex only without potions | engine/combat.relics.test.ts > Oddly Smooth Stone +1 Dexterity; Belt Buckle +2 Dexterity with no potions | caught |
+| 17a-10 | Sling of Courage only vs Elite | engine/combat.relics.test.ts > Sling of Courage 2 Strength only against an Elite | caught |
+| 17a-11 | Velvet Choker: no 7th card | engine/combat.relics.test.ts > Velvet Choker no more than 6 cards a turn | caught |
+| 17a-12 | Combat start / turn start / turn end hooks and ordering; Anchor, Gorget, Bellows | engine/combat.relics.test.ts > #205 start-of-combat relics; #205 turn relics (Anchor ... Bellows upgrades the first hand only; Stone Calendar, Orichalcum) | caught (Bellows every turn; turnEnd hook removed; draw bonus) |
+| 17a-13 | Relic Block ignores Dex/Frail; Girya choice; Burning Blood default in URL | engine/combat.relics.test.ts > Vajra +1, Sword of Jade +3 and Girya (choice) Strength; app/lib/relics.test.ts > #205 relic setup > the Ironclad starts with Burning Blood...; the URL keeps relics only when they differ from the starting relic | caught via Girya/Vajra tests in 17a-12; relic Block unaffected by Dex is covered by Anchor in the same test |
+
+
+## Strategy behaviour
+
+Break-it edits are in `engine/strategies.ts` unless stated.
+
+| # | Rule | Test file > test name | Break-it |
+|---|------|-----------------------|----------|
+| S18a | Groups played in the chosen order | engine/strategies.order.test.ts > #130 group order > walks the groups in order, one card at a time, and spends leftover energy on block last; ["attack","block","powers"] plays from its first group first | caught (order reversed) |
+| S18b | "Allow X through" applies to Block only, boundary | same file > the Block group plays nothing when at most X would get through | caught (`<=` -> `<`) |
+| S18c | Default Greedy Damage = Attack, Powers, Block | same file > the defaults: Greedy Damage = Attack, Powers, Block; Scared Block = Block (allow 0), Powers, Attack | caught |
+| S18d | Default Scared Block = Block (0), Powers, Attack | same test | caught |
+| S19a | 0-cost draw first | engine/strategies.order.test.ts > #132 draw rule > 0-cost draw cards are always played first, before blocking or attacking | caught |
+| S19b | Enlightenment always played, early | same file > #169 Enlightenment is always played, early > plays 0-cost Enlightenment before attacks, even with nothing else to pay for | caught |
+| S19c | Not Yet with leftover energy, at any HP | engine/combat.statuses.test.ts > #115 strategy: Not Yet > #205: is played with leftover energy even at full HP; never takes energy the groups want | caught (never played) |
+| S19d | Apotheosis / tutors right away | engine/combat.moves.test.ts > #112 the strategy plays tutors and Apotheosis > plays a tutor first when the draw pile holds a card it can fetch; plays Apotheosis when there is something to upgrade | caught |
+| S19e | Net-energy cards (Bloodletting, Fuel) before pure draw | engine/strategies.order.test.ts > #127 a net-energy card (Fuel) is played before the pure draw card, which then follows | caught |
+| S19f | 1+ cost pure draw only when the top group can't be filled | same file > 1-cost pure draw cards play first only when the top group cannot be filled; Block first the block cards in hand cannot reach the allow-X target | caught |
+| S19g | ...skipped when the turn already spends all energy (X-cost, expensive Powers) | same file > #127 the draw card is skipped when an X-cost card spends all the energy; ... an expensive Power spends all the energy | caught |
+| S19h | Battle Trance after other draw | engine/strategies.mechanics.test.ts > #107 strategies and draw cards > Battle Trance is played after every other draw card that turn; Battle Trance waits while a draw card is still playable, then goes once none is | caught |
+| S19i | Tremble first among Attacks | engine/strategies.test.ts > Tremble first (#1) > Greedy plays Tremble before Bash and Strikes; #130 Tremble is first within the Attack group | caught |
+| S19j | Havoc early | engine/strategies.playCards.test.ts > #114 Havoc is played early > before Strike and Defend | caught |
+| S19k | Mad Science never played | engine/strategies.exhaust.test.ts > #135 Q7: strategies never play Mad Science (Improvement) > skips it with energy to spare, and still plays other cards | caught |
+| S19l | Alchemize not played | engine/combat.cards.test.ts > Alchemize with every strategy order (FEATURES Strategy 19) > is never played, even with spare energy and nothing else to do (added) | caught (Alchemize made a utility card) |
+| S20a | Vulnerable-applier first only when the enemy has no Vulnerable | engine/strategies.test.ts > pick helpers > #11: Vulnerable first only with no enemy Vulnerable and energy for it plus another attack | caught |
+| S20b | ...and there is energy for it plus another attack | same test | caught |
+| S20c | X-cost attack compared at damage for 1 energy; ties go to the other attack | engine/strategies.deckGuard.test.ts > #147 X-cost attacks in play order > un-upgraded Whirlwind (5) after Strike (6); upgraded Whirlwind (8) before Strike; a tie goes to the other attack | caught (`>` -> `>=`) |
+| S20d | Cascade played with the X-cost attacks | engine/strategies.playCards.test.ts > #114 Cascade is played with the X-cost attacks, last | caught |
+| S21a | Temporary Strength / Rage / One-Two Punch only when an Attack follows | engine/strategies.temporary.test.ts > #110 strategy defaults > plays temporary Strength first when an Attack follows, never alone; One-Two Punch needs energy left for the Attack | caught |
+| S21b | Setup Strike counts as a 7-damage Attack | engine/strategies.temporary.test.ts > Setup Strike is ranked as a 7-damage Attack before a 6-damage Strike | caught (attack damage ignored in ranking) |
+| S21c | Dark Shackles only when the enemy is attacking | engine/strategies.temporary.test.ts > plays Dark Shackles only when the enemy is attacking | caught |
+| S21d | Panic Button only as a last resort, only against lethal damage | engine/strategies.temporary.test.ts > keeps Panic Button as the last resort...; Panic Button boundary: played when the unblocked damage equals HP, not when it is 1 short (added) | strengthened (lethal boundary not caught first) |
+| S21e | Body Slam after other block cards | engine/strategies.conditional.test.ts > #111 Body Slam goes after the other block cards | caught |
+| S21f | Entrench planned to avoid excess Block | engine/strategies.conditional.test.ts > #111 Entrench is planned with the block strategy | caught (plan comparison reversed; doubling x3) |
+| S21g | Catastrophe, Beat Down, Hidden Gem, Dual Wield, The Bomb, Outmaneuver, Prolong use leftover energy | engine/strategies.playCards.test.ts > #114 support cards use leftover energy when they have something to act on; engine/strategies.temporary.test.ts > plays The Bomb and Prolong (with Block) only with leftover energy | caught (Prolong without Block) |
+| S21h | Dual Wield copies the highest-value card | engine/strategies.playCards.test.ts > #114 copy / Replay picks take the best card | caught (lowest value first) |
+| S21i | "Choose a card" follows the strategy priorities | engine/combat.generate.test.ts > chooseGenerated > follows the strategy group order, then best value; engine/combat.moves.test.ts > chooseGenerated for moves and upgrades | caught (rank order reversed; score dropped) |
+| S22a | Never play a self-damage card that would kill you | engine/strategies.mechanics.test.ts > #106 strategies and self-damage cards > never play a self-damage card that would drop you to 0 HP; play it when you survive | caught (`<` -> `<=`) |
+| S22b | Crimson Mantle's 1 HP counts | engine/strategies.powers.test.ts > #109 self-damage Powers > Crimson Mantle counts its 1 HP a turn as self-damage | caught |
+| S23a | Fiend Fire always if it kills (Vulnerable and Block counted) | engine/strategies.exhaust.test.ts > #129 Fiend Fire > always played when it would kill (Vulnerable and enemy Block counted), even by a blocking strategy | caught (Block ignored) |
+| S23b | Otherwise only when it beats other uses of the energy (strictly) | same file > played when its damage beats the other attacks...; not played while the other attacks deal more; a tie is not a beat (added) | strengthened (tie not caught first) |
+| S23c | Played last, after spending spare energy | same file > #132 Fiend Fire is played last: spare energy goes to a draw card first, then Fiend Fire; with spare energy and no draw card, other plays go before Fiend Fire | caught |
+| S23d | Bash goes before it unless it kills | same file > Bash goes before Fiend Fire (greedy, and other orders); #132 Bash does not go first when Fiend Fire would kill | caught |
+| S24a | Second Wind after the turn's Powers | engine/strategies.exhaust.test.ts > #129 Second Wind > a Power the turn plan plays is played before Second Wind; one it would not play is exhausted | caught (plan check removed) |
+| S24b | Exhausts only Block cards worth <= its per-card Block ("plain") | same file > plain block cards: a Defend (5) is plain against Second Wind (5); Defend+ (8) and Shrug are not; a plain Defend does not beat Second Wind even when they give the same Block (added) | strengthened (equal-Block case not caught first) |
+| S25a | 8-tier exhaust order | engine/strategies.exhaust.test.ts > #139 exhaust order (every strategy) > tiers 1-8, with a card on each side of every boundary; full order | caught (tiers 1, 3, 5/6, 7 and lower-group choice each broken) |
+| S25b | Howl from Beyond is tier 2 (#170) | same file > Howl from Beyond is tier 2 with Drum of Battle (#170) | caught |
+| S25c | Brand / Burning Pact / Purity played only with something worth exhausting | same file > #108 Brand, Burning Pact and Purity are played early, only with something worth exhausting | caught (only when both layers - the play rule and the deck guard - are broken; each alone is covered by the other) |
+| S25d | Purity limited to curses/statuses and non-upgraded Strikes/Defends | same file > #139 Purity > never takes upgraded Strikes / Defends or other cards, even with slots left | caught (tier limit 8) |
+| S25e | Ethereal junk exception | same file > the Ethereal exception | caught |
+| S25f | Draw-only cards: 0-cost never exhausted | engine/strategies.drawExhaust.test.ts > #144 exhaust tier of pure draw cards > 1+ cost pure draw tier 6.5 when exhaustible, else 8; 0-cost... | caught (cost >= 0) |
+| S25g | 1+ cost draw-only go right after Strikes/Defends once >= 80% of turns ended at 0 energy | same file > #144 0-energy turn share > the threshold is 80%; 4 of 5 turns...; 3 of 4 turns (75%)...; no turns finished yet | caught (70%; empty tally counts) |
+| S26a | Guard: damaging >= max(2, ceil(active/5)); deck >= floor | engine/strategies.deckGuard.test.ts > #141 the guard ratio and minimum | caught (min 4 cards; /6; min 1 damaging) |
+| S26b | Floor = 5 + draw; Scrawl adds 0; Pillage estimate (4 Strikes + 1 Defend -> 2), cap 10 - hand | same file > the floor is 5 + the extra draw...; #147 Scrawl exhausts...; #147 Pillage estimated draw (option C) | caught (80%->70%, full-hand extra, cap, Scrawl exhaust, exhaustible draw not subtracted) |
+| S26c | Guard unless the exhaust ends combat (kill exception) | same file > #141 the kill exception | caught |
+| S26d | Lower damage-per-energy goes first; 0-cost kept longest; X-cost as 1-cost | same file > #141 damage per energy; Bash goes before the last Strike when only one more damaging card may go | caught |
+| S26e | Active deck = hand + draw + discard | same file > the active deck is hand + draw + discard (the exhaust pile does not count) | caught |
+
+## Results and UI (one component/unit test per item; no break-it)
+
+| # | Rule | Test file > test name |
+|---|------|-----------------------|
+| 27a | 10,000 combats per strategy | engine/montecarlo.test.ts > runSimulationSync > defaults to COMBATS_PER_RUN combats; engine/types.test.ts > shared constants match the v1 design |
+| 27b | Up to 5 strategies | app/lib/colors.test.ts > color assignment > caps at 5 strategies; app/lib/selectionStorage.test.ts > caps the selection at MAX_STRATEGIES_PER_RUN; app/components/interaction.test.tsx > strategy selection limits (App) > at 5 selected the unchecked boxes are disabled |
+| 28a | Avg HP lost to 2 decimals, death rate, avg turn length, description line | app/components/render.test.tsx > views render > renders results with death rate as a percentage, no turn-cap column, and the description line; shows Avg combat turn length over every combat, with no dash...; app/lib/results.test.ts > formats numbers and rates |
+| 28b | "HP lost, P25-P75" column | app/components/render.test.tsx > adds a "HP lost, P25-P75" column right after Avg HP lost with en-dash values |
+| 28c | Sorted by HP lost, death rate, turns - on unrounded values | app/lib/results.test.ts > results helpers > sorts rows by avg HP lost, then death rate, then avg combat turns...; sorting uses the unrounded values (added) |
+| 28d | Rewards column only when some strategy gained a reward | app/components/render.test.tsx > adds a Rewards column only when some strategy gained a reward (#104); app/lib/results.test.ts > #104 rewards formatting |
+| 29a | Smoothing x0 (Raw) to x5, default x3; Reset | app/lib/chart.test.ts > KDE smoothing slider; app/components/interaction.test.tsx > Reset puts the smoothing slider back to x3 and is disabled there; the slider at its minimum reads Raw |
+| 29b | P5-P95 marks and P25-P75 band for every visible strategy | app/components/render.test.tsx > draws percentile marks for each of two visible strategies, in their colors, with a P25-P75 band each; still draws percentile marks with three visible strategies, one label row each; app/lib/chart.test.ts > percentileMarkerSets |
+| 29c | One line per strategy, crowded labels shift, equal values merge | render.test.tsx > puts all of a strategy's labels on one line...; draws five labelled percentile markers...(P25-P50 = 3); chart.test.ts > spreadLabels; mergeMarkers |
+| 29d | Show Percentiles toggle at the far right of the legend row, hides marks | render.test.tsx > puts the Show Percentiles toggle last in the legend row, after the legend (added); interaction.test.tsx > three visible strategies still get percentile labels, and the Show Percentiles toggle hides them |
+| 29e | X range [max(0, P5-2), P95+2] | app/lib/chart.test.ts > visibleHpLostRange [max(0, P5 - 2), P95 + 2] over visible strategies |
+| 29f | Legend toggles | interaction.test.tsx > chart legend and smoothing slider > clicking a legend entry hides that strategy on the chart only...; chart.test.ts > legend toggle |
+| 30 | Color-blind palette: chart, legend, table, View a combat; distinct dashes | interaction.test.tsx > the Color-blind palette toggle swaps the line colors to Okabe-Ito and adds dashes; off by default; app/lib/colors.test.ts > color-blind chart palette |
+| 31a | Combat log with turn blocks and intent | render.test.tsx > renders a combat log with intent; app/lib/logReplay.test.ts > log replay |
+| 31b | Picker numbered 1-10000 | render.test.tsx > labels the combat picker 1-10000 and links the 0-based index; app/lib/combatPicker.test.ts |
+| 31c | Compare view side by side | render.test.tsx > renders the compare view one column per strategy on the same turn...; interaction.test.tsx > compare view stepping turns; app/lib/compare.test.ts. Stacking on phones is a CSS media query (`.compare-cols`, 760px) and cannot be checked in jsdom (note 3) |
+| 31d | Hidden strategies stay in View a combat and Compare (#122) | interaction.test.tsx > clicking a legend entry hides that strategy on the chart only (View a combat still lists it) |
+| 32 | Shareable URL: deck, strategies, colors, combat index; old codes parse; no custom names | app/lib/url.test.ts > query strings; compare links; #130 still opens old links (st=g / b<X>) as the migrated strategies; #130 round-trips custom orders (the URL carries only the order codes `st=pb5a,...`, so names cannot be in it) |
+| 33a | Deck builder: folders collapsed, search, filters, steppers, wiki links, hidden excluded | render.test.tsx > renders every card folder collapsed on load; links each card name to its wiki page in a new tab; interaction.test.tsx > deck builder interactions; app/lib/deck.test.ts > deck builder grouping and search; card selector filters; deckPool > excludes hidden cards even when simulated; app/lib/wiki.test.ts |
+
+## Data and storage
+
+| # | Rule | Test file > test name |
+|---|------|-----------------------|
+| 34a | Every JSON file passes the schema check | data/data.test.ts > real game data > validates with zero errors; data/data.validate.test.ts (40 broken-fixture tests) |
+| 34b | Codes unique; reserved codes never reused | data/data.validate.test.ts > reports a duplicate card code naming both cards; reports a duplicate enemy code; beta-only cards are removed and their codes reserved (#59); reports a card that uses a reserved code |
+| 34c | Main-release data only | data/data.test.ts > manifest is at the current game version; data/data.mechanics.test.ts > #208 main-release values |
+| 35a | Enemy HP rolled inside range from the seeded Rng | engine/combat.test.ts > runCombat setup > rolls enemy HP in range and starts the player at max HP; A8 Nibbit rolls 44-48 HP (break-it: caught) |
+| 35b | Move patterns cycle in order | engine/combat.patterns.test.ts (opener, cycle); data/data.test.ts > Seapunk cycles Sea Kick, Spinning Kick, Bubble Burp (break-it: caught, patternIndex +2) |
+| 35c | Ascension applies every override at or below its level, none above | engine/enemy.test.ts > resolveEnemy (Nibbit) > A7 does not apply A8; A8 changes HP and Hesitant Slice block only; applies levels in numeric, not string, order |
+| 36a | Saved decks/strategies in localStorage; app works when storage is blocked | app/lib/strategyLibrary.test.ts > strategy library storage > works with no storage or throwing storage; app/lib/selectionStorage.test.ts > survives throwing storage; app/components/Panel.test.tsx > panelState > tolerates storage that throws |
+| 36b | Starting-relic note only when not simulated | app/lib/results.test.ts > relicNote > #205 no note for the Ironclad (Burning Blood is simulated); names unsimulated starting relics; app/components/render.test.tsx > renders the main page with no relic note for the Ironclad |
+| 36c | Negative HP lost shows as "gained N HP" in the log | app/lib/relics.test.ts > #205 negative HP lost in results and chart > log text: net HP gained, heal source, relic activation |
+| 37a | Up to 3 potion slots; URL `p=` codes | app/components/render.test.tsx > potion pickers (#204) > SetupPanel shows three potion slots with the potions; app/lib/url.test.ts > potions (#204) |
+| 37b | Potion use costs no energy, empties slot, logs `potion` | engine/combat.potions.test.ts > using potions > costs no energy, empties the slot, logs a potion event, and works only once |
+| 37c | Fire Potion fixed 20 through Block; Strength Potion at once | engine/combat.potions.test.ts > Fire Potion deals 20 damage that ignores Strength and goes through Block; Strength Potion is used before the first card of turn 1 and raises Strike to 8 |
+| 37d | Built-in pick rules (kill, no Block, no Slippery, lethal threat) | engine/combat.potions.test.ts > pickPotion rules (9 tests) |
+| 38 | Golden combats replay; knownDiffs both ways | engine/golden/golden.test.ts > golden combats; golden harness (#210, synthetic fixtures) > knownDiffs listed mismatches pass, unlisted ones and stale entries fail |
+
+## Known failure points
+
+| Item | Test / measurement |
+|------|--------------------|
+| Scared Block stress deck: 0% deaths for Block 0, Block 5, Greedy | engine/montecarlo.stress.test.ts > Scared Block stress deck (known failure point) > has 0 deaths and no turn-cap fights for Block 0, Block 5 and Greedy (added; 1,000 combats, edit `STRESS_COMBATS` for the full 10,000 run). Measured at 10,000 combats, runSeed 12345: Block 0 0 deaths, avg HP lost 9.66; Block 5 0 deaths, 11.61; Greedy 0 deaths, 19.15. |
+| `compare-main` covers only the starter deck | process note; `npm run compare-main` printed `identical` on this branch |
+| `npm run shot` cannot show the chart | process note |
+| Parallel cards collide | process note |
+
+## Disagreements and notes
+
+- **B1 (resolved by the orchestrator):** the Poison-under-Intangible sentence in FEATURES.md item 10 has no v1 code path (Poison on the player is #25, v2). FEATURES.md now keeps the Intangible rule and carries the Poison clause as a v2 note; row 10f is no longer a v1 test item.
+- **B2 (resolved by the orchestrator):** item 18 now names the exceptions: Splash (#151), Sovereign Blade (#20), Expect a Fight (#246), Sweeping Gaze (#19), the hidden Mad Science placeholder and multiplayer-only cards. Row 18 is proven by a data test.
+- Note 1: responsive stacking of the Compare view is CSS only.
+- Equivalent changes found while breaking: poison "ignores Block" (enemy Block resets just before Poison, so it can never matter); `loseHp` death check (duplicated in `playCard`); `Replay` stop check `enemy.hp > 0` (duplicated by `!died`).
