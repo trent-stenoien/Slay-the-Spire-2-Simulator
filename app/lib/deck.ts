@@ -95,7 +95,31 @@ export function unsimulatedStarters(data: GameData, characterId: string): string
 export interface CardGroup {
   key: string;
   label: string;
+  /** Every card in the folder (all rarities, when it has rarity sub-folders). */
   cards: CardDef[];
+  /** Rarity sub-folders (character and Colorless folders only; empty ones omitted). */
+  subgroups?: CardGroup[];
+}
+
+/** Rarity sub-folders under a character or Colorless folder, in display order. */
+const RARITY_FOLDERS: [string, string][] = [
+  ['basic', 'Basic'], // a character's own starters (Bash); the shared Strike and Defend stay in Shared
+  ['common', 'Common'],
+  ['uncommon', 'Uncommon'],
+  ['rare', 'Rare'],
+  ['ancient', 'Ancient'],
+  ['event', 'Event'],
+  ['token', 'Token'],
+];
+
+/** Folders that split into rarity sub-folders: each character's and Colorless (not Shared, Status, Curses, Quests). */
+function hasRarityFolders(label: string): boolean {
+  return label === 'Colorless' || Object.values(CHARACTER_FOLDER).includes(label);
+}
+
+/** Group key of a rarity sub-folder, e.g. "ironclad/rare". */
+export function rarityFolderKey(folderLabel: string, rarity: string): string {
+  return `${folderLabel.toLowerCase()}/${rarity}`;
 }
 
 const CHARACTER_FOLDER: Record<string, string> = {
@@ -171,13 +195,18 @@ export function foldersForFilter(
   filter: keyof PoolFilters,
   ascension = 0,
 ): string[] {
-  if (filter === 'statuses') return ['status'];
-  if (filter === 'curses') return ['curses'];
+  // Statuses and Curses folders start collapsed (the pill only adds them to the list).
+  if (filter === 'statuses' || filter === 'curses') return [];
   const only = { ...DEFAULT_FILTERS, statuses: true, curses: true, multiplayer: true };
   const keys = new Set(
     filteredPool(data, characterId, only, ascension)
       .filter((c) => c.multiplayerOnly)
-      .map((c) => cardFolder(c).toLowerCase()),
+      .flatMap((c) => {
+        const folder = cardFolder(c);
+        return hasRarityFolders(folder)
+          ? [folder.toLowerCase(), rarityFolderKey(folder, c.rarity)]
+          : [folder.toLowerCase()];
+      }),
   );
   return [...keys];
 }
@@ -198,7 +227,17 @@ export function groupedPool(
   }
   return [...groups.entries()]
     .sort(([a], [b]) => FOLDER_ORDER.indexOf(a) - FOLDER_ORDER.indexOf(b))
-    .map(([label, cards]) => ({ key: label.toLowerCase(), label, cards }));
+    .map(([label, cards]) => {
+      const group: CardGroup = { key: label.toLowerCase(), label, cards };
+      if (hasRarityFolders(label)) {
+        group.subgroups = RARITY_FOLDERS.map(([rarity, rarityLabel]) => ({
+          key: rarityFolderKey(label, rarity),
+          label: rarityLabel,
+          cards: cards.filter((c) => c.rarity === rarity),
+        })).filter((g) => g.cards.length > 0);
+      }
+      return group;
+    });
 }
 
 export type CostColorKey = 'ironclad' | 'silent' | 'regent' | 'necrobinder' | 'defect' | 'colorless' | 'curse';

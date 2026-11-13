@@ -84,6 +84,14 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 18. **Card coverage:** every main-release Ironclad and Colorless card is simulated and matches its
     wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20), Sweeping Gaze (waits for Osty, #19), the hidden Mad Science placeholder (its
     `mad_science_*` variants are the simulated cards) and the multiplayer-only cards (#117).
+18a. **Silent Shiv cards (#262):** Blade Dance (3 Shivs, 4 upgraded, Exhaust), Cloak and Dagger (6 Block, 1 Shiv;
+    2 upgraded), Leading Strike (3 damage, 6 upgraded, 2 Shivs), Up My Sleeve (3 Shivs, 4 upgraded; this copy costs
+    1 less for the rest of the combat, never below 0, each copy on its own) and Storm of Steel (discard the
+    hand, not itself; 1 Shiv per discarded card, Shiv+ upgraded) add Shivs to the hand (a full hand sends them to
+    the discard pile). Shivs are 0-cost Attacks (4 damage, 6 upgraded) that Exhaust. Strategies play Blade Dance and
+    Up My Sleeve first in the Attack group and Storm of Steel last, once nothing else is played and the hand still
+    holds cards. Hidden Daggers stays unsimulated until the discard choice exists (#259); Blade of Ink until its
+    Inky Shivs are known.
 17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
     in pick order: combat start (before the first draw), turn start (after the draw and start-of-turn
     powers), turn end (before Plating), after a card is played, combat end (wins only). "Start each
@@ -95,7 +103,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     count (default 0, URL `HF2`; Happy Flower 2 → turns 1, 4…). Tungsten Rod takes 1 off every HP loss, then Beating Remnant caps HP lost at 20 per
     turn (the player's turn and the enemy's turn count separately, Trent confirmed). The Boot raises unblocked attack
     damage of 1–4 to 5. Snecko Eye: +2 draw, and each drawn card costs a random 0–3 (seeded Rng).
-    Ghost Seed: the basic Strike and Defend (upgraded too) exhaust at end of turn like Ethereal.
+    Ring of the Snake (Silent starting relic): +2 draw on turn 1 only. Ghost Seed: the basic Strike and Defend (upgraded too) exhaust at end of turn like Ethereal.
     Belt Buckle's +2 Dexterity is off while a potion slot is filled. Sling of Courage: only
     against `elite` enemies. Velvet Choker: no 7th card a turn. Girya's Strength (1–3, default 1) is chosen in Setup.
     The Ironclad has Burning Blood by default; relics are in the URL (`r`).
@@ -180,9 +188,16 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     that no longer occurs fails too. `CombatConfig.playerStart` gives the player Strength, debuffs and
     powers before combatStart relics.
 
+39. **UI polish (#254):** chart toggles read "Colorblind" and "Percentiles" (below the strategy filters on
+    small screens); Results has a "Generate new seed" button beside the seed field; deck folders for each
+    character and Colorless split into rarity sub-folders (Basic, Common, Uncommon, Rare, Ancient, Event,
+    Token; empty ones omitted; Shared Strike/Defend stay flat); Statuses and Curses folders start
+    collapsed; enemy, relic and potion lists are alphabetical; the relic remove "x" has no border; the
+    version label reads "Slay the Spire 2 <gameVersion>".
+
 ## Multi-enemy fights (#5)
 
-39. **Several enemies (#5):** a fight can have up to 5 enemies (`enemyIds`, left to right); each has its
+40. **Several enemies (#5):** a fight can have up to 5 enemies (`enemyIds`, left to right); each has its
     own HP, Block, statuses, powers and move pattern. Enemy turn: every living enemy's Block resets, then
     each one's Poison, then each moves left to right, then the player's "until the enemy turn ends"
     powers end, then each enemy's temporary Strength loss ends, Strength per turn is gained and debuffs
@@ -196,11 +211,11 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     counts its damage once per enemy hit (#6). Thorns killing an attacker stops its attack; the others
     still act. Feed / Hand of Greed count a kill while other enemies live. Shrink ends when the enemy that
     applied it dies. HP left (`enemyHpRemaining`) is summed. Single-enemy fights are unchanged.
-40. **Target priority (#5, Trent):** each strategy picks "Lowest HP first" (default) or "Biggest incoming
+41. **Target priority (#5, Trent):** each strategy picks "Lowest HP first" (default) or "Biggest incoming
     attack first" (ties: lowest HP); further ties go to the leftmost enemy. Strategies in one run can use
     different priorities. The Block group plans against all enemies' incoming damage combined. URL
     strategy codes end in "i" for Biggest attack; older codes and saved strategies mean Lowest HP.
-41. **Multi-enemy UI (#5):** Setup has "Add enemy" / "Remove enemy N" (any enemy), the link holds one
+42. **Multi-enemy UI (#5):** Setup has "Add enemy" / "Remove enemy N" (any enemy), the link holds one
     enemy code per enemy (`e=NbSe`), the results text joins the names ("Ironclad vs A and B"), the
     combat log shows one HP bar per enemy, lines "Enemy N:" before that enemy's events, and one intent
     line naming every living enemy's move with the total incoming damage. The strategy editor and the

@@ -117,7 +117,7 @@ describe('views render', () => {
 
   it('shows the game version alone, in italics, not inside the description', () => {
     const html = renderToStaticMarkup(<App />);
-    expect(html).toContain(`<em class="app-version">${gameData.manifest.gameVersion}</em>`);
+    expect(html).toContain(`<em class="app-version">Slay the Spire 2 ${gameData.manifest.gameVersion}</em>`);
     expect(html).not.toContain('Game data');
     expect(html).toContain('<p>Monte Carlo comparison of Slay the Spire 2 play strategies.</p>');
   });
@@ -187,10 +187,10 @@ describe('views render', () => {
   });
 
   it('Results body shows the starting-relic note for the setup character', () => {
-    const silent = gameData.characters.silent!;
-    const html = renderResultsPanel({ kind: 'idle' }, { characterId: 'silent' });
+    const defect = gameData.characters.defect!;
+    const html = renderResultsPanel({ kind: 'idle' }, { characterId: 'defect' });
     const body = html.slice(html.indexOf('id="res-body"'));
-    expect(body).toContain(`${silent.startingRelic} (starting relic) is not simulated.`);
+    expect(body).toContain(`${defect.startingRelic} (starting relic) is not simulated.`);
     expect(html).not.toContain('Burning Blood');
   });
 
@@ -289,21 +289,21 @@ describe('views render', () => {
     expect(ys.size).toBe(3);
   });
 
-  it("puts all of a strategy's labels on one line and has a Show Percentiles checkbox, on by default", () => {
+  it("puts all of a strategy's labels on one line and has a Percentiles checkbox, on by default", () => {
     const html = renderChart();
     const ys = [...html.matchAll(/class="pmark-label" x="[^"]*" y="([^"]*)"/g)].map((m) => m[1]);
     expect(new Set(ys).size).toBe(2);
-    expect(html).toMatch(/class="pct-toggle small"><input type="checkbox" checked=""[^>]*\/>Show Percentiles/);
+    expect(html).toMatch(/class="pct-toggle small"><input type="checkbox" checked=""[^>]*\/>Percentiles/);
   });
 
-  it('puts the Show Percentiles toggle last in the legend row, after the legend', () => {
+  it('puts the Percentiles toggle last in the legend row, after the legend', () => {
     const html = renderChart();
     const row = html.slice(html.indexOf('<div class="legend-row">'));
     const legendEnd = row.indexOf('</ul>');
     expect(legendEnd).toBeGreaterThan(0);
-    expect(row.indexOf('Show Percentiles')).toBeGreaterThan(legendEnd);
-    expect(row.indexOf('Color-blind palette')).toBeLessThan(row.indexOf('Show Percentiles'));
-    expect(row.slice(row.indexOf('Show Percentiles'))).not.toContain('<input');
+    expect(row.indexOf('Percentiles')).toBeGreaterThan(legendEnd);
+    expect(row.indexOf('Colorblind')).toBeLessThan(row.indexOf('Percentiles'));
+    expect(row.slice(row.indexOf('Percentiles'))).not.toContain('<input');
   });
 
   it('draws five labelled percentile markers when only one strategy is in the results', () => {

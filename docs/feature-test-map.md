@@ -114,6 +114,11 @@ Round 1, test reviewer. Break edits were never committed.
 | 16c | Juggernaut reacts to any Block gain | engine/combat.triggers.test.ts > Juggernaut deals its damage for every Block gain: cards, powers and Feel No Pain | caught (threshold >3) |
 | 17 | Void: loses 1 Energy on draw, never below 0; Ethereal+Unplayable | engine/combat.void.test.ts > #206 Void > loses 1 Energy when drawn at the start of the turn (after the refill); never takes energy below 0; is Ethereal: an unplayed Void is exhausted at the end of the turn | caught (clamp removed) |
 | 18 | Card coverage: all main-release Ironclad/Colorless cards simulated except Splash, Sovereign Blade, Sweeping Gaze, Mad Science placeholder, multiplayer-only | data/data.test.ts > real game data > FEATURES item 18: every Ironclad and Colorless card is simulated except the named exceptions (also checks the named exceptions are still unsimulated). "Matches its wiki text" is covered by the golden and per-card tests, not by this row | n/a (data row); caught (Restlessness flipped to `simulated: false`) |
+| 18a-1 | Blade Dance: 3 Shivs (4 upgraded), Exhausts; the Shivs deal 4 and Exhaust | engine/combat.shivs.test.ts > #262 Blade Dance; data/data.mechanics.test.ts > #262 Silent Shiv cards | caught (count 3->2) |
+| 18a-2 | Cloak and Dagger: 6 Block + 1 Shiv (2 upgraded); Leading Strike: 3 (6) damage + 2 Shivs | engine/combat.shivs.test.ts > #262 Cloak and Dagger; #262 Leading Strike | caught (Leading Strike Shiv count 2->1, checked by hand) |
+| 18a-3 | Storm of Steel: discards the hand (not itself), 1 Shiv per card (Shiv+ upgraded, 6 damage); empty hand adds none | engine/combat.shivs.test.ts > #262 Storm of Steel | caught (Shiv+ flag removed) |
+| 18a-4 | Up My Sleeve: 3 Shivs (4 upgraded); cost 2, then 1, then 0, never below 0 | engine/combat.shivs.test.ts > #262 Up My Sleeve | caught (reduction 1->0) |
+| 18a-5 | Strategies play Shivs; Up My Sleeve first, Storm of Steel last; Hidden Daggers and Blade of Ink unsimulated | engine/combat.shivs.test.ts > #262 strategies play Shivs; #262 Hidden Daggers stays unsimulated | caught (Blade Dance count 3->2 fails the strategy tests too) |
 | 17a-1 | Ornamental Fan: every 3rd Attack per turn | engine/combat.relics.test.ts > #205 card-play relics > Ornamental Fan 4 Block on every 3rd Attack in one turn | caught (4th) |
 | 17a-2 | Happy Flower / Pollinous Core turns; setup start count | engine/combat.relics.test.ts > Happy Flower +1 energy on turns 3, 6…; carried counters start at the setup count | caught |
 | 17a-3 | Iron Club every 4th card per combat, starting count | engine/combat.relics.test.ts > Iron Club with 3 cards already counted draws on the first card played; draws 1 on every 4th card | caught (start count ignored) |
@@ -127,6 +132,7 @@ Round 1, test reviewer. Break edits were never committed.
 | 17a-11 | Velvet Choker: no 7th card | engine/combat.relics.test.ts > Velvet Choker no more than 6 cards a turn | caught |
 | 17a-12 | Combat start / turn start / turn end hooks and ordering; Anchor, Gorget, Bellows | engine/combat.relics.test.ts > #205 start-of-combat relics; #205 turn relics (Anchor ... Bellows upgrades the first hand only; Stone Calendar, Orichalcum) | caught (Bellows every turn; turnEnd hook removed; draw bonus) |
 | 17a-13 | Relic Block ignores Dex/Frail; Girya choice; Burning Blood default in URL | engine/combat.relics.test.ts > Vajra +1, Sword of Jade +3 and Girya (choice) Strength; app/lib/relics.test.ts > #205 relic setup > the Ironclad starts with Burning Blood...; the URL keeps relics only when they differ from the starting relic | caught via Girya/Vajra tests in 17a-12; relic Block unaffected by Dex is covered by Anchor in the same test |
+| 17a-14 | Ring of the Snake: +2 draw on turn 1 only (Silent starting relic) | engine/combat.relics.test.ts > Ring of the Snake draws 2 more on turn 1 only: 7 then 5 cards (#258) | caught (draw 2 -> 1) |
 
 
 ## Strategy behaviour
@@ -227,22 +233,29 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 37c | Fire Potion fixed 20 through Block; Strength Potion at once | engine/combat.potions.test.ts > Fire Potion deals 20 damage that ignores Strength and goes through Block; Strength Potion is used before the first card of turn 1 and raises Strike to 8 |
 | 37d | Built-in pick rules (kill, no Block, no Slippery, lethal threat) | engine/combat.potions.test.ts > pickPotion rules (9 tests) |
 | 38 | Golden combats replay; knownDiffs both ways | engine/golden/golden.test.ts > golden combats; golden harness (#210, synthetic fixtures) > knownDiffs listed mismatches pass, unlisted ones and stale entries fail |
+| 39a | Colorblind / Percentiles labels | app/components/interaction.test.tsx > UI polish (#254) > the chart toggles are labelled Colorblind and Percentiles | n/a |
+| 39b | Generate new seed button fills the seed | app/components/interaction.test.tsx > UI polish (#254) > the Results seed row has a Generate new seed button that fills the field with a new seed | n/a |
+| 39c | Rarity sub-folders; Statuses/Curses collapsed | app/lib/deck.test.ts > groupedPool rarity sub-folders (#254); app/components/interaction.test.tsx > UI polish (#254) > deck folders: character and Colorless split into rarity sub-folders; Shared stays flat | n/a |
+| 39d | Enemy, relic, potion lists alphabetical | app/components/interaction.test.tsx > UI polish (#254) > enemy, relic and potion lists are alphabetical | n/a |
+| 39e | Relic remove button unstyled, labelled | app/components/interaction.test.tsx > UI polish (#254) > the relic remove button is a plain unstyled button, still labelled (layout is CSS only, checked by `npm run shot -- setup`) | n/a |
+| 39f | Version label | app/components/interaction.test.tsx > UI polish (#254) > the top-right version label reads "Slay the Spire 2 <gameVersion>" | n/a |
 
 ## Multi-enemy fights (#5)
 
 | # | Rule | Test file > test name | Break-it |
 |---|------|-----------------------|----------|
-| 39a | Enemy turn: all Block resets, each moves left to right, then debuffs tick; dead enemies don't act | engine/combat.multiEnemy.test.ts > #5 enemy turn order > every Block resets, then each enemy moves left to right, then enemy debuffs tick; a dead enemy no longer acts | n/a |
-| 39b | Won only when every enemy is dead; HP left summed | engine/combat.multiEnemy.test.ts > #5 win condition (3 tests) | caught (won() = some enemy dead) |
-| 39c | Single-target cards hit the chosen target; dead target falls back; lost hits; targeted debuffs/Poison | engine/combat.multiEnemy.test.ts > #5 targets (4 tests) | caught (Decision.target ignored) |
-| 39d | ALL attacks / debuffs / Poison / fixed damage hit every living enemy; hit order; #6 damage once per enemy | engine/combat.multiEnemy.test.ts > #5 ALL-enemies effects (5 tests); data/data.mechanics.test.ts > #5 debuffs on ALL enemies | n/a |
-| 39e | Poison kill, Thorns kill, Feed kill and Shrink with other enemies alive | engine/combat.multiEnemy.test.ts > #5 deaths mid-fight (4 tests) | n/a |
-| 39f | Combined intent and per-enemy intents in the strategy view | engine/combat.multiEnemy.test.ts > #5 intents (3 tests) | n/a |
-| 39g | enemyIds in setup and Monte Carlo runs; single-enemy logs unchanged | engine/combat.multiEnemy.test.ts > #5 multi-enemy setup; #5 Monte Carlo; `npm run compare-main` (identical) and engine/golden | n/a |
-| 40a | Lowest HP / Biggest incoming attack priorities, ties, dead skipped | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > lowest HP first...; biggest incoming attack first...; no target with a single enemy | caught (lowest HP comparison flipped; biggest attack ignoring incoming) |
-| 40b | Different strategies use different priorities in the same fight | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > each strategy uses its own priority in the same fight | caught (lowest HP comparison flipped) |
-| 40c | URL codes ("i") and saved configs keep working | engine/combat.multiEnemy.test.ts > URL codes...; saved configs... | n/a |
-| 41 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |
+| 40a | Enemy turn: all Block resets, each moves left to right, then debuffs tick; dead enemies don't act | engine/combat.multiEnemy.test.ts > #5 enemy turn order > every Block resets, then each enemy moves left to right, then enemy debuffs tick; a dead enemy no longer acts | n/a |
+| 40b | Won only when every enemy is dead; HP left summed | engine/combat.multiEnemy.test.ts > #5 win condition (3 tests) | caught (won() = some enemy dead) |
+| 40c | Single-target cards hit the chosen target; dead target falls back; lost hits; targeted debuffs/Poison | engine/combat.multiEnemy.test.ts > #5 targets (4 tests) | caught (Decision.target ignored) |
+| 40c2 | #262 Shiv cards (Blade Dance, Leading Strike, Shivs) hit the strategy target | engine/combat.multiEnemy.test.ts > #5 with #262 Shiv cards | n/a |
+| 40d | ALL attacks / debuffs / Poison / fixed damage hit every living enemy; hit order; #6 damage once per enemy | engine/combat.multiEnemy.test.ts > #5 ALL-enemies effects (5 tests); data/data.mechanics.test.ts > #5 debuffs on ALL enemies | n/a |
+| 40e | Poison kill, Thorns kill, Feed kill and Shrink with other enemies alive | engine/combat.multiEnemy.test.ts > #5 deaths mid-fight (4 tests) | n/a |
+| 40f | Combined intent and per-enemy intents in the strategy view | engine/combat.multiEnemy.test.ts > #5 intents (3 tests) | n/a |
+| 40g | enemyIds in setup and Monte Carlo runs; single-enemy logs unchanged | engine/combat.multiEnemy.test.ts > #5 multi-enemy setup; #5 Monte Carlo; `npm run compare-main` (identical) and engine/golden | n/a |
+| 41a | Lowest HP / Biggest incoming attack priorities, ties, dead skipped | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > lowest HP first...; biggest incoming attack first...; no target with a single enemy | caught (lowest HP comparison flipped; biggest attack ignoring incoming) |
+| 41b | Different strategies use different priorities in the same fight | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > each strategy uses its own priority in the same fight | caught (lowest HP comparison flipped) |
+| 41c | URL codes ("i") and saved configs keep working | engine/combat.multiEnemy.test.ts > URL codes...; saved configs... | n/a |
+| 42 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |
 
 ## Known failure points
 

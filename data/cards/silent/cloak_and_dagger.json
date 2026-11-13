@@ -13,12 +13,37 @@
     {
       "type": "gainBlock",
       "amount": 6
+    },
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "card",
+        "cardId": "shiv"
+      },
+      "count": 1,
+      "to": "hand"
     }
   ],
-  "upgraded": {},
+  "upgraded": {
+    "effects": [
+      {
+        "type": "gainBlock",
+        "amount": 6
+      },
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "card",
+          "cardId": "shiv"
+        },
+        "count": 2,
+        "to": "hand"
+      }
+    ]
+  },
   "description": "Gain 6 Block. / Add 1 Shiv into your Hand.",
   "upgradedDescription": "Gain 6 Block. / Add 2 Shivs into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

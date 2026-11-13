@@ -8,6 +8,7 @@ wiki): none changes these relics' text, so the list text is main-release. Indivi
 | Relic | Main text | Simulated | Notes |
 |---|---|---|---|
 | Burning Blood | At the end of combat, heal 6 HP. | yes | Wins only. Default relic for the Ironclad. |
+| Ring of the Snake | At the start of each combat, draw 2 additional cards. | yes | Silent's starting relic (#258); same turn-1 hook as Bag of Preparation. |
 | Blood Vial | At the start of each combat, heal 2 HP. | yes |  |
 | Vajra | Start each combat with 1 Strength. | yes |  |
 | Anchor | Start each combat with 10 Block. | yes | Turn-1 hook (combat-start Block would be wiped by the turn-1 Block reset). |

@@ -19,6 +19,9 @@ import { CombatLog } from './CombatLog';
 import { DeckBuilder } from './DeckBuilder';
 import { DistributionChart } from './DistributionChart';
 import { ResultsView } from './ResultsView';
+import { ResultsPanel } from './ResultsPanel';
+import { SetupPanel, enemiesIn } from './SetupPanel';
+import { selectableRelics } from '../lib/relics';
 import { resultRows } from '../lib/results';
 import { GREEDY_CONFIG, blockFirstConfig } from '../../engine/strategies';
 
@@ -219,25 +222,32 @@ describe('deck builder interactions', () => {
     ['Statuses', 'statuses'],
     ['Curses', 'curses'],
     ['Multiplayer', 'multiplayer'],
-  ] as const)('turning on the %s filter shows its folders already expanded', async (label, key) => {
-    const { container } = render(<DeckHarness initial={[]} />);
-    // Ironclad has no simulated multiplayer-only cards, so Multiplayer expands nothing for it.
-    const keys = foldersForFilter(gameData, 'ironclad', key, 0);
-    expect(keys.length > 0).toBe(key !== 'multiplayer');
-    const openKeys = () =>
-      [...container.querySelectorAll<HTMLDetailsElement>('details.card-group')]
-        .filter((d) => d.open)
-        .map((d) => d.querySelector('summary')!.textContent!.split(' (')[0]!.trim().toLowerCase());
-    expect(openKeys()).toEqual([]);
-    const pill = screen.getByRole('button', { name: label });
-    expect(pill.getAttribute('aria-pressed')).toBe('false');
-    await userEvent.click(pill);
-    expect(pill.getAttribute('aria-pressed')).toBe('true');
-    expect(openKeys().sort()).toEqual([...keys].sort());
-    // Turning the filter off again hides those cards.
-    await userEvent.click(pill);
-    expect(pill.getAttribute('aria-pressed')).toBe('false');
-  });
+  ] as const)(
+    'turning on the %s filter adds its folders, collapsed (Multiplayer expands what it adds)',
+    async (label, key) => {
+      const { container } = render(<DeckHarness initial={[]} />);
+      // Ironclad has no simulated multiplayer-only cards, so Multiplayer expands nothing for it.
+      const keys = foldersForFilter(gameData, 'ironclad', key, 0);
+      // Statuses and Curses folders start collapsed; Ironclad has no multiplayer-only cards.
+      expect(keys).toEqual([]);
+      const openKeys = () =>
+        [...container.querySelectorAll<HTMLDetailsElement>('details.card-group')]
+          .filter((d) => d.open)
+          .map((d) => d.querySelector('summary')!.textContent!.split(' (')[0]!.trim().toLowerCase());
+      expect(openKeys()).toEqual([]);
+      const pill = screen.getByRole('button', { name: label });
+      expect(pill.getAttribute('aria-pressed')).toBe('false');
+      await userEvent.click(pill);
+      expect(pill.getAttribute('aria-pressed')).toBe('true');
+      expect(openKeys()).toEqual([]);
+      if (key !== 'multiplayer') {
+        expect(screen.getByText(key === 'statuses' ? 'Status' : 'Curses', { selector: 'summary' })).toBeTruthy();
+      }
+      // Turning the filter off again hides those cards.
+      await userEvent.click(pill);
+      expect(pill.getAttribute('aria-pressed')).toBe('false');
+    },
+  );
 
   it("Ascender's Bane is locked at A5: no X, no stepper buttons, counted in the deck size", () => {
     render(<DeckHarness initial={[{ cardId: 'strike', upgraded: false, count: 2 }]} ascension={5} />);
@@ -317,7 +327,7 @@ describe('percentile label links', () => {
     expect(links.some((h) => h.endsWith('&n=0'))).toBe(true);
   });
 
-  it('three visible strategies still get percentile labels, and the Show Percentiles toggle hides them', async () => {
+  it('three visible strategies still get percentile labels, and the Percentiles toggle hides them', async () => {
     const three: RunResult = {
       ...result,
       config: {
@@ -331,18 +341,18 @@ describe('percentile label links', () => {
     };
     const { container } = render(<ResultsView data={gameData} result={three} />);
     expect(percentileLinks(container).length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByLabelText('Show Percentiles'));
+    await userEvent.click(screen.getByLabelText('Percentiles'));
     expect(percentileLinks(container)).toHaveLength(0);
     expect(container.querySelector('.pband')).toBeNull();
   });
 
-  it('the Color-blind palette toggle swaps the line colors to Okabe-Ito and adds dashes; off by default', async () => {
+  it('the Colorblind toggle swaps the line colors to Okabe-Ito and adds dashes; off by default', async () => {
     const { container } = render(<ResultsView data={gameData} result={result} />);
     const lines = () => [...container.querySelectorAll<SVGPathElement>('svg.chart path[fill="none"]')];
     // Lines follow the table order (Scared Block, purple, first). Default: original palette, solid.
     expect(lines().map((p) => p.getAttribute('stroke'))).toEqual(['#8a5cd6', '#2f6fdf']);
     expect(lines().every((p) => p.getAttribute('stroke-dasharray') === null)).toBe(true);
-    await userEvent.click(screen.getByLabelText('Color-blind palette'));
+    await userEvent.click(screen.getByLabelText('Colorblind'));
     // Okabe-Ito colors; purple gets its long dash, blue stays solid.
     expect(lines().map((p) => p.getAttribute('stroke'))).toEqual(['#cc79a7', '#0072b2']);
     expect(lines().map((p) => p.getAttribute('stroke-dasharray'))).toEqual(['14 5', null]);
@@ -359,7 +369,7 @@ describe('percentile label links', () => {
         .flatMap(() => ['14 5', null]),
     );
     expect(container.querySelectorAll('.legend-swatch:not(.legend-swatch-line)')).toHaveLength(0);
-    await userEvent.click(screen.getByLabelText('Color-blind palette'));
+    await userEvent.click(screen.getByLabelText('Colorblind'));
     expect(lines().map((p) => p.getAttribute('stroke'))).toEqual(['#8a5cd6', '#2f6fdf']);
   });
 });
@@ -594,5 +604,102 @@ describe('#130 strategy priority order (App)', () => {
     expect(chipsOf(/^Mine$/)).toEqual(['1Block · allow 7', '2Powers', '3Attack']);
     await user.click(screen.getByRole('button', { name: 'Done editing Mine' }));
     expect(screen.queryByRole('list', { name: 'Priority for Mine' })).toBeNull();
+  });
+});
+
+describe('UI polish (#254)', () => {
+  it('the Results seed row has a Generate new seed button that fills the field with a new seed', async () => {
+    render(
+      <ResultsPanel
+        data={gameData}
+        characterId="ironclad"
+        result={null}
+        status={{ kind: 'idle' }}
+        blocker={null}
+        onRun={() => {}}
+      />,
+    );
+    expect(screen.getByText('Run seed (blank = random)')).toBeTruthy();
+    const input = screen.getByPlaceholderText('random') as HTMLInputElement;
+    expect(input.value).toBe('');
+    const button = screen.getByRole('button', { name: 'Generate new seed', hidden: true }); // Results starts collapsed
+    await userEvent.click(button);
+    const first = input.value;
+    expect(first).toMatch(/^\d+$/);
+    expect(Number(first)).toBeLessThanOrEqual(4294967295);
+    await userEvent.click(button);
+    expect(input.value).toMatch(/^\d+$/);
+    expect(input.value).not.toBe(first);
+  });
+
+  it('the chart toggles are labelled Colorblind and Percentiles', () => {
+    render(<DistributionChart rows={resultRows(result)} />);
+    expect(screen.getByLabelText('Colorblind')).toBeTruthy();
+    expect(screen.getByLabelText('Percentiles')).toBeTruthy();
+  });
+
+  it('deck folders: character and Colorless split into rarity sub-folders; Shared stays flat', () => {
+    const { container } = render(<DeckHarness initial={[]} />);
+    const top = [...container.querySelectorAll<HTMLDetailsElement>('details.card-group:not(.card-subgroup)')];
+    const name = (d: Element) => d.querySelector('summary')!.textContent!.split(' (')[0]!.trim();
+    const labels = top.map(name);
+    expect(labels).toEqual(expect.arrayContaining(['Shared', 'Ironclad', 'Colorless']));
+    const subs = (label: string) =>
+      [...top.find((d) => name(d) === label)!.querySelectorAll('details.card-subgroup')].map(name);
+    const order = ['Basic', 'Common', 'Uncommon', 'Rare', 'Ancient', 'Event', 'Token'];
+    for (const label of ['Ironclad', 'Colorless']) {
+      const got = subs(label);
+      expect(got.length).toBeGreaterThan(0);
+      expect(got).toEqual(order.filter((o) => got.includes(o)));
+    }
+    expect(subs('Shared')).toEqual([]);
+    // All start collapsed.
+    expect(container.querySelectorAll('details[open]').length).toBe(0);
+  });
+
+  it('enemy, relic and potion lists are alphabetical', () => {
+    for (const zone of ['overgrowth', 'hive', 'glory', 'underdocks'] as const) {
+      const names = enemiesIn(gameData, zone).map((e) => e.name);
+      expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+    }
+    const relics = selectableRelics(gameData, 'ironclad').map((r) => r.name);
+    expect(relics).toEqual([...relics].sort((a, b) => a.localeCompare(b)));
+    render(
+      <SetupPanel
+        data={gameData}
+        setup={defaultSetup(gameData)}
+        onCharacter={() => {}}
+        onEnemy={() => {}}
+        onAscension={() => {}}
+        onPotions={() => {}}
+      />,
+    );
+    const potionSelect = screen.getByLabelText('Potion 1') as HTMLSelectElement;
+    const potions = [...potionSelect.options].slice(1).map((o) => o.textContent!);
+    expect(potions.length).toBeGreaterThan(1);
+    expect(potions).toEqual([...potions].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it('the relic remove button is a plain unstyled button, still labelled', () => {
+    render(
+      <SetupPanel
+        data={gameData}
+        setup={defaultSetup(gameData)}
+        onCharacter={() => {}}
+        onEnemy={() => {}}
+        onAscension={() => {}}
+        onRelics={() => {}}
+      />,
+    );
+    const remove = screen.getByRole('button', { name: /^Remove / });
+    expect(remove.className).toBe('relic-remove');
+    expect(remove.textContent).toBe('×');
+  });
+
+  it('the top-right version label reads "Slay the Spire 2 <gameVersion>"', () => {
+    const { container } = render(<App />);
+    expect(container.querySelector('.app-version')!.textContent).toBe(
+      `Slay the Spire 2 ${gameData.manifest.gameVersion}`,
+    );
   });
 });

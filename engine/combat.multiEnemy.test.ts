@@ -5,6 +5,7 @@ import { cfg, deckOf, events, passive, withEnemy } from './combatTestHelpers';
 import { runCombatRange } from './montecarlo';
 import { GREEDY_CONFIG, normalizeConfig, parseStrategyCode, pickTarget, strategyCode } from './strategies';
 import { cards, makeEnemy, makeGameData } from './testFixtures';
+import { gameData } from '../data';
 import type {
   CardDef,
   CombatConfig,
@@ -596,5 +597,34 @@ describe('#5 Monte Carlo', () => {
     const [r] = runCombatRange(data, config, 0, 0, 1);
     expect(r!.outcome).toBe('turnCap');
     expect(r!.enemyHpRemaining).toBe(1005);
+  });
+});
+
+describe('#5 with #262 Shiv cards', () => {
+  it('Blade Dance, Leading Strike and their Shivs hit the strategy target (lowest HP)', () => {
+    const data = world(makeEnemy('a', 120, wait()), makeEnemy('b', 99, wait()));
+    for (const id of ['shiv', 'blade_dance', 'leading_strike', 'storm_of_steel']) data.cards[id] = gameData.cards[id]!;
+    const c = conf(
+      ['a', 'b'],
+      [
+        ['blade_dance', 2],
+        ['leading_strike', 2],
+        ['storm_of_steel', 1],
+      ],
+      {
+        strategy: GREEDY_CONFIG,
+        seed: 3,
+      },
+    );
+    const r = runCombat(data, c, { log: true });
+    const turn1 = r.log!.slice(
+      0,
+      r.log!.findIndex((e) => e.t === 'turnStart' && e.side === 'enemy'),
+    );
+    const hits = events(turn1, 'damage').filter((d) => d.target === 'enemy');
+    expect(hits.length).toBeGreaterThan(0);
+    // Every hit lands on b (index 1, the lowest HP) and the first target event says so.
+    expect(events(turn1, 'target').map((t) => t.enemy)).toEqual([1]);
+    expect(r.log!.find((e) => e.t === 'combatStart')).toMatchObject({ enemyHps: [120, 99] });
   });
 });

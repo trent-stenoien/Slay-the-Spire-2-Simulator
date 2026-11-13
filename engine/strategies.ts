@@ -132,6 +132,48 @@ export function isSupportCard(card: Card): boolean {
   );
 }
 
+const makesShiv = (e: DeepReadonly<Effect>): boolean =>
+  e.type === 'addCards' && e.source.kind === 'card' && e.source.cardId === 'shiv';
+
+/**
+ * #262: a card that only makes Shivs (Blade Dance, Up My Sleeve, Storm of Steel): it is in no group, since
+ * it deals no damage and gains no Block itself. The orchestrator's default, not a rule from Trent.
+ * Blade Dance and Up My Sleeve go first in the Attack group (their 0-cost Shivs are played right after,
+ * 4 damage each); Storm of Steel (Discard your Hand) waits until nothing else is left to play (pickStorm).
+ */
+export function isShivMaker(card: Card): boolean {
+  return (
+    !isAttackCard(card) &&
+    !isBlockCard(card) &&
+    !isPowerCard(card) &&
+    card.effects.some((e) => (e.type === 'repeat' ? e.effects : [e]).some(makesShiv))
+  );
+}
+
+/** #262: Storm of Steel discards the whole hand. */
+function isStorm(card: Card): boolean {
+  return card.effects.some((e) => e.type === 'moveCards' && e.from === 'hand' && e.mode === 'all');
+}
+
+/** #262: a Shiv maker for the Attack group: the cheapest first (ties to the lowest uid), never Storm of Steel. */
+function pickShivMaker(view: StrategyView): Card | undefined {
+  return best(
+    view.playable.filter((c) => isShivMaker(c) && !isStorm(c)),
+    (c) => [-(c.cost ?? 0)],
+  );
+}
+
+/**
+ * #262: Storm of Steel once nothing else is played, when another card is still in the hand to discard
+ * (each discarded card becomes a Shiv).
+ */
+function pickStorm(view: StrategyView): Card | undefined {
+  return best(
+    view.playable.filter((c) => isShivMaker(c) && isStorm(c) && view.state.player.hand.some((o) => o.uid !== c.uid)),
+    () => [],
+  );
+}
+
 function pileOf(view: StrategyView, name: PileName): readonly Card[] {
   const p = view.state.player;
   return name === 'hand' ? p.hand : name === 'draw' ? p.drawPile : name === 'discard' ? p.discardPile : p.exhaustPile;
@@ -1609,6 +1651,7 @@ function wantsEnergy(c: Card): boolean {
       isPowerCard(c) ||
       isDrawCard(c) ||
       isNetEnergyCard(c) ||
+      isShivMaker(c) ||
       PLAY_FIRST_CARD_IDS.includes(c.cardId))
   );
 }
@@ -1634,6 +1677,8 @@ function pickFromGroup(
     case 'attack': {
       const first = pickPlayFirst(view);
       if (first) return first;
+      const maker = pickShivMaker(view);
+      if (maker) return maker;
       const atk = pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state);
       return planning ? atk : (pickFiendFire(view, config, atk) ?? atk);
     }
@@ -1807,6 +1852,8 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   if (planning) return END;
   const support = pickSupport(view);
   if (support) return play(support);
+  const storm = pickStorm(view);
+  if (storm) return play(storm);
   const preferBlock = config.order.indexOf('block') < config.order.indexOf('attack');
   const last = pickLast(view, preferBlock);
   if (last) return play(last);

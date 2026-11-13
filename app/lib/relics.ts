@@ -17,23 +17,12 @@ export function setupRelics(data: GameData, setup: { characterId: string; relics
   return setup.relics ?? startingRelics(data, setup.characterId);
 }
 
-const RARITY_ORDER: RelicDef['rarity'][] = [
-  'starter',
-  'common',
-  'uncommon',
-  'rare',
-  'shop',
-  'boss',
-  'ancient',
-  'event',
-];
-
-/** Relics the picker offers: simulated, for any character or this one, by rarity then name. */
+/** Relics the picker offers: simulated, for any character or this one, alphabetical. */
 export function selectableRelics(data: GameData, characterId: string): RelicDef[] {
   const code = data.characters[characterId]?.code;
   return Object.values(data.relics ?? {})
     .filter((r) => r.simulated && (r.character === 'any' || r.character === code))
-    .sort((a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity) || a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** True when two relic lists are the same (order and choices included). */

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { GameData, RunResult } from '../../engine/types';
 import type { SimulationProgress } from '../sim/runSimulation';
-import { parseSeedInput, relicNote, resolveRunSeed } from '../lib/results';
+import { parseSeedInput, randomSeed, relicNote, resolveRunSeed } from '../lib/results';
 import { Panel } from './Panel';
 import { ResultsView } from './ResultsView';
 
@@ -97,6 +97,9 @@ export function ResultsPanel({ data, characterId, result, status, blocker, onRun
             onChange={(e) => setSeedText(e.target.value)}
           />
         </label>
+        <button type="button" className="btn run-seed-new" onClick={() => setSeedText(String(randomSeed()))}>
+          Generate new seed
+        </button>
       </form>
       {seed === undefined && <p className="warn small">{SEED_ERROR}</p>}
       {status.kind === 'running' && (

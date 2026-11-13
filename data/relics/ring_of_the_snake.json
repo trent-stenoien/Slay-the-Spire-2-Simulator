@@ -1,0 +1,22 @@
+{
+  "id": "ring_of_the_snake",
+  "code": "RS",
+  "name": "Ring of the Snake",
+  "rarity": "starter",
+  "character": "S",
+  "hooks": [
+    {
+      "when": "turnStart",
+      "turn": 1,
+      "effects": [
+        {
+          "type": "draw",
+          "amount": 2
+        }
+      ]
+    }
+  ],
+  "description": "At the start of each combat, draw 2 additional cards.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

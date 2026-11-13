@@ -153,22 +153,22 @@ export function ChartLegend({
   );
 }
 
-/** "Color-blind palette" toggle: Okabe-Ito colors plus a distinct dash pattern per strategy line. */
+/** "Colorblind" toggle: Okabe-Ito colors plus a distinct dash pattern per strategy line. */
 export function ColorBlindToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
   return (
     <label className="pct-toggle small">
       <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
-      Color-blind palette
+      Colorblind
     </label>
   );
 }
 
-/** "Show Percentiles" toggle, at the far right of the legend row. */
+/** "Percentiles" toggle, after the Colorblind toggle. */
 export function PercentileToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
   return (
     <label className="pct-toggle small">
       <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} />
-      Show Percentiles
+      Percentiles
     </label>
   );
 }

@@ -14,6 +14,15 @@
       "type": "attack",
       "damage": 3,
       "hits": 1
+    },
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "card",
+        "cardId": "shiv"
+      },
+      "count": 2,
+      "to": "hand"
     }
   ],
   "upgraded": {
@@ -22,12 +31,21 @@
         "type": "attack",
         "damage": 6,
         "hits": 1
+      },
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "card",
+          "cardId": "shiv"
+        },
+        "count": 2,
+        "to": "hand"
       }
     ]
   },
   "description": "Deal 3 damage. / Add 2 Shivs into your Hand.",
   "upgradedDescription": "Deal 6 damage. / Add 2 Shivs into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -132,8 +132,9 @@ describe('sorting uses the unrounded values', () => {
 describe('relicNote', () => {
   it('#205: no note for the Ironclad (Burning Blood is simulated); names unsimulated starting relics', () => {
     expect(relicNote(gameData, 'ironclad')).toBeNull();
-    expect(relicNote(gameData, 'silent')).toBe(
-      `${gameData.characters.silent!.startingRelic} (starting relic) is not simulated.`,
+    expect(relicNote(gameData, 'silent')).toBeNull();
+    expect(relicNote(gameData, 'defect')).toBe(
+      `${gameData.characters.defect!.startingRelic} (starting relic) is not simulated.`,
     );
     expect(relicNote(gameData, 'nobody')).toBe('The starting relic (starting relic) is not simulated.');
   });

@@ -174,8 +174,10 @@ export function DistributionChart({
         {mode === 'kde' && <BandwidthSlider factor={bandwidthFactor} onChange={setBandwidthFactor} />}
         <div className="legend-row">
           <ChartLegend rows={rows} hidden={hidden} onChange={setHidden} palette={palette} colorBlind={colorBlind} />
-          <ColorBlindToggle on={colorBlind} onChange={setColorBlind} />
-          <PercentileToggle on={showPercentiles} onChange={setShowPercentiles} />
+          <div className="chart-toggles">
+            <ColorBlindToggle on={colorBlind} onChange={setColorBlind} />
+            <PercentileToggle on={showPercentiles} onChange={setShowPercentiles} />
+          </div>
         </div>
       </div>
       <svg className="chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`HP lost distribution, ${mode} view`}>

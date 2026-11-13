@@ -34,7 +34,7 @@ export function App() {
         </h1>
         <div className="app-sub muted small">
           <p>Monte Carlo comparison of Slay the Spire 2 play strategies.</p>
-          <em className="app-version">{data.manifest.gameVersion}</em>
+          <em className="app-version">Slay the Spire 2 {data.manifest.gameVersion}</em>
         </div>
       </header>
       {urlErrors.length > 0 && (
