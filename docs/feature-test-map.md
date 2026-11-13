@@ -228,6 +228,22 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 37d | Built-in pick rules (kill, no Block, no Slippery, lethal threat) | engine/combat.potions.test.ts > pickPotion rules (9 tests) |
 | 38 | Golden combats replay; knownDiffs both ways | engine/golden/golden.test.ts > golden combats; golden harness (#210, synthetic fixtures) > knownDiffs listed mismatches pass, unlisted ones and stale entries fail |
 
+## Multi-enemy fights (#5)
+
+| # | Rule | Test file > test name | Break-it |
+|---|------|-----------------------|----------|
+| 39a | Enemy turn: all Block resets, each moves left to right, then debuffs tick; dead enemies don't act | engine/combat.multiEnemy.test.ts > #5 enemy turn order > every Block resets, then each enemy moves left to right, then enemy debuffs tick; a dead enemy no longer acts | n/a |
+| 39b | Won only when every enemy is dead; HP left summed | engine/combat.multiEnemy.test.ts > #5 win condition (3 tests) | caught (won() = some enemy dead) |
+| 39c | Single-target cards hit the chosen target; dead target falls back; lost hits; targeted debuffs/Poison | engine/combat.multiEnemy.test.ts > #5 targets (4 tests) | caught (Decision.target ignored) |
+| 39d | ALL attacks / debuffs / Poison / fixed damage hit every living enemy; hit order; #6 damage once per enemy | engine/combat.multiEnemy.test.ts > #5 ALL-enemies effects (5 tests); data/data.mechanics.test.ts > #5 debuffs on ALL enemies | n/a |
+| 39e | Poison kill, Thorns kill, Feed kill and Shrink with other enemies alive | engine/combat.multiEnemy.test.ts > #5 deaths mid-fight (4 tests) | n/a |
+| 39f | Combined intent and per-enemy intents in the strategy view | engine/combat.multiEnemy.test.ts > #5 intents (3 tests) | n/a |
+| 39g | enemyIds in setup and Monte Carlo runs; single-enemy logs unchanged | engine/combat.multiEnemy.test.ts > #5 multi-enemy setup; #5 Monte Carlo; `npm run compare-main` (identical) and engine/golden | n/a |
+| 40a | Lowest HP / Biggest incoming attack priorities, ties, dead skipped | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > lowest HP first...; biggest incoming attack first...; no target with a single enemy | caught (lowest HP comparison flipped; biggest attack ignoring incoming) |
+| 40b | Different strategies use different priorities in the same fight | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > each strategy uses its own priority in the same fight | caught (lowest HP comparison flipped) |
+| 40c | URL codes ("i") and saved configs keep working | engine/combat.multiEnemy.test.ts > URL codes...; saved configs... | n/a |
+| 41 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |
+
 ## Known failure points
 
 | Item | Test / measurement |
