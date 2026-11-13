@@ -133,7 +133,7 @@ export function isSupportCard(card: Card): boolean {
 }
 
 const makesShiv = (e: DeepReadonly<Effect>): boolean =>
-  e.type === 'addCards' && e.source.kind === 'card' && e.source.cardId === 'shiv';
+  e.type === 'addCards' && e.source.kind === 'card' && (e.source.cardId === 'shiv' || e.source.cardId === 'inky_shiv');
 
 /**
  * #262: a card that only makes Shivs (Blade Dance, Up My Sleeve, Storm of Steel): it is in no group, since

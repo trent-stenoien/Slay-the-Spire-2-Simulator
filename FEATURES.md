@@ -95,8 +95,10 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     hand, not itself; 1 Shiv per discarded card, Shiv+ upgraded) add Shivs to the hand (a full hand sends them to
     the discard pile). Shivs are 0-cost Attacks (4 damage, 6 upgraded) that Exhaust. Strategies play Blade Dance and
     Up My Sleeve first in the Attack group and Storm of Steel last, once nothing else is played and the hand still
-    holds cards. Hidden Daggers stays unsimulated until the discard choice exists (#259); Blade of Ink until its
-    Inky Shivs are known.
+    holds cards. Hidden Daggers stays unsimulated until the discard choice exists (#259).
+    **Blade of Ink (#285):** adds 2 Inky Shivs to the hand (3 upgraded); the Inky enchantment is "This card
+    applies 1 Weak" (Trent), so an Inky Shiv is a Shiv (4 damage, Exhaust, 0 cost) that also applies 1 Weak to the
+    target. Modelled as the `inky_shiv` token; strategies treat it like a Shiv.
 17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
     in pick order: combat start (before the first draw), turn start (after the draw and start-of-turn
     powers), turn end (before Plating), after a card is played, combat end (wins only). "Start each

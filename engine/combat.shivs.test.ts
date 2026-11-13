@@ -137,7 +137,53 @@ describe('#262 Up My Sleeve', () => {
 describe('#262 Hidden Daggers stays unsimulated until the discard choice exists (#259)', () => {
   it('is not simulated', () => {
     expect(gameData.cards.hidden_daggers!.simulated).toBe(false);
-    expect(gameData.cards.blade_of_ink!.simulated).toBe(false);
+  });
+});
+
+describe('#285 Blade of Ink (Inky Shivs: a Shiv that also applies 1 Weak)', () => {
+  const inkWorld = () => {
+    const d = world(['blade_of_ink']);
+    d.cards.inky_shiv = real('inky_shiv');
+    return d;
+  };
+  const weakOnEnemy = (log: ReturnType<typeof run>['log']) =>
+    events(log, 'debuff').filter((e) => e.side === 'enemy' && e.kind === 'weak');
+
+  it.each([
+    [false, 2],
+    [true, 3],
+  ])('upgraded=%s adds %i Inky Shivs to the hand', (up, n) => {
+    const r = run(inkWorld(), turnOne('blade_of_ink'), deckOf(['blade_of_ink', 1, up]));
+    expect(events(r.log, 'generated').filter((e) => e.cardId === 'inky_shiv' && e.to === 'hand')).toHaveLength(n);
+  });
+
+  it('each Inky Shiv deals 4, applies 1 Weak and Exhausts', () => {
+    const r = run(inkWorld(), turnOne('blade_of_ink', 'inky_shiv', 'inky_shiv'), deckOf(['blade_of_ink', 1]));
+    expect(playerHits(r.log).map((e) => e.amount)).toEqual([4, 4]);
+    expect(weakOnEnemy(r.log)).toHaveLength(2);
+    expect(events(r.log, 'exhaust').filter((e) => e.cardId === 'inky_shiv')).toHaveLength(2);
+  });
+
+  it('a plain Shiv applies no Weak', () => {
+    const d = world(['blade_dance']);
+    const r = run(d, turnOne('blade_dance', 'shiv'), deckOf(['blade_dance', 1]));
+    expect(weakOnEnemy(r.log)).toHaveLength(0);
+  });
+
+  it('strategies play the Inky Shivs', () => {
+    const r = simulateCombat(
+      inkWorld(),
+      cfg({
+        enemyId: 'dummy',
+        deck: deckOf(['blade_of_ink', 1]),
+        strategy: { ...GREEDY_CONFIG, order: [...GREEDY_CONFIG.order] },
+      }),
+      createStrategy({ ...GREEDY_CONFIG, order: [...GREEDY_CONFIG.order] }),
+      { log: true },
+    );
+    const plays = events(r.log, 'play').filter((e) => e.cardId === 'inky_shiv').length;
+    expect(plays).toBeGreaterThanOrEqual(2);
+    expect(events(r.log, 'exhaust').filter((e) => e.cardId === 'inky_shiv')).toHaveLength(plays);
   });
 });
 

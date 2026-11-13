@@ -9,11 +9,33 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "card",
+        "cardId": "inky_shiv"
+      },
+      "count": 2,
+      "to": "hand"
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "card",
+          "cardId": "inky_shiv"
+        },
+        "count": 3,
+        "to": "hand"
+      }
+    ]
+  },
   "description": "Add 2 Inky Shivs into your Hand.",
   "upgradedDescription": "Add 3 Inky Shivs into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
