@@ -39,3 +39,9 @@ describe('shot', () => {
     }
   });
 });
+
+describe('GitHub Pages base path', () => {
+  it("uses a relative base so the repo name's case cannot break asset URLs", () => {
+    expect(readFileSync(resolve(root, 'vite.config.ts'), 'utf8')).toMatch(/base:\s*'\.\/'/);
+  });
+});

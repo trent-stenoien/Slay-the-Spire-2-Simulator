@@ -1,9 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
-// GitHub Pages serves the site from /<repo-name>/.
+// GitHub Pages serves the site from /<Repo-Name>/ (case-sensitive). A relative base works under any repo name.
 export default defineConfig({
-  base: '/slay-the-spire-2-simulator/',
+  base: './',
   plugins: [react()],
   test: {
     globals: true,
