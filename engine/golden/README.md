@@ -21,8 +21,10 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
 - `playerStart` (optional): `{ "strength"?, "debuffs"?: { "vulnerable": n, … }, "powers"?: { "plating": n, … } }`,
   applied before combatStart relics. Start-of-turn rules still run on turn 1 (Plating drops by 1).
 - `turns[]`, in order:
-  - `hand`: the cards drawn at the start of this turn (any order). The engine is made to draw exactly these.
+  - `hand`: the cards drawn at the start of this turn (any order, but when the draw spans a reshuffle list the cards from the old draw pile first and the reshuffled ones last). The engine is made to draw exactly these.
   - `drawn` (optional): cards drawn during the turn (Pommel Strike), in order. Checked, and forced.
+  - `playedFromDraw` (optional): cards that left the draw pile without being drawn, in order (the card Havoc
+    plays from the top). Only used to build the forced draw order, after `hand` and `drawn`; not checked.
   - `plays`: cards in play order (use the listed order when the game order was not recorded).
   - `potions` (optional): `[{ "potion": id, "beforePlay": n }]`: used before play `n` (1-based;
     `plays.length + 1` = after the last play, before ending the turn).
