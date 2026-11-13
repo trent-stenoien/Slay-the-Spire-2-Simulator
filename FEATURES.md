@@ -26,7 +26,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 7. **Powers:** leave the deck when played; turn-start/turn-end hooks fire in order (after the draw, in
    the order first played). Rolling Boulder: each play is its own instance that grows independently.
    Crimson Mantle: each copy adds its Block and its HP loss. Neither has a copy limit (#135).
-8. **Card mechanics as agreed:** Plating, Vigor (every hit of the next Attack), Thorns (every enemy
+8. **Card mechanics as agreed:** Plating (end of turn: gain Block equal to Plating; −1 at the start of each turn; not reduced by hits), Vigor (every hit of the next Attack), Thorns (every enemy
    hit, blocked or 0-damage hits included), Fasten ("Defend" cards; added before Frail's ×0.75, rounded
    down once), Thrash, Tear Asunder (any HP drop; fully blocked hits don't count), Corruption (X-cost
    unchanged; Drum of Battle still gains energy), X-cost (`xTimes`/`xBonus`), energy doesn't carry

@@ -422,7 +422,7 @@ export type PowerId =
   | 'rollingBoulder'
   /** Start of turn: lose 1 HP, gain [amount] Block (Crimson Mantle). */
   | 'crimsonMantle'
-  /** End of turn: gain [amount] Block; loses 1 when hit by unblocked attack damage: open (#109). */
+  /** End of turn: gain [amount] Block; Plating drops by 1 at the start of each turn (#109). */
   | 'plating'
   /** Block is not removed at the start of your turn (Barricade). */
   | 'barricade'
