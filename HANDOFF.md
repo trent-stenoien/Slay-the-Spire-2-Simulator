@@ -1,38 +1,53 @@
-# Handoff (2026-11-13)
+# Handoff (2026-11-13, afternoon)
 
-Read CLAUDE.md first. No agents running. Phase: building. **v1 is complete and live** on
-https://trent-stenoien.github.io/Slay-the-Spire-2-Simulator/ (Results chart checked by eye after the last deploy).
+Read CLAUDE.md first. No agents running. Phase: **building v2**. v1 is complete.
 
-## Done since the last handoff
-- #245 / PR #247: v1 quality-review loop passed. `docs/feature-test-map.md` maps every FEATURES.md item
-  to a test with break-it results. Seven stale `simulated: false` cards fixed (Tear Asunder, Spite, Ashen
-  Strike, Evil Eye, Pact's End, Impatience, Restlessness). `engine/types.ts` "open" comments reworded
-  (comment-only, approved by Trent). Vulnerable rule added (attacks from the player or its pets only;
-  fixed damage ignores it). Plating comment fixed (−1 at start of turn, not on hits).
-- #248 / PR #249: live site was blank because `vite.config.ts` base was lowercase and the repo name is
-  capitalised. Base is now `'./'`, guarded by a test in `tools/checks.test.ts`.
-- #246 / PR #252: Expect a Fight simulated as an X-Energy card (1 per Attack in hand); its "cannot gain
-  additional Energy" clause is not modelled (later).
-- #250 / PR #251: golden combat 10 (Nibbit, Ascension 10, Havoc+) is fixture `engine/golden/nibbit-a10-01.json`
-  and matches. Harness gained an optional per-turn `playedFromDraw` (cards Havoc plays from the draw pile).
-  Golden screenshots are on the `golden-screenshots` branch (`combat-10/`).
+## v2 scope (Trent, Nov 13)
+One character per version. v2 = **the Silent**, **multi-enemy fights**, and **all Act 2 and Act 3 bosses**.
+Other characters (Defect, Necrobinder, Regent) are `version: future` until Trent picks the next one.
+Full scoping report: `docs/v2-scoping.md` (cards #258–#276; each card body has its own scope and questions).
 
-## Not checked (low priority)
-- Compare view stacking on a phone-width screen (CSS only; no test can see it).
-- Design doc (claude.ai artifact) vs code: not compared in the loop.
+## Done in v2
+- #254 / PR #257: UI polish (chart filters wrap, Colorblind/Percentiles, Generate new seed button,
+  rarity folders incl. Basic/Ancient/Event/Token, Statuses/Curses collapsed, alphabetical lists,
+  borderless relic ×, "Slay the Spire 2 v0.107.1"). Chart layout on phones still needs Trent's eye.
+- #258 / PR #277: Ring of the Snake. The Silent unlocks automatically once Survivor (#259) is simulated.
+- #262 / PR #278: Shiv cards (Blade Dance, Cloak and Dagger, Leading Strike, Up My Sleeve, Storm of Steel).
+  Hidden Daggers waits for #259; Blade of Ink waits for its Inky enchantment.
+- #5 / PR #279: multi-enemy fights (up to 5 enemies in Setup), per-strategy target priority
+  ("Lowest HP first" / "Biggest incoming attack first"). types.ts gained optional fields (listed in the PR).
+  Random-target cards hit the current target / leftmost living enemy until #45.
 
-## Open
-- v2 questions for Trent: combat 2, was Leaf Slime (S)'s T2 card Slimed? (#179). Combat 4 was A0, so the
-  Inklet HPs 14, 11, 13 don't fit the data's 11–12 (#197).
-- v2: #179, #197, #198, #211, #228, #19 (Osty; Sweeping Gaze waits for it). Future: #207.
+## Ready to build
+- #45 random-target cards (rule: play them first, re-plan; prefer a targeted attack to finish a low-HP enemy).
+- #46 Poison-only play rule (before attacks if the enemy lives 2+ turns; enemy Block favours Poison; Artifact counts against it).
+- #12 cheapest block set (confirmed).
+- #264 temporary powers, #265 counters/conditions, #266 trigger powers (types.ts additions approved).
+- #256 docs: version definitions (CLAUDE.md "Board and phases", README). Also CLAUDE.md's turn-order line still describes one enemy.
+- After #45: #269 Silent multi-enemy cards, #267 Shiv powers, #275 Kaiser Crab, #276 Queen (these also have questions).
+
+## Questions waiting for Trent (also on each card)
+- #5 follow-ups: enemy turn steps per step for all enemies (as built) vs each enemy's full turn; Vicious once per enemy on ALL Vulnerable (as built);
+  "lowest HP" ignores Block (as built); Omnislice splash not simulated in multi-enemy fights (new card?).
+- #262: keep the Shiv play-order default (Blade Dance/Up My Sleeve first; Storm of Steel last, only with other cards in hand)?
+- #259 discard order (curses/statuses, Sly, Strikes, Defends?) and Well-Laid Plans' retain; Dodge and Roll Block and Dexterity.
+- #260 Bullet Time / X-cost, Precise Cut floor. #261 Sly target, destination, end-of-turn discard.
+- #263 data disagreements (Outbreak, Tracking, Haze, Expertise, Well-Laid Plans, Flick Flack: re-check with the wiki skill first); Accelerant extra triggers; Envenom.
+- #268 The Hunt's reward. #270 Mind Rot/Sloth/Waste Away as status cards or powers.
+- Bosses: #271 Knowledge Demon choice rule; #272 Sandpit/Frantic Escape; #273 Aeonglass beta? and Wither+X;
+  #274 Test Subject phases; #275 Back Attack facing; #276 Queen win condition and Chains of Binding.
+- Trent will record a Silent golden combat with Poison.
+- v2 data: combat 2 Leaf Slime (S) T2 Slimed? (#179); combat 4 Inklet HP 14/11/13 at A0 vs data 11–12 (#197).
 
 ## Working notes
-- Trent's preferences: minimal progress updates; link every PR/card; cheapest model that can do the job.
-- Parallel agents each get their own `git worktree` under /home/claude/wt. Expect conflicts in engine/combat.ts, engine/strategies.ts, data/validate/*.
+- Trent's preferences: concise replies; link every PR/card; cheapest model that can do the job; batch questions per card.
+- Parallel agents each get their own `git worktree` under /home/claude/wt. Expect conflicts in engine/combat.ts, engine/strategies.ts, data/validate/*, FEATURES.md, docs/feature-test-map.md; the later PR merges `main` and re-runs the checks.
 - Merge only after the PR's CI check finishes green; sub-agents run `npm run format` before handing back.
+- Golden screenshots live on the `golden-screenshots` branch (`combat-NN/`, compressed JPEGs + notes.md). Review uses the combat-junior-reviewer and combat-senior-reviewer agents. Fixtures can script Havoc's top-card plays with `playedFromDraw`.
 - WebFetch accepts a wiki URL once it has appeared in a WebSearch result or the conversation, so search first, then fetch (also in the skill).
 
 ## Sandbox notes
 - GitHub: REST only (GraphQL blocked). Create issues and PRs with `gh api repos/.../issues|pulls`.
 - Board moves: add a `status: <column>` label; the board-sync Action does the rest.
 - Versions: `version: v1`, `v2`, `future`, `multiplayer`.
+- Live site: https://trent-stenoien.github.io/Slay-the-Spire-2-Simulator/ (Vite base is `'./'`).
