@@ -59,14 +59,14 @@ describe('damage rules in combat', () => {
       },
     };
     const r = logged(data, strat, { enemyId: 'triple', deck: deckOf(['defend', 5]) });
-    // Two Defends = 10 Block: the first hit is absorbed, the second partly (2 of 8), the third not at all.
+    // Three Defends = 15 Block: the first hit is absorbed, the second partly (7 of 8), the third not at all.
     expect(
       events(r.log, 'damage')
         .slice(0, 3)
         .map((d) => [d.blocked, d.hpLoss]),
     ).toEqual([
       [8, 0],
-      [2, 6],
+      [7, 1],
       [0, 8],
     ]);
   });
