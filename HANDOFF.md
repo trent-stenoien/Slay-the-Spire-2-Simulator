@@ -1,27 +1,30 @@
-# Handoff (2026-11-12, night)
+# Handoff (2026-11-13)
 
-Read CLAUDE.md first. No agents running. Phase: building. v1 build and the golden-combat review are done. Next: the v1 quality-review loop.
+Read CLAUDE.md first. No agents running. Phase: building. **v1 is complete and live** on
+https://trent-stenoien.github.io/Slay-the-Spire-2-Simulator/ (Results chart checked by eye after the last deploy).
 
-## State
-- Merged today: #217 (shared `sts2-wiki-import` skill, replaces sts2-card-import), #218 (contract #215), #219 (#208 beta values), #221 (#206 Void), #222 (#213 Slippery), #223 (#203 Mawler, Byrdonis, Cubex Construct, Vantom, Artifact), #224 (#204 Strength/Fire Potion), #225 (#220 card values), #227 (#205 relics, 44 simulated; negative HP lost), #230 (#229 card text), #231 (#226 once-per-fight moves), #232 (#210 harness scripting), #233–#236 (golden combats 6, 9, 7, 5), #239 (#238 Byrdonis Egg), #240 (#237 scripted enemy moves). #243 (#242 Burning Blood in fixtures 1 and 3; README and harness HP-lost check now use the overheal rule). Duplicates #183–#196 closed.
-- Golden fixtures in `engine/golden/`: combats 1, 3, 5, 6, 7, 9 all match with no known diffs and all list Burning Blood (fixtures record HP after its +6; Trent's figures are before it). Combat 9: Byrd Swoop is simulated and matches (the card's "22 twice" was wrong; turn 5 shows 133→118).
-- Golden-combat review (Nov 12) done for all nine combats (junior + senior reviewers). Every item resolved; no v1 data or rule contradicts the game. Outcomes are posted on #199–#202 (v1) and #179, #197, #198, #211 (v2 data: slimes, Inklets, Phrog Parasite and Wrigglers, Energy Potion +2). Combats 1 and 3 have no card of their own; their outcome is on #242.
+## Done since the last handoff
+- #245 / PR #247: v1 quality-review loop passed. `docs/feature-test-map.md` maps every FEATURES.md item
+  to a test with break-it results. Seven stale `simulated: false` cards fixed (Tear Asunder, Spite, Ashen
+  Strike, Evil Eye, Pact's End, Impatience, Restlessness). `engine/types.ts` "open" comments reworded
+  (comment-only, approved by Trent). Vulnerable rule added (attacks from the player or its pets only;
+  fixed damage ignores it). Plating comment fixed (−1 at start of turn, not on hits).
+- #248 / PR #249: live site was blank because `vite.config.ts` base was lowercase and the repo name is
+  capitalised. Base is now `'./'`, guarded by a test in `tools/checks.test.ts`.
+- #246 / PR #252: Expect a Fight simulated as an X-Energy card (1 per Attack in hand); its "cannot gain
+  additional Energy" clause is not modelled (later).
+- #250 / PR #251: golden combat 10 (Nibbit, Ascension 10, Havoc+) is fixture `engine/golden/nibbit-a10-01.json`
+  and matches. Harness gained an optional per-turn `playedFromDraw` (cards Havoc plays from the draw pile).
+  Golden screenshots are on the `golden-screenshots` branch (`combat-10/`).
 
-## Next up
-1. v1 quality-review loop per `docs/quality-loop.md` (test reviewer, test runner, readability; every FEATURES.md item needs a test).
+## Not checked (low priority)
+- Compare view stacking on a phone-width screen (CSS only; no test can see it).
+- Design doc (claude.ai artifact) vs code: not compared in the loop.
 
 ## Open
-- Questions for Trent, not blocking: combat 4 Inklet HP was 14, 11, 13 in game vs raw 11–12 (which Ascension?); combat 2, was Leaf Slime (S)'s T2 card Slimed? (#197, #179)
-- v2: #179, #197, #198, #211, #228 (Eidolon). Future: #207.
-
-## Rules settled today
-(also in FEATURES.md and card comments)
-- Vantom 8 Slippery at A0 (9 at A9); Dismember 26.
-- Slippery: any HP loss (Poison and Fire Potion included) becomes 1 and uses a stack; fully blocked hits keep it.
-- Artifact blocks Poison and Stun, one stack per application (Bouncing Flask: per bounce). Mawler's Roar once per fight.
-- Fire Potion: fixed damage, ignores Vulnerable and Strength; reduced by Intangible and Slippery.
-- Relics: Beating Remnant counts each side's turn separately; Girya defaults to 1; Ghost Seed affects only basic Strike/Defend; carried counters (Happy Flower, Pollinous Core, Iron Club) default 0 with a setup input.
-- HP lost: every heal counts in full (Trent's figures are pre-heal; combat 2 starts at 80 = 77 + 6 capped).
+- v2 questions for Trent: combat 2, was Leaf Slime (S)'s T2 card Slimed? (#179). Combat 4 was A0, so the
+  Inklet HPs 14, 11, 13 don't fit the data's 11–12 (#197).
+- v2: #179, #197, #198, #211, #228, #19 (Osty; Sweeping Gaze waits for it). Future: #207.
 
 ## Working notes
 - Trent's preferences: minimal progress updates; link every PR/card; cheapest model that can do the job.
