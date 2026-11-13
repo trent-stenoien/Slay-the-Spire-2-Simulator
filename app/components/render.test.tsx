@@ -296,6 +296,16 @@ describe('views render', () => {
     expect(html).toMatch(/class="pct-toggle small"><input type="checkbox" checked=""[^>]*\/>Show Percentiles/);
   });
 
+  it('puts the Show Percentiles toggle last in the legend row, after the legend', () => {
+    const html = renderChart();
+    const row = html.slice(html.indexOf('<div class="legend-row">'));
+    const legendEnd = row.indexOf('</ul>');
+    expect(legendEnd).toBeGreaterThan(0);
+    expect(row.indexOf('Show Percentiles')).toBeGreaterThan(legendEnd);
+    expect(row.indexOf('Color-blind palette')).toBeLessThan(row.indexOf('Show Percentiles'));
+    expect(row.slice(row.indexOf('Show Percentiles'))).not.toContain('<input');
+  });
+
   it('draws five labelled percentile markers when only one strategy is in the results', () => {
     const one = resultRows(result).filter((r) => r.strategyId === 'g'); // [0, 0, 2, 3, 5]: 10 combats
     const html = renderToStaticMarkup(<DistributionChart rows={one} />);
