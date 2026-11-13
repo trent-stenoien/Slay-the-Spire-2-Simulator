@@ -124,6 +124,11 @@ describe('#110 strategy defaults', () => {
     expect(next(view(['panic'], { incoming: 30, hp: 20, block: 15 }))).toBe('end'); // 15 gets through, not lethal
   });
 
+  it('Panic Button boundary: played when the unblocked damage equals HP, not when it is 1 short', () => {
+    expect(next(view(['panic'], { incoming: 30, hp: 20, block: 10 }))).toBe('panic'); // 20 gets through = HP
+    expect(next(view(['panic'], { incoming: 30, hp: 20, block: 11 }))).toBe('end'); // 19 gets through
+  });
+
   it('does not play Panic Button, or Block-only cards, while Block from cards is off', () => {
     expect(next(view(['panic'], { incoming: 30, hp: 20, powers: { noBlockFromCards: 1 } }))).toBe('end');
     expect(next(view(['defend'], { incoming: 30, powers: { noBlockFromCards: 1 } }))).toBe('end');
