@@ -120,7 +120,7 @@ export const SIMULATED_COUNTERS = new Set<string>([
   'lastAttackDamage',
 ]);
 
-/** `script` ids the engine runs (#108 Fiend Fire, Thrash; #116 primalForcePlus; #114 playSelf; #110 prolong; #111 perfectedStrike; #246 expectAFight). */
+/** `script` ids the engine runs (#108 Fiend Fire, Thrash; #116 primalForcePlus; #114 playSelf; #110 prolong; #111 perfectedStrike; #246 expectAFight; #262 upMySleeve). */
 export const SIMULATED_SCRIPTS = new Set<string>([
   'fiendFire',
   'thrash',
@@ -129,6 +129,7 @@ export const SIMULATED_SCRIPTS = new Set<string>([
   'prolong',
   'perfectedStrike',
   'expectAFight',
+  'upMySleeve',
 ]);
 
 /** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */

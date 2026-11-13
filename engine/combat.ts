@@ -1420,6 +1420,7 @@ class Combat {
           else if (source === 'player' && e.id === 'perfectedStrike') died = this.perfectedStrike(e.values, card);
           else if (source === 'player' && e.id === 'prolong') this.prolong();
           else if (source === 'player' && e.id === 'expectAFight') this.expectAFight();
+          else if (source === 'player' && e.id === 'upMySleeve') this.upMySleeve(card);
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
@@ -1615,6 +1616,20 @@ class Combat {
     if (n === 0) return;
     this.player.energy += n;
     this.log?.push({ t: 'energy', amount: n, total: this.player.energy });
+  }
+
+  /**
+   * #262 Up My Sleeve: this copy costs 1 less for the rest of combat (never below 0). Each copy tracks its
+   * own cost. A copy played for free this turn reduces the cost it had before it became free.
+   */
+  private upMySleeve(card: CardInstance | undefined): void {
+    if (!card || card.cost === null || card.xCost) return;
+    const current = card.freeThisTurn
+      ? (this.freeBackup.get(card.uid) ?? card.cost)
+      : (card.costThisCombat ?? card.cost);
+    const next = Math.max(0, current - 1);
+    card.costThisCombat = next;
+    this.log?.push({ t: 'costChanged', uid: card.uid, cardId: card.cardId, cost: next, duration: 'combat' });
   }
 
   /**

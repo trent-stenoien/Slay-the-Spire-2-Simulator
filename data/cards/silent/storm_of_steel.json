@@ -9,11 +9,58 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "moveCards",
+      "from": "hand",
+      "to": "discard",
+      "mode": "all"
+    },
+    {
+      "type": "repeat",
+      "per": "lastEffectCount",
+      "effects": [
+        {
+          "type": "addCards",
+          "source": {
+            "kind": "card",
+            "cardId": "shiv"
+          },
+          "count": 1,
+          "to": "hand"
+        }
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "moveCards",
+        "from": "hand",
+        "to": "discard",
+        "mode": "all"
+      },
+      {
+        "type": "repeat",
+        "per": "lastEffectCount",
+        "effects": [
+          {
+            "type": "addCards",
+            "source": {
+              "kind": "card",
+              "cardId": "shiv"
+            },
+            "count": 1,
+            "to": "hand",
+            "upgraded": true
+          }
+        ]
+      }
+    ]
+  },
   "description": "Discard your Hand. / Add 1 Shiv into your Hand for each card discarded.",
   "upgradedDescription": "Discard your Hand. / Add 1 Shiv+ into your Hand for each card discarded.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
