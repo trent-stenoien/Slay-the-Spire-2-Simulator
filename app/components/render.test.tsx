@@ -187,10 +187,10 @@ describe('views render', () => {
   });
 
   it('Results body shows the starting-relic note for the setup character', () => {
-    const silent = gameData.characters.silent!;
-    const html = renderResultsPanel({ kind: 'idle' }, { characterId: 'silent' });
+    const defect = gameData.characters.defect!;
+    const html = renderResultsPanel({ kind: 'idle' }, { characterId: 'defect' });
     const body = html.slice(html.indexOf('id="res-body"'));
-    expect(body).toContain(`${silent.startingRelic} (starting relic) is not simulated.`);
+    expect(body).toContain(`${defect.startingRelic} (starting relic) is not simulated.`);
     expect(html).not.toContain('Burning Blood');
   });
 
