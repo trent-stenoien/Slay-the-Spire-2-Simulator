@@ -242,6 +242,15 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Enemy Artifact counts against it: each application uses one stack and is negated, so a card is not played
     when the Artifact stacks cover all its applications.
 
+45. **Silent counters (#265):** Pinpoint costs 1 less per Skill played this turn (minimum 0). Memento Mori
+    deals 4 (5 upgraded) more per card discarded this turn by an effect (the end-of-turn discard does not
+    count; resets each turn). Murder deals 1 more per card drawn this combat (the opening hand counts).
+    Flechettes hits once per Skill in hand and Finisher once per Attack played earlier this turn (not
+    itself), each hit for the card's damage with Strength and modifiers; with none, no hits (0 damage).
+    Escape Plan draws 1 card and gains Block only if the card drawn is a Skill. Expertise draws until the
+    hand holds 6 (7 upgraded) cards; a bigger hand draws nothing. Strategies play Finisher after the other
+    Attacks.
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

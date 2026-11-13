@@ -9,11 +9,53 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "draw",
+      "amount": 1
+    },
+    {
+      "type": "conditional",
+      "if": {
+        "kind": "drewMatching",
+        "filter": {
+          "types": ["skill"]
+        }
+      },
+      "then": [
+        {
+          "type": "gainBlock",
+          "amount": 3
+        }
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "draw",
+        "amount": 1
+      },
+      {
+        "type": "conditional",
+        "if": {
+          "kind": "drewMatching",
+          "filter": {
+            "types": ["skill"]
+          }
+        },
+        "then": [
+          {
+            "type": "gainBlock",
+            "amount": 5
+          }
+        ]
+      }
+    ]
+  },
   "description": "Draw 1 card. / If you draw a Skill, gain 3 Block.",
   "upgradedDescription": "Draw 1 card. / If you draw a Skill, gain 5 Block.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
