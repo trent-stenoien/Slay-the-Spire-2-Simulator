@@ -57,7 +57,7 @@
   },
   "description": "Deal 5 damage. If you lost HP this turn, hits 2 times.",
   "upgradedDescription": "Deal 5 damage. If you lost HP this turn, hits 3 times.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

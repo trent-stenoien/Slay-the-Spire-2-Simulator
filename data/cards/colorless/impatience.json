@@ -51,7 +51,7 @@
   },
   "description": "If you have no Attacks in your Hand, draw 2 cards.",
   "upgradedDescription": "If you have no Attacks in your Hand, draw 3 cards.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

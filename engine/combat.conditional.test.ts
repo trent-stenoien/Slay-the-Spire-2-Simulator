@@ -551,3 +551,86 @@ describe('#111 conditions', () => {
     expect(r.outcome).toBeDefined();
   });
 });
+
+describe('#245 Ironclad and Colorless cards unflagged by the quality loop', () => {
+  /** Turn-1 events only (up to the first turn end). */
+  const turn1 = (log: ReturnType<typeof run>['log']) =>
+    log!.slice(
+      0,
+      log!.findIndex((e) => e.t === 'turnEnd'),
+    );
+  const hurt = helper('hurt', [{ type: 'loseHp', amount: 1 }]);
+  const burn = helper('burn', [], { keywords: ['innate', 'exhaust'] });
+  const hitsOf = (r: ReturnType<typeof run>) => playerHits(r.log).map((e) => e.amount);
+
+  it('Tear Asunder: 5 damage and one more hit per time HP was lost this combat (7 upgraded)', () => {
+    const d = world({ hurt }, ['tear_asunder']);
+    const none = run(d, turnOne('tear_asunder'), deckOf(['tear_asunder', 1]));
+    expect(hitsOf(none)).toEqual([5]);
+    const two = run(d, turnOne('hurt', 'hurt', 'tear_asunder'), deckOf(['hurt', 2], ['tear_asunder', 1]));
+    expect(hitsOf(two)).toEqual([5, 5, 5]);
+    const up = run(d, turnOne('hurt', 'tear_asunder'), deckOf(['hurt', 1], ['tear_asunder', 1, true]));
+    expect(hitsOf(up)).toEqual([7, 7]);
+  });
+
+  it('Spite: 5 damage, 2 hits if HP was lost this turn (3 upgraded)', () => {
+    const d = world({ hurt }, ['spite']);
+    expect(hitsOf(run(d, turnOne('spite'), deckOf(['spite', 1])))).toEqual([5]);
+    expect(hitsOf(run(d, turnOne('hurt', 'spite'), deckOf(['hurt', 1], ['spite', 1])))).toEqual([5, 5]);
+    expect(hitsOf(run(d, turnOne('hurt', 'spite'), deckOf(['hurt', 1], ['spite', 1, true])))).toEqual([5, 5, 5]);
+    expect(hitsOf(run(d, turnOne('spite'), deckOf(['spite', 1, true])))).toEqual([5]);
+  });
+
+  it('Ashen Strike: 6 plus 3 per card in the Exhaust pile (4 upgraded)', () => {
+    const d = world({ burn }, ['ashen_strike']);
+    expect(hitsOf(run(d, turnOne('ashen_strike'), deckOf(['ashen_strike', 1])))).toEqual([6]);
+    const two = run(d, turnOne('burn', 'burn', 'ashen_strike'), deckOf(['burn', 2], ['ashen_strike', 1]));
+    expect(hitsOf(two)).toEqual([12]);
+    const up = run(d, turnOne('burn', 'burn', 'ashen_strike'), deckOf(['burn', 2], ['ashen_strike', 1, true]));
+    expect(hitsOf(up)).toEqual([14]);
+  });
+
+  it('Evil Eye: 8 Block, another 8 if a card was Exhausted this turn (11 + 11 upgraded)', () => {
+    const d = world({ burn }, ['evil_eye']);
+    const gains = (r: ReturnType<typeof run>) => blockGains(r.log).map((e) => e.amount);
+    expect(gains(run(d, turnOne('evil_eye'), deckOf(['evil_eye', 1])))).toEqual([8]);
+    expect(gains(run(d, turnOne('burn', 'evil_eye'), deckOf(['burn', 1], ['evil_eye', 1])))).toEqual([8, 8]);
+    expect(gains(run(d, turnOne('burn', 'evil_eye'), deckOf(['burn', 1], ['evil_eye', 1, true])))).toEqual([11, 11]);
+  });
+
+  it("Pact's End: 17 damage (23 upgraded) only with 3+ cards in the Exhaust pile", () => {
+    const d = world({ burn }, ['pacts_end']);
+    const two = run(d, turnOne('burn', 'burn', 'pacts_end'), deckOf(['burn', 2], ['pacts_end', 1]));
+    expect(hitsOf(two)).toEqual([]);
+    const three = run(d, turnOne('burn', 'burn', 'burn', 'pacts_end'), deckOf(['burn', 3], ['pacts_end', 1]));
+    expect(hitsOf(three)).toEqual([17]);
+    const up = run(d, turnOne('burn', 'burn', 'burn', 'pacts_end'), deckOf(['burn', 3], ['pacts_end', 1, true]));
+    expect(hitsOf(up)).toEqual([23]);
+  });
+
+  it('Impatience: draws 2 (3 upgraded) only when the hand holds no Attack', () => {
+    const atk = helper('atk', [{ type: 'attack', damage: 1, hits: 1 }], { type: 'attack' });
+    const d = world({ atk }, ['impatience']);
+    const draws = (r: ReturnType<typeof run>) => turn1(r.log).filter((e) => e.t === 'draw').length;
+    // Hand: 5 Impatience, 5 more in the draw pile; no Attack anywhere.
+    expect(draws(run(d, turnOne('impatience'), deckOf(['impatience', 10])))).toBe(5 + 2);
+    expect(draws(run(d, turnOne('impatience'), deckOf(['impatience', 10, true])))).toBe(5 + 3);
+    // An innate Attack stays in hand: no draw.
+    expect(draws(run(d, turnOne('impatience'), deckOf(['atk', 1], ['impatience', 9])))).toBe(5);
+  });
+
+  it('Restlessness: with an empty hand, draws 2 and gains 2 Energy (3 and 3 upgraded)', () => {
+    const d = world({}, ['restlessness']);
+    const five = () => turnOne('restlessness', 'restlessness', 'restlessness', 'restlessness', 'restlessness');
+    const stats = (r: ReturnType<typeof run>) => ({
+      draws: turn1(r.log).filter((e) => e.t === 'draw').length,
+      energy: events(turn1(r.log), 'energy').map((e) => e.amount),
+    });
+    const base = stats(run(d, five(), deckOf(['restlessness', 8])));
+    expect(base.draws).toBe(5 + 2);
+    expect(base.energy.filter((a) => a > 0)).toContain(2);
+    const up = stats(run(d, five(), deckOf(['restlessness', 8, true])));
+    expect(up.draws).toBe(5 + 3);
+    expect(up.energy.filter((a) => a > 0)).toContain(3);
+  });
+});

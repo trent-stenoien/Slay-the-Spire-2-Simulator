@@ -53,7 +53,7 @@
   },
   "description": "Gain 8 Block. / Gain another 8 Block if you have Exhausted a card this turn.",
   "upgradedDescription": "Gain 11 Block. / Gain another 11 Block if you have Exhausted a card this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
