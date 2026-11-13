@@ -11,7 +11,7 @@ import {
   normalizeConfig,
   sameConfig,
 } from '../../engine/strategies';
-import type { SavedStrategy, StrategyConfig, StrategyGroup } from '../../engine/types';
+import type { SavedStrategy, StrategyConfig, StrategyGroup, TargetPriority } from '../../engine/types';
 
 export { MAX_ALLOW_THROUGH };
 
@@ -127,11 +127,24 @@ export function groupLabel(config: StrategyConfig, group: StrategyGroup): string
 
 /** #130 default title: the 1st and 2nd priorities, e.g. "Powers, Block (allow 5)" or "Attack, Powers". */
 export function defaultName(config: StrategyConfig): string {
-  return config.order
+  const name = config.order
     .slice(0, 2)
     .map((g) => groupLabel(config, g))
     .join(', ');
+  return config.target === 'biggestAttack' ? `${name}, ${TARGET_SHORT.biggestAttack}` : name;
 }
+
+/** #5 (Trent): the target priority choices, as shown in the strategy editor. */
+export const TARGET_LABEL: Record<TargetPriority, string> = {
+  lowestHp: 'Lowest HP first',
+  biggestAttack: 'Biggest incoming attack first',
+};
+
+/** #5: short form for chips and names. */
+export const TARGET_SHORT: Record<TargetPriority, string> = {
+  lowestHp: 'target lowest HP',
+  biggestAttack: 'target biggest attack',
+};
 
 export function addUserStrategy(
   user: readonly SavedStrategy[],
@@ -162,7 +175,8 @@ export function deleteUserStrategy(user: readonly SavedStrategy[], id: string): 
 
 /** #130: the whole priority order, e.g. "Block (allow 0), Powers, Attack". */
 export function describeConfig(config: StrategyConfig): string {
-  return config.order.map((g) => groupLabel(config, g)).join(', ');
+  const order = config.order.map((g) => groupLabel(config, g)).join(', ');
+  return config.target === 'biggestAttack' ? `${order}; ${TARGET_SHORT.biggestAttack}` : order;
 }
 
 /** The library holds at most this many strategies, defaults included. */

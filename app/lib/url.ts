@@ -46,6 +46,8 @@ const MAX_COPIES = 99;
 const MAX_COMBAT_INDEX = 9999;
 /** Potion slots in the setup (#204). */
 export const MAX_POTIONS = 3;
+/** #5: most enemies in one fight (the first plus four more). */
+export const MAX_ENEMIES = 5;
 
 /** One-letter color codes for the `k` param. */
 const COLOR_LETTER: Record<StrategyColor, string> = { blue: 'b', green: 'g', yellow: 'y', red: 'r', purple: 'p' };
@@ -53,7 +55,10 @@ const LETTER_COLOR = new Map(Object.entries(COLOR_LETTER).map(([c, l]) => [l, c 
 
 export interface SetupState {
   characterId: string;
+  /** The first (leftmost) enemy. */
   enemyId: string;
+  /** #5: more enemies in the same fight, left to right after `enemyId`; absent or empty = one enemy. */
+  extraEnemyIds?: string[];
   ascension: number;
   deck: Deck;
   /** #204: potion ids in slot order (at most MAX_POTIONS); absent means none. */
@@ -93,6 +98,16 @@ export function defaultSetup(data: GameData): SetupState {
     ascension: 0,
     deck: startingDeckFor(data, character.id),
   };
+}
+
+/** #5: every enemy of the setup's fight, left to right. */
+export function setupEnemyIds(setup: SetupState): string[] {
+  return [setup.enemyId, ...(setup.extraEnemyIds ?? [])];
+}
+
+/** #5: the `enemyIds` field for a CombatConfig / RunConfig: present only with several enemies. */
+export function enemyIdsField(setup: SetupState): { enemyIds?: string[] } {
+  return setup.extraEnemyIds && setup.extraEnemyIds.length > 0 ? { enemyIds: setupEnemyIds(setup) } : {};
 }
 
 // ---------------------------------------------------------------------------
@@ -188,16 +203,22 @@ export function decodePotions(data: GameData, text: string): PotionParseResult {
 // Query string
 // ---------------------------------------------------------------------------
 
-/** Build the query string (without "?"). Param order is fixed: v c e a d [p] [r] [s st [k] [n]]. */
+/**
+ * Build the query string (without "?"). Param order is fixed: v c e a d [p] [r] [s st [k] [n]].
+ * #5: `e` holds one two-character code per enemy, left to right ("Nb" or "NbSe").
+ */
 export function buildQuery(data: GameData, setup: SetupState, log?: LogTarget | null): string {
   const character = data.characters[setup.characterId];
-  const enemy = data.enemies[setup.enemyId];
   if (!character) throw new Error(`Unknown character id "${setup.characterId}"`);
-  if (!enemy) throw new Error(`Unknown enemy id "${setup.enemyId}"`);
+  const enemyCodes = setupEnemyIds(setup).map((id) => {
+    const enemy = data.enemies[id];
+    if (!enemy) throw new Error(`Unknown enemy id "${id}"`);
+    return enemy.code;
+  });
   const parts = [
     `v=${URL_VERSION}`,
     `c=${character.code}`,
-    `e=${enemy.code}`,
+    `e=${enemyCodes.join('')}`,
     `a=${setup.ascension}`,
     `d=${encodeDeck(data, setup.deck)}`,
   ];
@@ -279,9 +300,15 @@ export function parseQuery(data: GameData, search: string): ParsedUrl {
 
   const e = p.get('e');
   if (e !== undefined) {
-    const en = Object.values(data.enemies).find((x) => x.code === e);
-    if (en) setup.enemyId = en.id;
-    else errors.push(`Unknown enemy code "${e}"`);
+    // #5: one two-character code per enemy.
+    const codes = e.length > 0 && e.length % 2 === 0 ? (e.match(/../g) ?? []) : [e];
+    const found = codes.map((code) => Object.values(data.enemies).find((x) => x.code === code));
+    if (codes.length > MAX_ENEMIES) errors.push(`At most ${MAX_ENEMIES} enemies, got ${codes.length}`);
+    else if (found.every((x) => x !== undefined)) {
+      const [first, ...rest] = found.map((x) => x!.id);
+      setup.enemyId = first!;
+      if (rest.length > 0) setup.extraEnemyIds = rest;
+    } else errors.push(`Unknown enemy code "${codes[found.indexOf(undefined)]}"`);
   }
 
   const a = p.get('a');
