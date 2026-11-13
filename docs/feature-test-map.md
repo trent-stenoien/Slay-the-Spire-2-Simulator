@@ -256,6 +256,9 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 41c | Lowest HP counts HP + Block; HP-direct effects (Poison, ...) ignore Block (#282) | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > #282: lowest HP counts Block... | caught (Block ignored) |
 | 41b | Different strategies use different priorities in the same fight | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > each strategy uses its own priority in the same fight | caught (lowest HP comparison flipped) |
 | 41c | URL codes ("i") and saved configs keep working | engine/combat.multiEnemy.test.ts > URL codes...; saved configs... | n/a |
+| 43a | Random-target hits pick a living enemy per hit via the seeded Rng; same seed, same log; a one-enemy fight draws nothing | engine/combat.randomTarget.test.ts > #45 random-target attacks (4 tests); `npm run compare-main` | n/a |
+| 43b | Juggernaut hits a random living enemy | engine/combat.randomTarget.test.ts > Juggernaut hits a random living enemy... | n/a |
+| 43c | Strategy plays random-target attacks first with 2+ enemies; a targeted kill goes first; no rule with one enemy | engine/combat.randomTarget.test.ts > #45 strategy: random-target attacks first (4 tests) | n/a |
 | 42 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |
 
 ## Known failure points

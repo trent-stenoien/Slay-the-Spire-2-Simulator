@@ -842,11 +842,16 @@ class Combat {
    * #109: damage to the enemy from a power (Rolling Boulder, Thorns): not an Attack, so Strength,
    * Weak, Vigor, Vulnerable and Cruelty don't change it; the enemy's Block absorbs it.
    * #5: 'target' = the current enemy (skipped if dead); 'all' = every living enemy (Rolling Boulder,
-   * Panache, Inferno, The Bomb); 'any' = the current enemy, or the leftmost living one if it is dead
-   * (Juggernaut's random enemy, #45). Returns true if every enemy is dead.
+   * Panache, Inferno, The Bomb); 'any' = a random living enemy (Juggernaut, #45; the current one when only it lives). Returns true if every enemy is dead.
    */
   private powerDamage(amount: number, to: 'target' | 'all' | 'any' = 'target'): boolean {
-    if (to === 'any') this.retarget();
+    // #45 Juggernaut: a random living enemy (one Rng draw, only while 2+ live); focus returns after.
+    const keep = this.focus;
+    if (to === 'any') {
+      const alive = this.living();
+      if (alive.length > 1) this.focusOn(alive[this.rng.int(0, alive.length - 1)]!);
+      else this.retarget();
+    }
     const died = this.onEnemies(to === 'all', () => {
       const { enemy } = this;
       const blocked = Math.min(enemy.block, amount);
@@ -855,6 +860,7 @@ class Combat {
       enemy.hp -= hpLoss;
       this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
     });
+    if (to === 'any') this.focusOn(keep);
     return died === 'enemy' || this.won();
   }
 
@@ -1362,6 +1368,7 @@ class Combat {
             e.damage + (card?.damageBonus ?? 0) + this.relicCardDamage(card),
             attackHits(e, x),
             e.allEnemies,
+            e.randomTarget,
           );
           break;
         case 'gainBlock': {
@@ -2584,8 +2591,8 @@ class Combat {
    * Vigor to the base (#109) and Cruelty to Vulnerable (playerAttack). After each enemy hit on the
    * player (blocked or not) Thorns deals its damage back (#109). Returns the side that died, if one did.
    */
-  private attack(source: Side, _target: Side, damage: number, hits: number, all = false): Side | null {
-    if (source === 'player') return this.playerAttack(damage, hits, all);
+  private attack(source: Side, _target: Side, damage: number, hits: number, all = false, random = false): Side | null {
+    if (source === 'player') return this.playerAttack(damage, hits, all, random);
     // An enemy's attack: the current enemy hits the player.
     const { player, enemy } = this;
     // #110: the enemy's Strength is lowered through its turn by Mangle / Dark Shackles (0 damage at worst),
@@ -2619,9 +2626,10 @@ class Combat {
    * The player's attack (see `attack`). #5: a single-target attack hits the current enemy and stops
    * when it dies (the remaining hits are lost); with `all`, each hit lands on every living enemy,
    * left to right, before the next hit. Vulnerable is read per enemy. Returns 'enemy' when every
-   * enemy is dead.
+   * enemy is dead. #45 `random`: each hit lands on a random living enemy (one Rng draw per hit, only
+   * while 2+ enemies live, so single-enemy fights draw nothing); hits keep going after a kill.
    */
-  private playerAttack(damage: number, hits: number, all: boolean): Side | null {
+  private playerAttack(damage: number, hits: number, all: boolean, random = false): Side | null {
     const { player } = this;
     this.clearDeadShrink();
     const base = damage + this.activeVigor;
@@ -2631,7 +2639,11 @@ class Combat {
     const multi = all && this.enemies.length > 1;
     const keep = this.focus;
     for (let h = 0; h < hits; h++) {
-      const targets = multi ? this.living() : this.enemy.hp > 0 ? [this.focus] : [];
+      let targets = multi ? this.living() : this.enemy.hp > 0 ? [this.focus] : [];
+      if (random && this.enemies.length > 1) {
+        const alive = this.living();
+        targets = alive.length > 1 ? [alive[this.rng.int(0, alive.length - 1)]!] : alive;
+      }
       if (targets.length === 0) break;
       for (const i of targets) {
         this.focusOn(i);
@@ -2655,7 +2667,7 @@ class Combat {
         if (this.won()) return 'enemy';
       }
     }
-    if (multi) this.focusOn(keep);
+    if (multi || (random && this.enemies.length > 1)) this.focusOn(keep);
     return null;
   }
 

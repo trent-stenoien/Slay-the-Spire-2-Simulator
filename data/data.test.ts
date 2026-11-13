@@ -119,17 +119,20 @@ describe('real game data', () => {
     ]);
   });
 
-  // Random-target damage is the one enemy in a single-enemy fight (#6): plain attack, no target flag.
+  // #45: random-target damage is a multi-hit attack flagged `randomTarget` (one enemy in a single-enemy fight, #6).
   it.each([
     ['sword_boomerang', 3, 3, 3, 4, true],
     ['rip_and_tear', 7, 2, 9, 2, true],
     ['ricochet', 3, 4, 3, 5, false], // Sly keeps it unsimulated
-  ] as const)('random-target card %s is a plain multi-hit attack', (id, dmg, hits, upDmg, upHits, simulated) => {
-    const c = gameData.cards[id]!;
-    expect(c.effects).toEqual([{ type: 'attack', damage: dmg, hits }]);
-    expect(c.upgraded?.effects).toEqual([{ type: 'attack', damage: upDmg, hits: upHits }]);
-    expect(c.simulated).toBe(simulated);
-  });
+  ] as const)(
+    'random-target card %s is a multi-hit attack flagged randomTarget',
+    (id, dmg, hits, upDmg, upHits, simulated) => {
+      const c = gameData.cards[id]!;
+      expect(c.effects).toEqual([{ type: 'attack', damage: dmg, hits, randomTarget: true }]);
+      expect(c.upgraded?.effects).toEqual([{ type: 'attack', damage: upDmg, hits: upHits, randomTarget: true }]);
+      expect(c.simulated).toBe(simulated);
+    },
+  );
 
   it('Nibbit is at code Nb', () => {
     expect(enemyByCode('Nb')?.id).toBe('nibbit');
