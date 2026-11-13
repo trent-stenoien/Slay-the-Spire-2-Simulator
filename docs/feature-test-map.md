@@ -29,6 +29,7 @@ Round 1, test reviewer. Break edits were never committed.
 | 4a | Heals count in full past damage / Max HP (overheal) | engine/combat.statuses.test.ts > #115 heal and hpLost > #205 Not Yet heals in full for HP lost, past the damage taken; a heal at full HP still counts in full | caught (overheal dropped) |
 | 4b | hpLost = start - final - overheal; Trent's examples (-3, -6) | engine/combat.relics.test.ts > #205 HP lost with heals and startHp > Trent's example 70/80 ... → −3; a fight with no damage and Burning Blood is −6 | caught (overheal ignored) |
 | 4c | startHp starts a combat lower | engine/combat.relics.test.ts > startHp sets the HP the combat starts at; HP lost is counted from it | covered by 4b break (same formula) |
+| 4c2 | A2+ default start HP per character (Ironclad 64, Silent 56), Max HP unchanged, explicit startHp wins (#286) | engine/combat.relics.test.ts > #286 Ascension 2+ starts at the character's lower HP; app/lib/startHp.test.ts | caught (default ignores ascension) |
 | 4d | Feed's Max HP gain raises current HP (Feed at full HP -> -3) | engine/combat.statuses.test.ts > #115 Max HP > #205 HP lost can go below 0 after Feed at full HP (80/80 → 83/83 = −3) | caught (current HP not raised) |
 | 4e | Brightest Flame cap counts as lost (69/70 -> 68/68) | engine/combat.statuses.test.ts > Brightest Flame caps current HP and the HP removed counts as lost | caught (cap removed) |
 | 4f | Burning Blood heals only on a win | engine/combat.relics.test.ts > Burning Blood does not heal on a loss | caught (also heals on loss) |

@@ -1,6 +1,6 @@
 import { createRng } from './rng';
 import { cardPool, chooseGenerated } from './generate';
-import { patternMoveIds, patternPool, resolveEnemy } from './enemy';
+import { defaultStartHp, patternMoveIds, patternPool, resolveEnemy } from './enemy';
 import {
   COLOSSUS_REDUCTION,
   attackDamage,
@@ -405,7 +405,7 @@ class Combat {
   private returning: { uid: number; to: CardDestination }[] = [];
   /** #116: cost a card had before it became free this turn (restored at the end of the turn). */
   private readonly freeBackup = new Map<number, number | null>();
-  /** #205: HP at the start of combat (config.startHp, or Max HP); `hpLost` is measured against it. */
+  /** #205: HP at the start of combat (config.startHp, or the character's start HP at that Ascension, #286); `hpLost` is measured against it. */
   private readonly startHp: number;
   /** #205: relics in play, in pick order. */
   private readonly relics: ActiveRelic[];
@@ -453,7 +453,7 @@ class Combat {
     this.log = logging ? [] : null;
     this.nextUid = deck.length;
     this.relics = activeRelics(data, config);
-    const startHp = config.startHp ?? character.maxHp;
+    const startHp = config.startHp ?? defaultStartHp(character, config.ascension);
     if (!Number.isInteger(startHp) || startHp < 1 || startHp > character.maxHp) {
       throw new Error(`startHp ${startHp} must be an integer from 1 to Max HP ${character.maxHp}`);
     }

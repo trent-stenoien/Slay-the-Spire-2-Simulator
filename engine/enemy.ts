@@ -1,4 +1,4 @@
-import type { Effect, EnemyDef, EnemyMove, MovePattern } from './types';
+import type { CharacterDef, Effect, EnemyDef, EnemyMove, MovePattern } from './types';
 
 function cloneEffects(effects: readonly Effect[]): Effect[] {
   return effects.map((e) => ({ ...e }));
@@ -21,6 +21,23 @@ export function patternPool(p: MovePattern): readonly string[] {
 export function patternMoveIds(p: MovePattern): string[] {
   const opener = p.type === 'alternate' ? Object.values(p.openerBySlot ?? {}) : (p.opener ?? []);
   return [...opener, ...patternPool(p)];
+}
+
+/**
+ * #286: the HP a combat starts at when `startHp` is not given. Applies the character's Ascension
+ * overrides cumulatively (levels at or below `ascension`, ascending); Max HP is not changed.
+ */
+export function defaultStartHp(character: CharacterDef, ascension: number): number {
+  let hp = character.maxHp;
+  const levels = Object.keys(character.ascension ?? {})
+    .map(Number)
+    .filter((l) => l <= ascension)
+    .sort((a, b) => a - b);
+  for (const l of levels) {
+    const o = character.ascension![String(l)]!.startHp;
+    if (o !== undefined) hp = o;
+  }
+  return hp;
 }
 
 /**

@@ -5,7 +5,7 @@ import { simulateCombat } from './combat';
 import { cfg, deckOf, dummy, events, logged, scripted, withEnemy } from './combatTestHelpers';
 import { cards, makeEnemy, makeGameData } from './testFixtures';
 import { runSimulationSync, summarize } from './montecarlo';
-import { GREEDY_CONFIG } from './strategies';
+import { GREEDY_CONFIG, createStrategy } from './strategies';
 import type { CardDef, CombatConfig, CombatResult, Effect, GameData, Strategy, StrategyView } from './types';
 
 const card = (id: string, code: string, effects: Effect[], extra: Partial<CardDef> = {}): CardDef => ({
@@ -125,6 +125,18 @@ describe('#205 HP lost with heals and startHp', () => {
     expect(r.hpLost).toBe(5);
     expect(() => quickWin({ startHp: 81 })).toThrow(/startHp/);
     expect(() => quickWin({ startHp: 0 })).toThrow(/startHp/);
+  });
+
+  it("#286 Ascension 2+ starts at the character's lower HP; Max HP and explicit startHp are unchanged", () => {
+    const d = gameData;
+    const run = (c: Partial<CombatConfig>) =>
+      simulateCombat(d, cfg({ ascension: 2, ...c }), createStrategy(GREEDY_CONFIG), { log: true });
+    expect(run({ ascension: 1 }).log![0]).toMatchObject({ t: 'combatStart', playerHp: 80 });
+    expect(run({}).log![0]).toMatchObject({ t: 'combatStart', playerHp: 64 });
+    expect(run({ ascension: 5 }).log![0]).toMatchObject({ t: 'combatStart', playerHp: 64 });
+    expect(run({ startHp: 70 }).log![0]).toMatchObject({ t: 'combatStart', playerHp: 70 });
+    expect(run({ characterId: 'silent' }).log![0]).toMatchObject({ t: 'combatStart', playerHp: 56 });
+    expect(d.characters.ironclad!.maxHp).toBe(80);
   });
 
   it('Monte Carlo: hpLostCounts start at minHpLost when HP lost goes negative', () => {

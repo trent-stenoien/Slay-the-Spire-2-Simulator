@@ -7,7 +7,7 @@
  */
 import type { CardDef, CharacterDef, EnemyDef, GameData, Manifest, PotionDef, RelicDef } from '../engine/types';
 import reservedCodes from './reserved-codes.json';
-import { CHARACTER_CODES } from './validate/lists';
+import { CHARACTER_CODES, NUMERIC_KEY } from './validate/lists';
 import { type Obj, isObj, Reporter } from './validate/shared';
 import { checkCard } from './validate/cards';
 import { checkEnemy } from './validate/enemies';
@@ -57,6 +57,23 @@ function checkCharacter(r: Reporter, c: Obj, cardIds: Set<string>): void {
     r.int(entry, 'count', 1, `${p}.count`);
   });
   r.str(c, 'startingRelic');
+  const asc = c.ascension === undefined ? undefined : r.obj(c, 'ascension');
+  if (asc) {
+    for (const [level, o] of Object.entries(asc)) {
+      const p = `ascension.${level}`;
+      if (!NUMERIC_KEY.test(level)) r.add(p, 'key must be a numeric string, e.g. "2"');
+      if (!isObj(o)) {
+        r.add(p, 'must be an object');
+        continue;
+      }
+      if (o.startHp !== undefined) {
+        const hp = r.int(o, 'startHp', 1, `${p}.startHp`);
+        const max = c.maxHp;
+        if (hp !== undefined && typeof max === 'number' && hp > max)
+          r.add(`${p}.startHp`, `must not exceed maxHp ${max}`);
+      }
+    }
+  }
   r.str(c, 'lastUpdateVersion');
 }
 
