@@ -242,6 +242,22 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Enemy Artifact counts against it: each application uses one stack and is negated, so a card is not played
     when the Artifact stacks cover all its applications.
 
+## Silent trigger powers (#266)
+
+45. **Silent trigger powers (#266):** Afterimage: each card played after it gains [amount] Block (power Block: no
+    Dexterity or Frail; its own card does not count). Serpent Form: each such card deals [amount] damage to a random
+    living enemy (not an Attack: Block absorbs it; Strength, Weak and Vulnerable do not change it). Speedster: each
+    card drawn during the player's turn, the turn-start draw included, deals [amount] damage to ALL enemies (power
+    damage). Tools of the Trade: at the start of each turn after the normal draw, draw [amount], then discard
+    [amount] cards from the hand; the strategy discards in the exhaust order, with Sly cards ahead of curses and
+    statuses except those that hurt while kept (Trent, #259). Tracking (main release): Attacks deal double damage to
+    a Weak enemy (a ×2 multiplier floored once, ×3 with Vulnerable; it is not Weak on the player).
+46. **Well-Laid Plans (#266, Trent):** at the end of the turn up to [amount] cards (1, upgraded 2) are retained
+    (Ethereal and Retain cards are not offered; curses and statuses are never kept). The strategy keeps the card it
+    needs next turn for its top priority (the first group of its order with a card in hand; a Block-first strategy
+    keeps a Block card, the best of the group first), unless more than half of the draw pile is cards of that
+    group, in which case it keeps other cards first (leftover slots take the demoted ones).
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

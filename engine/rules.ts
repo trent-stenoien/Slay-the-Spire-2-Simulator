@@ -16,6 +16,7 @@ import type {
  * (25 → ×1.75, 50 → ×2); it only matters when the target is Vulnerable. #4 Shrink: the attacker
  * deals `shrinkPercent`% less, applied after every other modifier (×0.7 for 30). #110 Colossus:
  * `reducePercent` is a further percent less on the same floor (50 → ×0.5, so Weak + Colossus = ×0.375).
+ * #266 Tracking: `trackingDouble` (the target is Weak and the attacker has Tracking) doubles it (×2, so Vulnerable + Tracking = ×3).
  */
 export function attackDamage(
   base: number,
@@ -25,10 +26,13 @@ export function attackDamage(
   crueltyPercent = 0,
   shrinkPercent = 0,
   reducePercent = 0,
+  trackingDouble = false,
 ): number {
   let dmg = base + attackerStrength;
   if (attackerWeak > 0) dmg *= 0.75;
   if (targetVulnerable > 0) dmg *= 1.5 + crueltyPercent / 100;
+  // #266 Tracking: a Weak target takes double (a multiplier like Vulnerable, floored once at the end).
+  if (trackingDouble) dmg *= 2;
   // Integer percent math (× 70 / 100) so e.g. 10 × 0.7 can't floor to 6.
   if (shrinkPercent > 0) dmg = (dmg * (100 - shrinkPercent)) / 100;
   if (reducePercent > 0) dmg = (dmg * (100 - reducePercent)) / 100;
