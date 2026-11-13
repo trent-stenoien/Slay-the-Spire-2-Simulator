@@ -386,8 +386,37 @@ describe('#262 Silent Shiv cards (main-release values)', () => {
     expect(c[id!]).toMatchObject({ simulated: true, cost, effects: base, upgraded: { effects: up } });
   });
 
-  it('Hidden Daggers (needs the discard choice, #259) and Blade of Ink (Inky unknown) stay unsimulated', () => {
+  it('Hidden Daggers stays unsimulated until the discard choice exists (#259)', () => {
     expect(c.hidden_daggers).toMatchObject({ simulated: false });
-    expect(c.blade_of_ink).toMatchObject({ simulated: false });
+  });
+
+  it('#285 Blade of Ink adds 2 (3 upgraded) Inky Shivs; an Inky Shiv is a Shiv that also applies 1 Weak', () => {
+    const inky = (count: number) => ({
+      type: 'addCards',
+      source: { kind: 'card', cardId: 'inky_shiv' },
+      count,
+      to: 'hand',
+    });
+    expect(c.blade_of_ink).toMatchObject({
+      simulated: true,
+      cost: 1,
+      effects: [inky(2)],
+      upgraded: { effects: [inky(3)] },
+    });
+    expect(c.inky_shiv).toMatchObject({
+      simulated: true,
+      cost: 0,
+      keywords: ['exhaust'],
+      effects: [
+        { type: 'attack', damage: 4, hits: 1 },
+        { type: 'applyWeak', amount: 1 },
+      ],
+      upgraded: {
+        effects: [
+          { type: 'attack', damage: 6, hits: 1 },
+          { type: 'applyWeak', amount: 1 },
+        ],
+      },
+    });
   });
 });
