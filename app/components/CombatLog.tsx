@@ -12,7 +12,8 @@ import {
   type SideSnapshot,
 } from '../lib/logReplay';
 import { setupHref } from '../lib/links';
-import type { LogTarget, SetupState } from '../lib/url';
+import { setupEnemyIds, type LogTarget, type SetupState } from '../lib/url';
+import { enemyNames } from '../lib/results';
 import { Panel } from './Panel';
 import { deckSize } from '../lib/deck';
 import { toDisplayCombat } from '../lib/combatPicker';
@@ -65,7 +66,7 @@ export function CombatLog({ data, setup, target }: Props) {
 }
 
 function LogHeader({ data, setup, target, children }: Props & { children: ReactNode }) {
-  const enemy = data.enemies[setup.enemyId];
+  const enemy = enemyNames(data, setupEnemyIds(setup));
   return (
     <>
       <div className="panel-actions">
@@ -79,7 +80,7 @@ function LogHeader({ data, setup, target, children }: Props & { children: ReactN
         </p>
       )}
       <p className="muted small">
-        {enemy?.name ?? setup.enemyId}, {ascensionLabel(setup.ascension)}, {deckSize(setup.deck)}-card deck. {children}
+        {enemy}, {ascensionLabel(setup.ascension)}, {deckSize(setup.deck)}-card deck. {children}
         Seed {target.seed}.
       </p>
     </>
@@ -300,7 +301,13 @@ function RoundBody({
     <div className="round-body">
       <div className="fighters">
         <Fighter label="You" start={round.start.player} end={round.end.player} />
-        <Fighter label="Enemy" start={round.start.enemy} end={round.end.enemy} />
+        {round.start.enemies.length > 1 ? (
+          round.start.enemies.map((start, i) => (
+            <Fighter key={i} label={`Enemy ${i + 1}`} start={start} end={round.end.enemies[i] ?? start} />
+          ))
+        ) : (
+          <Fighter label="Enemy" start={round.start.enemy} end={round.end.enemy} />
+        )}
       </div>
       <p className="intent">{enemyIntentLabel(intent?.intent ?? null, intent?.effects)}</p>
       <div className={`phase phase-you phase-${characterId}`}>

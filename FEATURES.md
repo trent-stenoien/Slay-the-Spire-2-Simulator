@@ -195,6 +195,32 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     collapsed; enemy, relic and potion lists are alphabetical; the relic remove "x" has no border; the
     version label reads "Slay the Spire 2 <gameVersion>".
 
+## Multi-enemy fights (#5)
+
+40. **Several enemies (#5):** a fight can have up to 5 enemies (`enemyIds`, left to right); each has its
+    own HP, Block, statuses, powers and move pattern. Enemy turn: every living enemy's Block resets, then
+    each one's Poison, then each moves left to right, then the player's "until the enemy turn ends"
+    powers end, then each enemy's temporary Strength loss ends, Strength per turn is gained and debuffs
+    tick. The fight is won only when every enemy is dead; a dead enemy never acts and can't be targeted.
+    A single-target card hits the strategy's target; if that enemy dies mid-card, the rest of its hits
+    and effects on it are lost (other effects still resolve). A dead or missing target falls back to the
+    current enemy, else the leftmost living one (also for cards played by effects, Replay and Juggernaut;
+    random targets are #45). ALL effects (attacks, The Bomb, Rolling Boulder, Panache, Inferno, and
+    Vulnerable / Weak / Poison with `allEnemies`: Thunderclap, Shockwave, Scare, Bag of Marbles) hit
+    every living enemy; a multi-hit ALL attack lands each hit on all enemies before the next hit, and
+    counts its damage once per enemy hit (#6). Thorns killing an attacker stops its attack; the others
+    still act. Feed / Hand of Greed count a kill while other enemies live. Shrink ends when the enemy that
+    applied it dies. HP left (`enemyHpRemaining`) is summed. Single-enemy fights are unchanged.
+41. **Target priority (#5, Trent):** each strategy picks "Lowest HP first" (default) or "Biggest incoming
+    attack first" (ties: lowest HP); further ties go to the leftmost enemy. Strategies in one run can use
+    different priorities. The Block group plans against all enemies' incoming damage combined. URL
+    strategy codes end in "i" for Biggest attack; older codes and saved strategies mean Lowest HP.
+42. **Multi-enemy UI (#5):** Setup has "Add enemy" / "Remove enemy N" (any enemy), the link holds one
+    enemy code per enemy (`e=NbSe`), the results text joins the names ("Ironclad vs A and B"), the
+    combat log shows one HP bar per enemy, lines "Enemy N:" before that enemy's events, and one intent
+    line naming every living enemy's move with the total incoming damage. The strategy editor and the
+    New Strategy form have a Target picker.
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

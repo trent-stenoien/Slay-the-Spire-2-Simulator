@@ -105,10 +105,19 @@ export function resolveRunSeed(text: string, random: () => number = Math.random)
   return parsed === undefined ? undefined : (parsed ?? randomSeed(random));
 }
 
-/** "Ironclad vs Nibbit, Ascension 0. 10,000 simulated combats per strategy." from the run's own config. */
+/** #5: enemy names joined for display: "A", "A and B", "A, B and C". */
+export function enemyNames(data: GameData, ids: readonly string[]): string {
+  const names = ids.map((id) => data.enemies[id]?.name ?? id);
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
+
+/**
+ * "Ironclad vs Nibbit, Ascension 0. 10,000 simulated combats per strategy." from the run's own config.
+ * #5 (#80): several enemies are joined ("Ironclad vs A and B, ...").
+ */
 export function describeRun(data: GameData, cfg: RunConfig): string {
   const character = data.characters[cfg.characterId]?.name ?? cfg.characterId;
-  const enemy = data.enemies[cfg.enemyId]?.name ?? cfg.enemyId;
+  const enemy = enemyNames(data, cfg.enemyIds && cfg.enemyIds.length > 0 ? cfg.enemyIds : [cfg.enemyId]);
   return `${character} vs ${enemy}, Ascension ${cfg.ascension}. ${COMBATS_PER_RUN.toLocaleString('en-US')} simulated combats per strategy.`;
 }
 

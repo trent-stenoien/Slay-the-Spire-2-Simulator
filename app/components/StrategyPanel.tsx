@@ -1,15 +1,24 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { blockIsLast } from '../../engine/strategies';
+import { blockIsLast, TARGET_PRIORITIES } from '../../engine/strategies';
 import {
   MAX_STRATEGIES_PER_RUN,
   type SavedStrategy,
   type StrategyColor,
   type StrategyConfig,
   type StrategyGroup,
+  type TargetPriority,
 } from '../../engine/types';
 import { Panel } from './Panel';
 import { COLORS, COLOR_HEX, isColorTaken, type Selection } from '../lib/colors';
-import { defaultName, GROUP_LABEL, isBuiltIn, parseAllowThrough, strategyProblem } from '../lib/strategyLibrary';
+import {
+  defaultName,
+  GROUP_LABEL,
+  isBuiltIn,
+  parseAllowThrough,
+  strategyProblem,
+  TARGET_LABEL,
+  TARGET_SHORT,
+} from '../lib/strategyLibrary';
 
 interface Props {
   library: SavedStrategy[];
@@ -70,6 +79,7 @@ function PriorityChips({ config }: { config: StrategyConfig }) {
           {g === 'block' && !last && <> · allow {config.allowThrough}</>}
         </li>
       ))}
+      {config.target === 'biggestAttack' && <li className="prio-chip">{TARGET_SHORT.biggestAttack}</li>}
     </ol>
   );
 }
@@ -177,6 +187,7 @@ function StrategyEditor({
   const [draft, setDraft] = useState<Draft>(() => ({
     order: [...s.config.order],
     allow: String(s.config.allowThrough),
+    target: s.config.target ?? 'lowestHp',
   }));
   const config = draftConfig(draft);
   const problem = config ? strategyProblem(library, config, s.id) : null;
@@ -192,23 +203,46 @@ function StrategyEditor({
         <input defaultValue={s.name} onBlur={(e) => onRename(s.id, e.target.value)} maxLength={40} />
       </label>
       <OrderEditor draft={draft} powerNames={powerNames} onChange={change} label={`Priority for ${s.name}`} />
+      <TargetPicker draft={draft} onChange={change} label={`Target priority for ${s.name}`} />
       {config === null && <small className="warn">Allowance must be a whole number, 0 or more.</small>}
       {problem && <small className="warn">{problem} Change the order or allowance; this edit isn&apos;t saved.</small>}
     </div>
   );
 }
 
-/** The editable state of a priority order: the allowance stays text while it's typed. */
+/** The editable state of a priority order: the allowance stays text while it's typed. #5: the target priority. */
 interface Draft {
   order: StrategyGroup[];
   allow: string;
+  target: TargetPriority;
 }
 
 /** The config a draft describes, or null when the allowance is needed and isn't a valid number. */
 function draftConfig(d: Draft): StrategyConfig | null {
-  if (d.order[d.order.length - 1] === 'block') return { order: d.order, allowThrough: 0 };
+  const target = d.target === 'biggestAttack' ? { target: d.target } : {};
+  if (d.order[d.order.length - 1] === 'block') return { order: d.order, allowThrough: 0, ...target };
   const n = parseAllowThrough(d.allow);
-  return n === null ? null : { order: d.order, allowThrough: n };
+  return n === null ? null : { order: d.order, allowThrough: n, ...target };
+}
+
+/** #5 (Trent): which enemy the strategy's cards target when the fight has several. */
+function TargetPicker({ draft, onChange, label }: { draft: Draft; onChange: (d: Draft) => void; label: string }) {
+  return (
+    <label className="field">
+      <span>Target (several enemies)</span>
+      <select
+        aria-label={label}
+        value={draft.target}
+        onChange={(e) => onChange({ ...draft, target: e.target.value as TargetPriority })}
+      >
+        {TARGET_PRIORITIES.map((t) => (
+          <option key={t} value={t}>
+            {TARGET_LABEL[t]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function moved<T>(list: readonly T[], from: number, to: number): T[] {
@@ -433,7 +467,7 @@ const ArrowIcon = ({ up = false }: { up?: boolean }) => (
 );
 
 /** Starts as the old default custom strategy: Block (allow 5), Powers, Attack. */
-const NEW_DRAFT: Draft = { order: ['block', 'powers', 'attack'], allow: '5' };
+const NEW_DRAFT: Draft = { order: ['block', 'powers', 'attack'], allow: '5', target: 'lowestHp' };
 
 function NewStrategyForm({
   library,
@@ -469,6 +503,7 @@ function NewStrategyForm({
         />
       </label>
       <OrderEditor draft={draft} powerNames={powerNames} onChange={setDraft} label="Priority for the new strategy" />
+      <TargetPicker draft={draft} onChange={setDraft} label="Target priority for the new strategy" />
       {config === null && <small className="warn">Allowance must be a whole number, 0 or more.</small>}
       {problem && <small className="warn">{problem}</small>}
       <div className="new-strat-actions">

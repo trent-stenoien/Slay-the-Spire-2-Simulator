@@ -14,22 +14,26 @@
   "effects": [
     {
       "type": "applyWeak",
-      "amount": 3
+      "amount": 3,
+      "allEnemies": true
     },
     {
       "type": "applyVulnerable",
-      "amount": 3
+      "amount": 3,
+      "allEnemies": true
     }
   ],
   "upgraded": {
     "effects": [
       {
         "type": "applyWeak",
-        "amount": 5
+        "amount": 5,
+        "allEnemies": true
       },
       {
         "type": "applyVulnerable",
-        "amount": 5
+        "amount": 5,
+        "allEnemies": true
       }
     ]
   },

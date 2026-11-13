@@ -14,7 +14,8 @@
   "effects": [
     {
       "type": "applyWeak",
-      "amount": 1
+      "amount": 1,
+      "allEnemies": true
     }
   ],
   "upgraded": {

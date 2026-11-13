@@ -15,17 +15,24 @@ export interface SideSnapshot {
   poison: number;
 }
 
+/** Both sides at one moment. `enemy` is the first enemy; #5: `enemies` has every enemy, left to right. */
+export interface RoundSnapshot {
+  player: SideSnapshot;
+  enemy: SideSnapshot;
+  enemies: SideSnapshot[];
+}
+
 export interface Round {
   turn: number;
   /** State at the start of the round, before the player's block resets. */
-  start: { player: SideSnapshot; enemy: SideSnapshot };
+  start: RoundSnapshot;
   /** State at the end of the round (after the enemy acts, or when combat ended). */
-  end: { player: SideSnapshot; enemy: SideSnapshot };
+  end: RoundSnapshot;
   /** Card ids drawn at the start of this round's player turn, in order. Mid-turn draws are events. */
   drawn: string[];
   /** Player phase events (after turnStart player, up to the enemy turnStart). */
   playerEvents: GameEvent[];
-  /** Enemy move name, or null if the combat ended first. */
+  /** Enemy move name, or null if the combat ended first. #5: several enemies' moves joined by " + ". */
   enemyMove: string | null;
   /** Enemy move id, or null if the combat ended first. */
   enemyMoveId: string | null;
@@ -66,15 +73,22 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
     debuffs: emptyDebuffs(),
     poison: 0,
   };
-  const enemy: SideSnapshot = {
-    hp: enemyMaxHp,
-    maxHp: enemyMaxHp,
+  // #5: one snapshot per enemy; `target` events say which enemy later enemy-side events are about.
+  const enemyHps = startEv?.t === 'combatStart' ? (startEv.enemyHps ?? [enemyMaxHp]) : [enemyMaxHp];
+  const enemies: SideSnapshot[] = enemyHps.map((hp) => ({
+    hp,
+    maxHp: hp,
     block: 0,
     strength: 0,
     debuffs: emptyDebuffs(),
     poison: 0,
-  };
+  }));
+  let enemy = enemies[0]!;
   const side = (s: 'player' | 'enemy') => (s === 'player' ? player : enemy);
+  const snapshot = (): RoundSnapshot => {
+    const all = enemies.map(clone);
+    return { player: clone(player), enemy: all[0]!, enemies: all };
+  };
 
   const rounds: Round[] = [];
   let cur: Round | null = null;
@@ -85,7 +99,7 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
   let played = false;
 
   const closeRound = () => {
-    if (cur) cur.end = { player: clone(player), enemy: clone(enemy) };
+    if (cur) cur.end = snapshot();
   };
 
   for (const ev of log) {
@@ -93,7 +107,7 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
       case 'turnStart':
         if (ev.side === 'player') {
           closeRound();
-          const snap = { player: clone(player), enemy: clone(enemy) };
+          const snap = snapshot();
           cur = {
             turn: ev.turn,
             start: snap,
@@ -113,6 +127,9 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
         }
         phase = 'enemy';
         continue;
+      case 'target':
+        enemy = enemies[ev.enemy] ?? enemy;
+        break;
       case 'blockReset':
         side(ev.side).block = 0;
         break;
@@ -166,8 +183,8 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
         break;
       case 'enemyMove':
         if (cur) {
-          cur.enemyMove = ev.name;
-          cur.enemyMoveId = ev.moveId;
+          cur.enemyMove = cur.enemyMove === null ? ev.name : `${cur.enemyMove} + ${ev.name}`;
+          cur.enemyMoveId ??= ev.moveId;
         }
         break;
       case 'combatEnd':
@@ -268,6 +285,9 @@ export function describeEvent(
       return ev.reason === 'reshuffle' ? `Discard pile shuffled into draw pile (${ev.count} cards)` : null;
     case 'enemyMove':
       return `Enemy uses ${ev.name}`;
+    case 'target':
+      // #5: the following lines are about this enemy (1-based, left to right).
+      return `Enemy ${ev.enemy + 1}:`;
     case 'potion':
       return `You use ${ev.potionId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`;
     default:
@@ -360,6 +380,8 @@ export function moveEffectsText(effects: readonly Effect[], intent: EnemyIntent)
 /** "Enemy Intent: Butt (12 damage)". */
 export function enemyIntentLabel(intent: EnemyIntent | null, effects: readonly Effect[] = []): string {
   if (!intent) return 'Enemy Intent: unknown';
-  const fx = moveEffectsText(effects, intent);
+  // #5: a combined intent of several enemies has no effect list; it shows the total incoming damage.
+  const fx =
+    moveEffectsText(effects, intent) || (intent.totalIncoming > 0 ? `${intent.totalIncoming} damage in all` : '');
   return `Enemy Intent: ${intent.name}${fx ? ` (${fx})` : ''}`;
 }

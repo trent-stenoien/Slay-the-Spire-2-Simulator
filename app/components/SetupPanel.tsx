@@ -2,13 +2,15 @@ import type { EnemyDef, GameData, RelicSetup, Zone } from '../../engine/types';
 import { isCharacterSimulated } from '../lib/deck';
 import { selectableRelics, setupRelics } from '../lib/relics';
 import { Panel } from './Panel';
-import { MAX_ASCENSION, MAX_POTIONS, type SetupState } from '../lib/url';
+import { MAX_ASCENSION, MAX_ENEMIES, MAX_POTIONS, type SetupState } from '../lib/url';
 
 interface Props {
   data: GameData;
   setup: SetupState;
   onCharacter: (characterId: string) => void;
   onEnemy: (enemyId: string) => void;
+  /** #5: more enemies in the same fight, after the first (the picker shows only when this is set). */
+  onExtraEnemies?: (enemyIds: string[]) => void;
   onAscension: (ascension: number) => void;
   /** #204: potion ids in slot order (empty slots dropped). */
   onPotions?: (potions: string[]) => void;
@@ -109,8 +111,50 @@ export function RelicPicker({
   );
 }
 
+/**
+ * #5: the other enemies of a multi-enemy fight, left to right after the first: each can be changed
+ * or removed, and "Add enemy" adds one (any enemy, up to MAX_ENEMIES in all).
+ */
+function ExtraEnemies({ data, ids, onChange }: { data: GameData; ids: string[]; onChange: (ids: string[]) => void }) {
+  const all = Object.values(data.enemies).sort((a, b) => a.act - b.act || a.name.localeCompare(b.name));
+  const first = all[0];
+  return (
+    <div className="field-row extra-enemies">
+      {ids.map((id, i) => (
+        <label className="field" key={i}>
+          <span>Enemy {i + 2}</span>
+          <select value={id} onChange={(e) => onChange(ids.map((x, j) => (j === i ? e.target.value : x)))}>
+            {all.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name} ({e.difficulty})
+              </option>
+            ))}
+          </select>
+          <button type="button" className="btn-link" onClick={() => onChange(ids.filter((_, j) => j !== i))}>
+            Remove enemy {i + 2}
+          </button>
+        </label>
+      ))}
+      {first && ids.length + 1 < MAX_ENEMIES && (
+        <button type="button" onClick={() => onChange([...ids, first.id])}>
+          Add enemy
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Character, Act, biome, enemy, Ascension and relic pickers. */
-export function SetupPanel({ data, setup, onCharacter, onEnemy, onAscension, onPotions, onRelics }: Props) {
+export function SetupPanel({
+  data,
+  setup,
+  onCharacter,
+  onEnemy,
+  onExtraEnemies,
+  onAscension,
+  onPotions,
+  onRelics,
+}: Props) {
   const order = ['I', 'S', 'R', 'N', 'D']; // in-game order
   const characters = Object.values(data.characters).sort((a, b) => order.indexOf(a.code) - order.indexOf(b.code));
   const current = data.enemies[setup.enemyId];
@@ -186,6 +230,7 @@ export function SetupPanel({ data, setup, onCharacter, onEnemy, onAscension, onP
           </select>
         </label>
       </div>
+      {onExtraEnemies && <ExtraEnemies data={data} ids={setup.extraEnemyIds ?? []} onChange={onExtraEnemies} />}
       {onRelics && <RelicPicker data={data} setup={setup} onRelics={onRelics} />}
       {onPotions && (data.potions ? Object.keys(data.potions).length > 0 : false) && (
         <div className="field-row">

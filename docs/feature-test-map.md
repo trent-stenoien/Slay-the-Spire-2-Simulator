@@ -240,6 +240,23 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 39e | Relic remove button unstyled, labelled | app/components/interaction.test.tsx > UI polish (#254) > the relic remove button is a plain unstyled button, still labelled (layout is CSS only, checked by `npm run shot -- setup`) | n/a |
 | 39f | Version label | app/components/interaction.test.tsx > UI polish (#254) > the top-right version label reads "Slay the Spire 2 <gameVersion>" | n/a |
 
+## Multi-enemy fights (#5)
+
+| # | Rule | Test file > test name | Break-it |
+|---|------|-----------------------|----------|
+| 40a | Enemy turn: all Block resets, each moves left to right, then debuffs tick; dead enemies don't act | engine/combat.multiEnemy.test.ts > #5 enemy turn order > every Block resets, then each enemy moves left to right, then enemy debuffs tick; a dead enemy no longer acts | n/a |
+| 40b | Won only when every enemy is dead; HP left summed | engine/combat.multiEnemy.test.ts > #5 win condition (3 tests) | caught (won() = some enemy dead) |
+| 40c | Single-target cards hit the chosen target; dead target falls back; lost hits; targeted debuffs/Poison | engine/combat.multiEnemy.test.ts > #5 targets (4 tests) | caught (Decision.target ignored) |
+| 40c2 | #262 Shiv cards (Blade Dance, Leading Strike, Shivs) hit the strategy target | engine/combat.multiEnemy.test.ts > #5 with #262 Shiv cards | n/a |
+| 40d | ALL attacks / debuffs / Poison / fixed damage hit every living enemy; hit order; #6 damage once per enemy | engine/combat.multiEnemy.test.ts > #5 ALL-enemies effects (5 tests); data/data.mechanics.test.ts > #5 debuffs on ALL enemies | n/a |
+| 40e | Poison kill, Thorns kill, Feed kill and Shrink with other enemies alive | engine/combat.multiEnemy.test.ts > #5 deaths mid-fight (4 tests) | n/a |
+| 40f | Combined intent and per-enemy intents in the strategy view | engine/combat.multiEnemy.test.ts > #5 intents (3 tests) | n/a |
+| 40g | enemyIds in setup and Monte Carlo runs; single-enemy logs unchanged | engine/combat.multiEnemy.test.ts > #5 multi-enemy setup; #5 Monte Carlo; `npm run compare-main` (identical) and engine/golden | n/a |
+| 41a | Lowest HP / Biggest incoming attack priorities, ties, dead skipped | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > lowest HP first...; biggest incoming attack first...; no target with a single enemy | caught (lowest HP comparison flipped; biggest attack ignoring incoming) |
+| 41b | Different strategies use different priorities in the same fight | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > each strategy uses its own priority in the same fight | caught (lowest HP comparison flipped) |
+| 41c | URL codes ("i") and saved configs keep working | engine/combat.multiEnemy.test.ts > URL codes...; saved configs... | n/a |
+| 42 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |
+
 ## Known failure points
 
 | Item | Test / measurement |
