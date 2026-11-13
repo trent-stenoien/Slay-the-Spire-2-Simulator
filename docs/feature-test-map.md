@@ -127,6 +127,7 @@ Round 1, test reviewer. Break edits were never committed.
 | 17a-11 | Velvet Choker: no 7th card | engine/combat.relics.test.ts > Velvet Choker no more than 6 cards a turn | caught |
 | 17a-12 | Combat start / turn start / turn end hooks and ordering; Anchor, Gorget, Bellows | engine/combat.relics.test.ts > #205 start-of-combat relics; #205 turn relics (Anchor ... Bellows upgrades the first hand only; Stone Calendar, Orichalcum) | caught (Bellows every turn; turnEnd hook removed; draw bonus) |
 | 17a-13 | Relic Block ignores Dex/Frail; Girya choice; Burning Blood default in URL | engine/combat.relics.test.ts > Vajra +1, Sword of Jade +3 and Girya (choice) Strength; app/lib/relics.test.ts > #205 relic setup > the Ironclad starts with Burning Blood...; the URL keeps relics only when they differ from the starting relic | caught via Girya/Vajra tests in 17a-12; relic Block unaffected by Dex is covered by Anchor in the same test |
+| 17a-14 | Ring of the Snake: +2 draw on turn 1 only (Silent starting relic) | engine/combat.relics.test.ts > Ring of the Snake draws 2 more on turn 1 only: 7 then 5 cards (#258) | caught (draw 2 -> 1) |
 
 
 ## Strategy behaviour

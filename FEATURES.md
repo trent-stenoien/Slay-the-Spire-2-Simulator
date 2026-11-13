@@ -95,7 +95,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     count (default 0, URL `HF2`; Happy Flower 2 → turns 1, 4…). Tungsten Rod takes 1 off every HP loss, then Beating Remnant caps HP lost at 20 per
     turn (the player's turn and the enemy's turn count separately, Trent confirmed). The Boot raises unblocked attack
     damage of 1–4 to 5. Snecko Eye: +2 draw, and each drawn card costs a random 0–3 (seeded Rng).
-    Ghost Seed: the basic Strike and Defend (upgraded too) exhaust at end of turn like Ethereal.
+    Ring of the Snake (Silent starting relic): +2 draw on turn 1 only. Ghost Seed: the basic Strike and Defend (upgraded too) exhaust at end of turn like Ethereal.
     Belt Buckle's +2 Dexterity is off while a potion slot is filled. Sling of Courage: only
     against `elite` enemies. Velvet Choker: no 7th card a turn. Girya's Strength (1–3, default 1) is chosen in Setup.
     The Ironclad has Burning Blood by default; relics are in the URL (`r`).
