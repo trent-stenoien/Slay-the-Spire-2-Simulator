@@ -48,6 +48,29 @@ describe('damage rules in combat', () => {
     ]);
   });
 
+  it('Block absorbs the hits of one attack in order, running out part-way through', () => {
+    const e = makeEnemy('triple', 999, { slam: { name: 'Slam', effects: [{ type: 'attack', damage: 8, hits: 3 }] } });
+    const data = withEnemy(makeGameData(), e);
+    const strat: Strategy = {
+      decide(view) {
+        const d = view.playable.find((c) => c.cardId === 'defend');
+        if (view.state.turn === 1 && d) return { kind: 'play', uid: d.uid };
+        return { kind: 'endTurn' };
+      },
+    };
+    const r = logged(data, strat, { enemyId: 'triple', deck: deckOf(['defend', 5]) });
+    // Two Defends = 10 Block: the first hit is absorbed, the second partly (2 of 8), the third not at all.
+    expect(
+      events(r.log, 'damage')
+        .slice(0, 3)
+        .map((d) => [d.blocked, d.hpLoss]),
+    ).toEqual([
+      [8, 0],
+      [2, 6],
+      [0, 8],
+    ]);
+  });
+
   it('enemy Strength persists: Nibbit second Butt hits 14 at A0', () => {
     const r = logged(makeGameData(), passive, { deck: [] });
     expect(
