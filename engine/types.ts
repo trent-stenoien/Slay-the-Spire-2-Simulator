@@ -55,6 +55,11 @@
  *                     GameEvent `generated`, `transformed`; PowerId calamity,
  *                     helloWorld, entropy.
  * #169 Enemy Strength — Effect `enemyGainStrength` (Fight Me!); reuses EnemyState.strength.
+ * #45 Random target — Effect `attack.randomTarget` (each hit picks a random living enemy).
+ * #286 Ascension HP — CharacterDef.ascension (CharacterAscensionOverride.startHp; cumulative,
+ *                     lowers STARTING HP only, Max HP unchanged).
+ * #287 Inklet       — MovePattern `alternate` (AlternatePattern: fixed move, then a weighted
+ *                     random pick, repeating; `openerBySlot` picks the opener by position).
  * #104 Rewards       — Effect `gainGold`, `gainPotion`; CombatResult.rewards;
  *                     StrategySummary.avgGold / potionRate (Hand of Greed, Alchemize).
  *
@@ -119,7 +124,16 @@ export type Effect =
    * `hits` × (X + `xBonus`), where X is the energy spent on the card and
    * `xBonus` (default 0) covers "X+1 times" upgrades. X = 0 deals no hits.
    */
-  | { type: 'attack'; damage: number; hits: number; allEnemies?: boolean; xTimes?: boolean; xBonus?: number }
+  /** #45: `randomTarget`: each hit lands on a random living enemy (seeded Rng), picked per hit. */
+  | {
+      type: 'attack';
+      damage: number;
+      hits: number;
+      allEnemies?: boolean;
+      xTimes?: boolean;
+      xBonus?: number;
+      randomTarget?: boolean;
+    }
   | { type: 'gainBlock'; amount: number }
   | { type: 'gainStrength'; amount: number }
   /** #5: `allEnemies` applies it to every living enemy (Thunderclap, Shockwave, Bag of Marbles). */
@@ -779,7 +793,14 @@ export interface CharacterDef {
   startingDeck: Deck;
   /** Relic name (e.g. "Burning Blood"). Informational until #205 matches it to a RelicDef. */
   startingRelic: string;
+  /** #286: keyed by Ascension level as a string ("2"). Cumulative, like enemy overrides. */
+  ascension?: Record<string, CharacterAscensionOverride>;
   lastUpdateVersion: GameVersion;
+}
+
+/** #286: A2+ lowers starting HP (Ironclad 64, Silent 56); Max HP is unchanged. */
+export interface CharacterAscensionOverride {
+  startHp?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -822,7 +843,24 @@ export interface RandomPattern {
   opener?: string[];
 }
 
-export type MovePattern = CyclePattern | RandomPattern;
+/**
+ * #287: alternates a fixed move with a weighted random pick (Inklet: Jab, then 50/50 Piercing
+ * Gaze or Whirlwind, then Jab ...). `startWith` says which half opens when there is no slot opener.
+ * `openerBySlot` overrides the first move by the enemy's position in the encounter: the first and
+ * last enemies are "outer", any other is "middle" (outer Inklets open with Jab, the middle one
+ * with Whirlwind). After the opener the alternation continues with the other half.
+ */
+export interface AlternatePattern {
+  type: 'alternate';
+  /** Move id played on every fixed turn. */
+  fixed: string;
+  /** Weighted pool for the random turns (seeded Rng). */
+  random: { move: string; weight: number }[];
+  startWith?: 'fixed' | 'random';
+  openerBySlot?: { outer?: string; middle?: string };
+}
+
+export type MovePattern = CyclePattern | RandomPattern | AlternatePattern;
 
 /**
  * Overrides for one Ascension level. Levels are cumulative: at A9 the engine
