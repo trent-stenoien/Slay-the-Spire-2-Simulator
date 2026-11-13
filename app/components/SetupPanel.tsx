@@ -28,12 +28,11 @@ const ACTS = [1, 2, 3];
 /** Appended to characters whose starting deck is not fully simulated. */
 export const WIP_SUFFIX = ' (work in progress)';
 
-/** Enemies in one biome, sorted by difficulty tier then name. */
+/** Enemies in one biome, alphabetical by name. */
 export function enemiesIn(data: GameData, zone: Zone): EnemyDef[] {
-  const tier = ['easy', 'normal', 'elite', 'boss', 'minion', 'event'];
   return Object.values(data.enemies)
     .filter((e) => e.zone === zone)
-    .sort((a, b) => tier.indexOf(a.difficulty) - tier.indexOf(b.difficulty) || a.name.localeCompare(b.name));
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
@@ -79,7 +78,7 @@ export function RelicPicker({
               )}
               <button
                 type="button"
-                className="btn btn-small"
+                className="relic-remove"
                 aria-label={`Remove ${def.name}`}
                 onClick={() => onRelics(chosen.filter((_, j) => j !== i))}
               >
@@ -204,6 +203,7 @@ export function SetupPanel({ data, setup, onCharacter, onEnemy, onAscension, onP
                 <option value="">None</option>
                 {Object.values(data.potions ?? {})
                   .filter((p) => p.simulated)
+                  .sort((a, b) => a.name.localeCompare(b.name))
                   .map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}

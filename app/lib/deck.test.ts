@@ -285,10 +285,28 @@ describe("automatic ascension cards (Ascender's Bane)", () => {
   });
 });
 
+describe('groupedPool rarity sub-folders (#254)', () => {
+  it('splits character and Colorless folders by rarity, omitting empty ones; Shared, Status and Curses stay flat', () => {
+    const groups = groupedPool(gameData, 'ironclad', '', { statuses: true, curses: true, multiplayer: false });
+    for (const g of groups) {
+      if (['ironclad', 'colorless'].includes(g.key)) {
+        expect(g.subgroups!.length).toBeGreaterThan(0);
+        expect(g.subgroups!.every((s) => s.cards.length > 0 && s.key.startsWith(`${g.key}/`))).toBe(true);
+        expect(g.subgroups!.flatMap((s) => s.cards).length).toBe(g.cards.length);
+      } else {
+        expect(g.subgroups).toBeUndefined();
+      }
+    }
+    const ironclad = groups.find((g) => g.key === 'ironclad')!;
+    expect(ironclad.subgroups!.map((s) => s.label)).toEqual(expect.arrayContaining(['Common', 'Uncommon', 'Rare']));
+  });
+});
+
 describe('foldersForFilter', () => {
   it('maps Statuses and Curses to their own folders, matching groupedPool keys', () => {
-    expect(foldersForFilter(gameData, 'ironclad', 'statuses')).toEqual(['status']);
-    expect(foldersForFilter(gameData, 'ironclad', 'curses')).toEqual(['curses']);
+    // They start collapsed, so turning the pill on expands nothing.
+    expect(foldersForFilter(gameData, 'ironclad', 'statuses')).toEqual([]);
+    expect(foldersForFilter(gameData, 'ironclad', 'curses')).toEqual([]);
     const keys = groupedPool(gameData, 'ironclad', '', { statuses: true, curses: true, multiplayer: false }).map(
       (g) => g.key,
     );
@@ -303,7 +321,7 @@ describe('foldersForFilter', () => {
     const gained = withIt
       .filter((g) => g.cards.length > (without.find((w) => w.key === g.key)?.cards.length ?? 0))
       .map((g) => g.key);
-    expect([...folders].sort()).toEqual(gained.sort());
+    expect([...folders].filter((k) => !k.includes('/')).sort()).toEqual(gained.sort());
   });
 });
 

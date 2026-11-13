@@ -227,6 +227,12 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 37c | Fire Potion fixed 20 through Block; Strength Potion at once | engine/combat.potions.test.ts > Fire Potion deals 20 damage that ignores Strength and goes through Block; Strength Potion is used before the first card of turn 1 and raises Strike to 8 |
 | 37d | Built-in pick rules (kill, no Block, no Slippery, lethal threat) | engine/combat.potions.test.ts > pickPotion rules (9 tests) |
 | 38 | Golden combats replay; knownDiffs both ways | engine/golden/golden.test.ts > golden combats; golden harness (#210, synthetic fixtures) > knownDiffs listed mismatches pass, unlisted ones and stale entries fail |
+| 39a | Colorblind / Percentiles labels | app/components/interaction.test.tsx > UI polish (#254) > the chart toggles are labelled Colorblind and Percentiles | n/a |
+| 39b | Generate new seed button fills the seed | app/components/interaction.test.tsx > UI polish (#254) > the Results seed row has a Generate new seed button that fills the field with a new seed | n/a |
+| 39c | Rarity sub-folders; Statuses/Curses collapsed | app/lib/deck.test.ts > groupedPool rarity sub-folders (#254); app/components/interaction.test.tsx > UI polish (#254) > deck folders: character and Colorless split into rarity sub-folders; Shared stays flat | n/a |
+| 39d | Enemy, relic, potion lists alphabetical | app/components/interaction.test.tsx > UI polish (#254) > enemy, relic and potion lists are alphabetical | n/a |
+| 39e | Relic remove button unstyled, labelled | app/components/interaction.test.tsx > UI polish (#254) > the relic remove button is a plain unstyled button, still labelled (layout is CSS only, checked by `npm run shot -- setup`) | n/a |
+| 39f | Version label | app/components/interaction.test.tsx > UI polish (#254) > the top-right version label reads "Slay the Spire 2 <gameVersion>" | n/a |
 
 ## Known failure points
 
