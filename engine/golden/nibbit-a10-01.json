@@ -1,0 +1,113 @@
+{
+  "combat": "nibbit-a10-01",
+  "source": "Played by hand in the real game; recorded on issue #250 (Combat 10). Silver Crucible (also held) has no combat effect. finalHp 71 is after the +6 Burning Blood heal (65 before it).",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 10,
+  "deck": [
+    {
+      "card": "strike",
+      "count": 5
+    },
+    {
+      "card": "defend",
+      "count": 4
+    },
+    {
+      "card": "bash",
+      "count": 1
+    },
+    {
+      "card": "havoc",
+      "count": 1,
+      "upgraded": true
+    }
+  ],
+  "enemy": {
+    "id": "nibbit",
+    "startHp": 48
+  },
+  "player": {
+    "startHp": 70,
+    "maxHp": 80
+  },
+  "relics": [
+    {
+      "id": "burning_blood"
+    }
+  ],
+  "turns": [
+    {
+      "hand": ["strike", "defend", "defend", "defend", "bash"],
+      "plays": ["defend", "defend", "strike"],
+      "afterPlays": {
+        "player": {
+          "hp": 70,
+          "block": 10
+        },
+        "enemy": {
+          "hp": 42
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 67
+        },
+        "enemy": {
+          "hp": 42
+        }
+      }
+    },
+    {
+      "hand": ["havoc+", "defend", "strike", "strike", "ascenders_bane"],
+      "plays": ["havoc+", "defend", "strike", "strike"],
+      "afterPlays": {
+        "player": {
+          "hp": 67,
+          "block": 5
+        },
+        "enemy": {
+          "hp": 24
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 65
+        },
+        "enemy": {
+          "hp": 24
+        }
+      },
+      "playedFromDraw": ["strike"]
+    },
+    {
+      "hand": ["strike", "strike", "strike", "defend", "havoc+"],
+      "plays": ["havoc+", "strike", "strike", "strike"],
+      "afterPlays": {
+        "enemy": {
+          "hp": 12
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 65
+        },
+        "enemy": {
+          "hp": 12
+        }
+      },
+      "playedFromDraw": ["defend"]
+    },
+    {
+      "hand": ["bash", "defend", "defend", "strike", "defend"],
+      "plays": ["bash", "strike"],
+      "enemyHpAfterEachPlay": [4, 0]
+    }
+  ],
+  "result": {
+    "outcome": "win",
+    "turns": 4,
+    "finalHp": 71,
+    "hpLost": -1
+  }
+}

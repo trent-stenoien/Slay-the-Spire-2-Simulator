@@ -89,6 +89,8 @@ interface Turn {
   hand: CardRef[];
   /** Cards drawn during the turn (Pommel Strike), in draw order. */
   drawn?: CardRef[];
+  /** Cards that left the draw pile without being drawn (Havoc's top card), in order. Forced after hand and drawn. Not checked. */
+  playedFromDraw?: CardRef[];
   plays: CardRef[];
   /** Potions used this turn: before play N (1-based; plays.length + 1 = before ending the turn). */
   potions?: { potion: string; beforePlay: number }[];
@@ -354,7 +356,7 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
   control.enemyHp = fx.enemy.startHp;
   control.rolled = false;
   control.error = null;
-  control.demand = fx.turns.flatMap((t) => [...t.hand, ...(t.drawn ?? [])]);
+  control.demand = fx.turns.flatMap((t) => [...t.hand, ...(t.drawn ?? []), ...(t.playedFromDraw ?? [])]);
 
   const result = simulateCombat(data, config, strategy, { log: true });
   const log = result.log ?? [];
