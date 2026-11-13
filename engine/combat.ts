@@ -1419,6 +1419,7 @@ class Combat {
           else if (source === 'player' && e.id === 'thrash') died = this.thrash(card);
           else if (source === 'player' && e.id === 'perfectedStrike') died = this.perfectedStrike(e.values, card);
           else if (source === 'player' && e.id === 'prolong') this.prolong();
+          else if (source === 'player' && e.id === 'expectAFight') this.expectAFight();
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
@@ -1602,6 +1603,18 @@ class Combat {
     const limit = cardsPerTurnLimit(this.relics);
     if (limit !== null && this.counters.cardsPlayedThisTurn >= limit) return false;
     return !card.playableIf || this.holds(card.playableIf, card);
+  }
+
+  /**
+   * #246 Expect a Fight (Trent, Nov 13): gain 1 Energy per Attack in hand when played (the card is a Skill,
+   * so it never counts itself). v2/later: its "cannot gain additional Energy this turn" clause is not
+   * modelled; it does not come up in v1.
+   */
+  private expectAFight(): void {
+    const n = this.player.hand.filter((c) => c.type === 'attack').length;
+    if (n === 0) return;
+    this.player.energy += n;
+    this.log?.push({ t: 'energy', amount: n, total: this.player.energy });
   }
 
   /**

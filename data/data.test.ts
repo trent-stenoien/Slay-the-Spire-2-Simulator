@@ -171,7 +171,7 @@ describe('real game data', () => {
   });
 
   it('FEATURES item 18: every Ironclad and Colorless card is simulated except the named exceptions', () => {
-    const exceptions = ['splash', 'sovereign_blade', 'expect_a_fight', 'sweeping_gaze', 'mad_science'];
+    const exceptions = ['splash', 'sovereign_blade', 'sweeping_gaze', 'mad_science'];
     const notCards = ['curse', 'status', 'quest'];
     const own = Object.values(gameData.cards).filter(
       (c) => (c.character === 'I' || c.character === 'colorless') && !notCards.includes(c.type),

@@ -656,3 +656,30 @@ describe('#245 Ironclad and Colorless cards unflagged by the quality loop', () =
     expect(four.energy.filter((a) => a > 0)).toEqual([]);
   });
 });
+
+describe('#246 Expect a Fight', () => {
+  // Strikes and Expect a Fight are Innate, so the opening hand is Expect a Fight + the Strikes + Defends.
+  const eaf = (strikes: number, upgraded = false) => {
+    const d = world({}, ['expect_a_fight', 'strike']);
+    d.cards.expect_a_fight!.keywords = ['innate'];
+    d.cards.strike!.keywords = ['innate'];
+    return { d, deck: deckOf(['expect_a_fight', 1, upgraded], ['strike', strikes], ['defend', 6]) };
+  };
+  const gained = (strikes: number, upgraded = false) => {
+    const { d, deck } = eaf(strikes, upgraded);
+    return events(run(d, turnOne('expect_a_fight'), deck).log, 'energy');
+  };
+
+  it('gains 1 Energy per Attack in hand (3 Energy − 2 cost = 1 left): 0 Attacks gains nothing', () => {
+    expect(gained(0)).toEqual([]);
+  });
+
+  it('1 Attack: +1 (total 2); 3 Attacks: +3 (total 4); Defends in hand do not count', () => {
+    expect(gained(1)).toEqual([{ t: 'energy', amount: 1, total: 2 }]);
+    expect(gained(3)).toEqual([{ t: 'energy', amount: 3, total: 4 }]);
+  });
+
+  it('upgraded: cost 1 and the same gain (3 Attacks: 3 − 1 + 3 = 5)', () => {
+    expect(gained(3, true)).toEqual([{ t: 'energy', amount: 3, total: 5 }]);
+  });
+});

@@ -30,7 +30,10 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    hit, blocked or 0-damage hits included), Fasten ("Defend" cards; added before Frail's ×0.75, rounded
    down once), Thrash, Tear Asunder (any HP drop; fully blocked hits don't count), Corruption (X-cost
    unchanged; Drum of Battle still gains energy), X-cost (`xTimes`/`xBonus`), energy doesn't carry
-   over, single-enemy targeting for random/ALL attacks (Omnislice = 8/11).
+   over, single-enemy targeting for random/ALL attacks (Omnislice = 8/11), Expect a Fight (#246: gains
+   1 Energy per Attack in hand when played; it is a Skill, so it never counts itself; strategies play it
+   only when it gains more than its cost. Later version: its "cannot gain additional Energy this turn"
+   clause is not modelled, as it does not come up in v1).
 9. **Enemies (#4):** Shrink (−30% attack damage) applies after all other modifiers, rounded down once,
    and doesn't stack. Sludge Spinner opens with Oil Spray, then picks at random with no repeats (the
    opener counts as the previous move). A Stunned enemy skips its move and deals no damage; its
@@ -79,8 +82,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 17. **Void (#206):** drawing Void (at turn start after the energy refill, or mid-turn) loses 1 Energy,
     never below 0. It is Unplayable and Ethereal, so an unplayed Void exhausts at end of turn.
 18. **Card coverage:** every main-release Ironclad and Colorless card is simulated and matches its
-    wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20), Expect a Fight (#246, needs a
-    contract change), Sweeping Gaze (waits for Osty, #19), the hidden Mad Science placeholder (its
+    wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20), Sweeping Gaze (waits for Osty, #19), the hidden Mad Science placeholder (its
     `mad_science_*` variants are the simulated cards) and the multiplayer-only cards (#117).
 17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
     in pick order: combat start (before the first draw), turn start (after the draw and start-of-turn
