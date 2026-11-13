@@ -262,6 +262,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 43b | Juggernaut hits a random living enemy | engine/combat.randomTarget.test.ts > Juggernaut hits a random living enemy... | n/a |
 | 43c | Strategy plays random-target attacks first with 2+ enemies; a targeted kill goes first; no rule with one enemy | engine/combat.randomTarget.test.ts > #45 strategy: random-target attacks first (4 tests) | n/a |
 | 42 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |
+| 44 | Poison-only cards (#46): played before Attacks when the enemy lives 2+ turns; Block favours, Artifact counts against, existing Poison, Strength and Vulnerable counted | engine/strategies.poison.test.ts > #46 Poison-only cards (8 tests) | n/a |
 
 ## Known failure points
 

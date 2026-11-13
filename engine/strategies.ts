@@ -1618,6 +1618,75 @@ function pickNotYet(view: StrategyView): Card | undefined {
   );
 }
 
+// ---------------------------------------------------------------------------
+// #46 Poison-only cards (Trent)
+// ---------------------------------------------------------------------------
+
+/** #46: Poison applications a Poison-only card makes (a repeat counts its fixed `times`, else 1); 0 when it isn't Poison-only. */
+export function poisonApplications(card: Card): number {
+  if (isJunk(card) || card.keywords.includes('unplayable')) return 0;
+  const leaves = allEffects(card).filter((e) => e.type !== 'repeat');
+  if (leaves.length === 0 || !leaves.every((e) => e.type === 'applyPoison')) return 0;
+  let n = 0;
+  const walk = (effects: readonly DeepReadonly<Effect>[], mult: number) => {
+    for (const e of effects) {
+      if (e.type === 'repeat') walk(e.effects, mult * (e.times ?? 1));
+      else if (e.type === 'applyPoison') n += mult;
+    }
+  };
+  walk(card.effects, 1);
+  return n;
+}
+
+/** #46: a card whose only effect is applying Poison (Deadly Poison). */
+export function isPoisonOnly(card: Card): boolean {
+  return poisonApplications(card) > 0;
+}
+
+/**
+ * #46: damage the Attacks in hand would deal this turn with `energy` (greedy by damage per energy),
+ * counting Strength and Vulnerable; an estimate for "how long will the enemy live".
+ */
+function attackDamageThisTurn(view: StrategyView, energy: number): number {
+  const { state } = view;
+  const e = state.enemy;
+  const mult = e.debuffs.vulnerable > 0 ? 1.5 : 1;
+  const attacks = view.playable
+    .filter((c) => isAttackCard(c) && !c.xCost)
+    .map((c) => ({
+      cost: c.cost ?? 0,
+      dmg: Math.floor((totalBaseDamage(c, 0, state) + attackHitCount(c, 0) * state.player.strength) * mult),
+    }))
+    .sort((a, b) => b.dmg / Math.max(b.cost, 0.01) - a.dmg / Math.max(a.cost, 0.01));
+  let left = energy;
+  let sum = 0;
+  for (const a of attacks) {
+    if (a.cost <= left) {
+      left -= a.cost;
+      sum += a.dmg;
+    }
+  }
+  return sum;
+}
+
+/**
+ * #46 (Trent): play a Poison-only card before the Attacks when the enemy will live at least two more
+ * turns. Estimate: the Attacks in hand deal D a turn (Block absorbs it first, but Poison ignores
+ * Block); the enemy lives 2+ turns when HP - Poison - 2 x max(0, D - Block) > 0, so Block makes Poison
+ * likelier. Artifact counts against it: each application uses one stack and is negated, so a card
+ * whose applications the enemy's Artifact fully absorbs is not played.
+ */
+function pickPoison(view: StrategyView): Card | undefined {
+  const e = view.state.enemy;
+  const energy = view.state.player.energy;
+  const live = view.playable.filter((c) => isPoisonOnly(c) && poisonApplications(c) > (e.powers?.artifact ?? 0));
+  const card = best(live, (c) => [-(c.cost ?? 0), damagePerEnergy(c)]);
+  if (!card) return undefined;
+  const d = attackDamageThisTurn(view, Math.max(0, energy - (card.cost ?? 0)));
+  const through = Math.max(0, d - e.block);
+  return e.hp - e.poison - 2 * through > 0 ? card : undefined;
+}
+
 /**
  * #127 (Trent): true when the rest of the turn, with no pure draw card, spends all the energy
  * (X-cost cards or expensive Powers can), so a pure draw card has nothing to add. Not used when
@@ -1835,6 +1904,8 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   const top = pickTop(view, config);
   if (top) return play(top);
   for (const g of config.order) {
+    const poison = g === 'attack' ? pickPoison(view) : undefined;
+    if (poison) return play(poison);
     const c = pickFromGroup(view, g, config, planning);
     if (c) return play(c);
   }
