@@ -573,6 +573,15 @@ describe('#5 target priority (Trent)', () => {
     expect(pickTarget(view([0, 12, 9], [99, 1, 0]), 'biggestAttack')).toBe(1);
   });
 
+  it('#282: lowest HP counts Block (HP + Block) except for HP-direct effects', () => {
+    const v = view([10, 12], [0, 0]);
+    (v.state.enemies![0] as { block: number }).block = 8; // effective 18 vs 12
+    expect(pickTarget(v, 'lowestHp')).toBe(1);
+    expect(pickTarget(v, 'lowestHp', true)).toBe(0); // Poison / Doom / Capture Spirit ignore Block
+    (v.state.enemies![0] as { block: number }).block = 2; // effective 12 vs 12: tie to the leftmost
+    expect(pickTarget(v, 'lowestHp')).toBe(0);
+  });
+
   it('no target with a single enemy', () => {
     expect(pickTarget(view([20], [3]), 'biggestAttack')).toBeUndefined();
   });

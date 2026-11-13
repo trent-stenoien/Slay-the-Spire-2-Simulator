@@ -253,6 +253,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 40f | Combined intent and per-enemy intents in the strategy view | engine/combat.multiEnemy.test.ts > #5 intents (3 tests) | n/a |
 | 40g | enemyIds in setup and Monte Carlo runs; single-enemy logs unchanged | engine/combat.multiEnemy.test.ts > #5 multi-enemy setup; #5 Monte Carlo; `npm run compare-main` (identical) and engine/golden | n/a |
 | 41a | Lowest HP / Biggest incoming attack priorities, ties, dead skipped | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > lowest HP first...; biggest incoming attack first...; no target with a single enemy | caught (lowest HP comparison flipped; biggest attack ignoring incoming) |
+| 41c | Lowest HP counts HP + Block; HP-direct effects (Poison, ...) ignore Block (#282) | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > #282: lowest HP counts Block... | caught (Block ignored) |
 | 41b | Different strategies use different priorities in the same fight | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > each strategy uses its own priority in the same fight | caught (lowest HP comparison flipped) |
 | 41c | URL codes ("i") and saved configs keep working | engine/combat.multiEnemy.test.ts > URL codes...; saved configs... | n/a |
 | 42 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |

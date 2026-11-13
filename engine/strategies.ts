@@ -1934,7 +1934,10 @@ export function createStrategy(config: StrategyConfig): Strategy {
       const d = decide(view, withTally());
       tally.record(view, d);
       playing = d.kind === 'play' ? view.playable.find((p) => p.uid === d.uid) : undefined;
-      return d.kind === 'play' && target !== undefined ? { ...d, target } : d;
+      if (d.kind !== 'play' || target === undefined) return d;
+      // #282: an HP-direct card (Poison, ...) ignores Block, so it targets the lowest plain HP.
+      const direct = playing && playing.effects.some((e) => e.type === 'applyPoison' || e.type === 'enemyLoseHp');
+      return { ...d, target: direct ? (pickTarget(raw, c.target, true) ?? target) : target };
     },
     usePotion: (raw) => {
       const { target, view } = aim(raw);
@@ -1952,13 +1955,19 @@ export function createStrategy(config: StrategyConfig): Strategy {
 
 /**
  * #5 (Trent): the living enemy a strategy targets, as an index into `state.enemies`; undefined with
- * a single enemy. 'lowestHp': lowest current HP. 'biggestAttack': biggest incoming attack this turn
+ * a single enemy. 'lowestHp': lowest effective HP (HP + Block, #282); `hpDirect` (Poison, Doom,
+ * Capture Spirit: effects that lose HP past Block) ranks by HP alone. 'biggestAttack': biggest incoming attack this turn
  * (the enemy's intent), ties to the lowest HP. Remaining ties: the leftmost.
  */
-export function pickTarget(view: StrategyView, priority: TargetPriority = 'lowestHp'): number | undefined {
+export function pickTarget(
+  view: StrategyView,
+  priority: TargetPriority = 'lowestHp',
+  hpDirect = false,
+): number | undefined {
   const enemies = view.state.enemies;
   if (!enemies || enemies.length < 2) return undefined;
   const incoming = (i: number) => view.intents?.[i]?.totalIncoming ?? 0;
+  const eff = (e: { hp: number; block: number }) => (hpDirect ? e.hp : e.hp + e.block);
   let best: number | undefined;
   enemies.forEach((e, i) => {
     if (e.hp <= 0) return;
@@ -1967,7 +1976,7 @@ export function pickTarget(view: StrategyView, priority: TargetPriority = 'lowes
       return;
     }
     const b = enemies[best]!;
-    const lower = e.hp < b.hp;
+    const lower = eff(e) < eff(b);
     if (priority === 'biggestAttack') {
       if (incoming(i) > incoming(best) || (incoming(i) === incoming(best) && lower)) best = i;
     } else if (lower) {
