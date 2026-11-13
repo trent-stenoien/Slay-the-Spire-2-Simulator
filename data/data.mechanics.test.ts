@@ -302,8 +302,13 @@ describe('#115 Statuses, healing and Max HP', () => {
 describe('#208 main-release values', () => {
   const c = gameData.cards;
 
-  it('Expect a Fight is the main-release Energy card and is not simulated (no Attacks-in-hand counter)', () => {
-    expect(c.expect_a_fight).toMatchObject({ cost: 2, simulated: false, effects: [], upgraded: { cost: 1 } });
+  it('Expect a Fight is the main-release Energy card, simulated by the expectAFight script (#246)', () => {
+    expect(c.expect_a_fight).toMatchObject({
+      cost: 2,
+      simulated: true,
+      effects: [{ type: 'script', id: 'expectAFight' }],
+      upgraded: { cost: 1 },
+    });
   });
 
   it('Taunt is Uncommon with 7 (8) Block and 1 (2) Vulnerable', () => {

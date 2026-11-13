@@ -43,6 +43,15 @@ const extra: Record<string, CardDef> = {
     effects: [{ type: 'gainEnergy', amount: 3 }],
     upgraded: null,
   },
+  /** #246 Expect a Fight: gains 1 Energy per Attack left in hand. */
+  fight: {
+    ...cards.defend!,
+    id: 'fight',
+    code: 'Ex',
+    cost: 2,
+    effects: [{ type: 'script', id: 'expectAFight' }],
+    upgraded: null,
+  },
   /** Gains exactly its cost back: not a net energy card. */
   wash: {
     ...cards.defend!,
@@ -136,6 +145,8 @@ function playTurnCards(config: StrategyConfig, hand: CardInstance[], incoming: n
     for (const e of c.effects) {
       if (e.type === 'gainBlock') state.player.block += e.amount;
       if (e.type === 'gainEnergy') state.player.energy += e.amount;
+      if (e.type === 'script' && e.id === 'expectAFight')
+        state.player.energy += state.player.hand.filter((h) => h.type === 'attack').length;
     }
     played.push(c);
   }
@@ -290,6 +301,15 @@ describe('energy gain (#22)', () => {
 
   it('a card that only gains back its cost is not played first', () => {
     expect(playTurn(G, [card('wash'), card(S)], 0, 1)).toEqual([S]);
+  });
+
+  it('#246 Expect a Fight is played only when the Attacks in hand give more Energy than its cost of 2', () => {
+    // 3 Attacks: +3 for 2, so it goes first; the 4 Energy left pay Bash + Strike.
+    expect(playTurn(G, [card(S), card(S), card(B), card('fight')], 0)).toEqual(['fight', B, S, S]);
+    // 2 Attacks: gains exactly its cost, 1 Attack: gains less; neither is played.
+    expect(playTurn(G, [card('fight'), card(S), card(S)], 0)).toEqual([S, S]);
+    expect(playTurn(G, [card('fight'), card(S), card(D)], 0)).toEqual([S, D]);
+    expect(playTurn(G, [card('fight'), card(D)], 0)).toEqual([D]);
   });
 
   it('at 0 energy, Fuel unlocks a Strike', () => {

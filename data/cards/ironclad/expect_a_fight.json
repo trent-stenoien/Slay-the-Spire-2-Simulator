@@ -9,13 +9,18 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "script",
+      "id": "expectAFight"
+    }
+  ],
   "upgraded": {
     "cost": 1
   },
   "description": "Gain [E] for each Attack in your Hand. / You cannot gain additional [E] this turn.",
   "upgradedDescription": "Gain [E] for each Attack in your Hand. / You cannot gain additional [E] this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

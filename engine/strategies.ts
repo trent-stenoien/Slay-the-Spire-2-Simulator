@@ -25,16 +25,23 @@ type Card = DeepReadonly<CardInstance>;
  */
 export const PLAY_FIRST_CARD_IDS: readonly string[] = ['tremble'];
 
-/** Energy a card gains when played (sum of its `gainEnergy` effects). */
-export function energyGain(card: Card): number {
+/**
+ * Energy a card gains when played (sum of its `gainEnergy` effects). #246 Expect a Fight gains 1 per Attack
+ * in `hand`; without a hand it counts 0.
+ */
+export function energyGain(card: Card, hand: readonly Card[] = []): number {
   let sum = 0;
-  for (const e of card.effects) if (e.type === 'gainEnergy') sum += e.amount;
+  for (const e of card.effects) {
+    if (e.type === 'gainEnergy') sum += e.amount;
+    else if (e.type === 'script' && e.id === 'expectAFight')
+      sum += hand.filter((c) => c !== card && c.type === 'attack').length;
+  }
   return sum;
 }
 
-/** True for a card that leaves you with more energy than it costs (e.g. Fuel, Forgotten Ritual). */
-export function isNetEnergyCard(card: Card): boolean {
-  return !card.xCost && card.cost !== null && energyGain(card) > card.cost;
+/** True for a card that leaves you with more energy than it costs (e.g. Fuel, Forgotten Ritual; Expect a Fight given its hand). */
+export function isNetEnergyCard(card: Card, hand: readonly Card[] = []): boolean {
+  return !card.xCost && card.cost !== null && energyGain(card, hand) > card.cost;
 }
 
 /** True when an X-cost card is in `card`'s position to be played: never at 0 energy. */
@@ -407,11 +414,11 @@ function withoutCards(view: StrategyView, cards: readonly Card[]): StrategyView 
 }
 
 /** Energy left after playing `played` from `energy` (X-cost cards spend all of it). */
-function energyAfter(played: readonly Card[], energy: number): number {
+function energyAfter(played: readonly Card[], energy: number, hand: readonly Card[] = []): number {
   let e = energy;
   for (const c of played) {
     e -= c.xCost ? e : (c.cost ?? 0);
-    for (const fx of c.effects) if (fx.type === 'gainEnergy') e += fx.amount;
+    e += energyGain(c, hand);
   }
   return e;
 }
@@ -422,8 +429,8 @@ function energyAfter(played: readonly Card[], energy: number): number {
  */
 function leavesEnergyUnused(view: StrategyView, config: StrategyConfig, base: Card): boolean {
   const energy = view.state.player.energy;
-  const withIt = energyAfter(planTurn(view, config, energy), energy);
-  const without = energyAfter(planTurn(withoutCards(view, [base]), config, energy), energy);
+  const withIt = energyAfter(planTurn(view, config, energy), energy, view.state.player.hand);
+  const without = energyAfter(planTurn(withoutCards(view, [base]), config, energy), energy, view.state.player.hand);
   return without > withIt;
 }
 
@@ -1535,7 +1542,10 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   if (havoc) return havoc;
   const enabler = pickExhaustEnabler(view, config);
   if (enabler) return enabler;
-  const energy = best(view.playable.filter(isNetEnergyCard), (c) => [netEnergy(c)]);
+  const energy = best(
+    view.playable.filter((c) => isNetEnergyCard(c, view.state.player.hand)),
+    (c) => [netEnergy(c, view.state.player.hand)],
+  );
   if (energy && view.state.player.hand.some((c) => c.uid !== energy.uid && wantsEnergy(c))) return energy;
   const shackles = pickShackles(view);
   if (shackles) return shackles;
@@ -1579,13 +1589,13 @@ function spendsAllWithoutDraw(view: StrategyView, config: StrategyConfig): boole
     playable: view.playable.filter(keep),
   };
   let e = p.energy;
-  for (const c of planTurn(sub, config, e)) e = (c.xCost ? 0 : e - (c.cost ?? 0)) + energyGain(c);
+  for (const c of planTurn(sub, config, e)) e = (c.xCost ? 0 : e - (c.cost ?? 0)) + energyGain(c, p.hand);
   return e <= 0;
 }
 
 /** Energy left over after playing a net-energy card. */
-function netEnergy(card: Card): number {
-  return energyGain(card) - (card.cost as number);
+function netEnergy(card: Card, hand: readonly Card[]): number {
+  return energyGain(card, hand) - (card.cost as number);
 }
 
 /** A card that costs energy and that some strategy would play. */
@@ -1704,10 +1714,8 @@ export function planTurn(view: StrategyView, config: StrategyConfig, energy: num
     played.push(c);
     hand = hand.filter((x) => x !== c);
     e -= c.xCost ? e : (c.cost ?? 0);
-    for (const fx of c.effects) {
-      if (fx.type === 'gainBlock') block += fx.amount;
-      if (fx.type === 'gainEnergy') e += fx.amount;
-    }
+    e += energyGain(c, hand);
+    for (const fx of c.effects) if (fx.type === 'gainBlock') block += fx.amount;
   }
   return played;
 }
