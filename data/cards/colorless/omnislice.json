@@ -14,6 +14,10 @@
       "type": "attack",
       "damage": 8,
       "hits": 1
+    },
+    {
+      "type": "script",
+      "id": "omnisliceSplash"
     }
   ],
   "upgraded": {
@@ -22,6 +26,10 @@
         "type": "attack",
         "damage": 11,
         "hits": 1
+      },
+      {
+        "type": "script",
+        "id": "omnisliceSplash"
       }
     ]
   },

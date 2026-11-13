@@ -614,6 +614,31 @@ class Combat {
     return died;
   }
 
+  /**
+   * #283 Omnislice: every other living enemy takes the damage the attack just dealt to its target
+   * (the per-hit damage after Strength, Weak and Vulnerable, before Block). Like `dealDamage`, the splash
+   * ignores modifiers and the other enemy's Block absorbs it. Does nothing in a single-enemy fight.
+   */
+  private omnisliceSplash(): Side | null {
+    const amount = this.lastAttackDamage;
+    if (amount <= 0 || this.enemies.length < 2) return null;
+    const target = this.focus;
+    const keep = this.focus;
+    for (const i of this.living()) {
+      if (i === target) continue;
+      this.focusOn(i);
+      const { enemy } = this;
+      const blocked = Math.min(enemy.block, amount);
+      enemy.block -= blocked;
+      const hpLoss = this.slipperyLoss(amount - blocked);
+      enemy.hp -= hpLoss;
+      this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
+      if (this.won()) return 'enemy';
+    }
+    this.focusOn(keep);
+    return null;
+  }
+
   /** #4/#5: Shrink ends when the enemy that applied it is dead. */
   private clearDeadShrink(): void {
     const src = this.shrinkSource;
@@ -1600,6 +1625,7 @@ class Combat {
           else if (source === 'player' && e.id === 'prolong') this.prolong();
           else if (source === 'player' && e.id === 'expectAFight') this.expectAFight();
           else if (source === 'player' && e.id === 'upMySleeve') this.upMySleeve(card);
+          else if (source === 'player' && e.id === 'omnisliceSplash') died = this.omnisliceSplash();
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
