@@ -180,6 +180,13 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     that no longer occurs fails too. `CombatConfig.playerStart` gives the player Strength, debuffs and
     powers before combatStart relics.
 
+39. **UI polish (#254):** chart toggles read "Colorblind" and "Percentiles" (below the strategy filters on
+    small screens); Results has a "Generate new seed" button beside the seed field; deck folders for each
+    character and Colorless split into rarity sub-folders (Basic, Common, Uncommon, Rare, Ancient, Event,
+    Token; empty ones omitted; Shared Strike/Defend stay flat); Statuses and Curses folders start
+    collapsed; enemy, relic and potion lists are alphabetical; the relic remove "x" has no border; the
+    version label reads "Slay the Spire 2 <gameVersion>".
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

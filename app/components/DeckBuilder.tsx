@@ -3,7 +3,7 @@ import { Panel } from './Panel';
 import type { CardDef, Deck, GameData } from '../../engine/types';
 import { cardText } from '../lib/cardText';
 import { cardWikiUrl } from '../lib/wiki';
-import type { CostColorKey, PoolFilters } from '../lib/deck';
+import type { CardGroup, CostColorKey, PoolFilters } from '../lib/deck';
 import {
   DEFAULT_FILTERS,
   automaticCards,
@@ -60,6 +60,45 @@ export function DeckBuilder({ data, characterId, ascension, deck, onChange, onRe
   const builtSize = deck.reduce((n, e) => n + e.count, 0);
   const size = combatDeckSize(data, deck, ascension);
   const leftOut = unsimulatedStarters(data, characterId);
+  const inDeckCount = (cards: CardDef[]) =>
+    cards.reduce((n, c) => n + (auto.has(c.id) ? 1 : copiesOf(deck, c.id, false) + copiesOf(deck, c.id, true)), 0);
+  const cardList = (cards: CardDef[]) => (
+    <ul className="card-list">
+      {cards.map((card) => (
+        <CardRow
+          key={card.id}
+          card={card}
+          colorKey={costColorKey(card, characterId, data)}
+          deck={deck}
+          autoLevel={auto.get(card.id)}
+          onChange={onChange}
+        />
+      ))}
+    </ul>
+  );
+  const folder = (g: CardGroup, sub: boolean) => {
+    const inDeck = inDeckCount(g.cards);
+    return (
+      <details
+        key={g.key}
+        className={sub ? 'card-group card-subgroup' : 'card-group'}
+        open={expanded.has(g.key)}
+        onToggle={(e) => {
+          e.stopPropagation();
+          setFolder(g.key, e.currentTarget.open);
+        }}
+      >
+        <summary>
+          {g.label}{' '}
+          <span className="muted small">
+            ({g.cards.length} {g.cards.length === 1 ? 'card' : 'cards'}
+            {inDeck > 0 ? `, ${inDeck} in deck` : ''})
+          </span>
+        </summary>
+        {g.subgroups ? g.subgroups.map((s) => folder(s, true)) : cardList(g.cards)}
+      </details>
+    );
+  };
 
   return (
     <Panel id="deck" title="Deck" aside={`(${size} cards)`}>
@@ -98,40 +137,7 @@ export function DeckBuilder({ data, characterId, ascension, deck, onChange, onRe
       {groups.length === 0 && (
         <p className="muted small">No cards match{query.trim() ? ` "${query}"` : ' the current filters'}.</p>
       )}
-      {groups.map((g) => {
-        const inDeck = g.cards.reduce(
-          (n, c) => n + (auto.has(c.id) ? 1 : copiesOf(deck, c.id, false) + copiesOf(deck, c.id, true)),
-          0,
-        );
-        return (
-          <details
-            key={g.key}
-            className="card-group"
-            open={expanded.has(g.key)}
-            onToggle={(e) => setFolder(g.key, e.currentTarget.open)}
-          >
-            <summary>
-              {g.label}{' '}
-              <span className="muted small">
-                ({g.cards.length} {g.cards.length === 1 ? 'card' : 'cards'}
-                {inDeck > 0 ? `, ${inDeck} in deck` : ''})
-              </span>
-            </summary>
-            <ul className="card-list">
-              {g.cards.map((card) => (
-                <CardRow
-                  key={card.id}
-                  card={card}
-                  colorKey={costColorKey(card, characterId, data)}
-                  deck={deck}
-                  autoLevel={auto.get(card.id)}
-                  onChange={onChange}
-                />
-              ))}
-            </ul>
-          </details>
-        );
-      })}
+      {groups.map((g) => folder(g, false))}
     </Panel>
   );
 }

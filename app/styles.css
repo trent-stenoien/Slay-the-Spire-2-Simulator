@@ -628,15 +628,29 @@ table.stats {
 }
 .legend-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 8px 16px;
+}
+.legend-row .legend {
+  flex: 1 1 24rem;
+  min-width: 0;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.chart-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 8px 0 0 auto;
 }
 .pct-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 8px 0 0 auto;
+  margin: 0;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1156,6 +1170,12 @@ code {
 }
 .run-seed {
   margin-bottom: 4px;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.run-seed-new {
+  margin-left: auto;
 }
 .results-empty {
   margin: 8px 0 0;
@@ -1471,4 +1491,24 @@ textarea {
   border: 1px solid var(--border, #ccc);
   border-radius: 999px;
   padding: 0.1rem 0.2rem 0.1rem 0.6rem;
+}
+
+/* Relic remove "x": no border or background, so it reads as part of the relic row. */
+.relic-remove {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.relic-remove:hover {
+  color: var(--loss);
+}
+.card-subgroup {
+  margin-left: 14px;
+  margin-top: 4px;
 }
