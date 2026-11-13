@@ -86,6 +86,36 @@ function checkMoveList(
   return list;
 }
 
+/** #287 alternate: `fixed`, weighted `random` picks, optional `startWith` and `openerBySlot`. */
+function checkAlternate(r: Reporter, v: Obj, path: string, moveIds: Set<string>): void {
+  const known = (id: unknown, p: string) => {
+    if (typeof id !== 'string') r.add(p, 'must be a string');
+    else if (!moveIds.has(id)) r.add(p, `references unknown move id "${id}"`);
+  };
+  known(v.fixed, `${path}.fixed`);
+  const random = r.arr(v, 'random', `${path}.random`);
+  if (random) {
+    if (random.length === 0) r.add(`${path}.random`, 'must not be empty');
+    random.forEach((entry, i) => {
+      const p = `${path}.random[${i}]`;
+      if (!isObj(entry)) return r.add(p, 'must be an object');
+      known(entry.move, `${p}.move`);
+      if (!Number.isInteger(entry.weight) || (entry.weight as number) < 1)
+        r.add(`${p}.weight`, 'must be an integer of at least 1');
+    });
+  }
+  if (v.startWith !== undefined && v.startWith !== 'fixed' && v.startWith !== 'random')
+    r.add(`${path}.startWith`, 'must be "fixed" or "random"');
+  if (v.openerBySlot !== undefined) {
+    if (!isObj(v.openerBySlot)) r.add(`${path}.openerBySlot`, 'must be an object');
+    else
+      for (const [slot, id] of Object.entries(v.openerBySlot)) {
+        if (slot !== 'outer' && slot !== 'middle') r.add(`${path}.openerBySlot.${slot}`, 'must be "outer" or "middle"');
+        else known(id, `${path}.openerBySlot.${slot}`);
+      }
+  }
+}
+
 /** Cycle: `order` + `start`. #4 random: `moves` + `noRepeat`. Both: optional `opener`. */
 function checkPattern(r: Reporter, v: unknown, path: string, moveIds: Set<string>): void {
   if (!isObj(v)) {
@@ -93,6 +123,10 @@ function checkPattern(r: Reporter, v: unknown, path: string, moveIds: Set<string
     return;
   }
   r.oneOf(v, 'type', PATTERN_TYPES, `${path}.type`);
+  if (v.type === 'alternate') {
+    checkAlternate(r, v, path, moveIds);
+    return;
+  }
   if (v.opener !== undefined) checkMoveList(r, r.arr(v, 'opener', `${path}.opener`), `${path}.opener`, moveIds, true);
   if (v.type === 'random') {
     const moves = checkMoveList(r, r.arr(v, 'moves', `${path}.moves`), `${path}.moves`, moveIds);

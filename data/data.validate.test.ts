@@ -127,6 +127,30 @@ describe('validateGameData on broken fixtures', () => {
     );
   });
 
+  it('accepts the alternate pattern and reports broken ones (#287)', () => {
+    const d = fixture();
+    d.enemies.nibbit.pattern = {
+      type: 'alternate',
+      fixed: 'butt',
+      random: [{ move: 'hiss', weight: 1 }],
+      openerBySlot: { outer: 'butt', middle: 'hiss' },
+    };
+    expect(errorsOf(d)).toEqual([]);
+    d.enemies.nibbit.pattern = {
+      type: 'alternate',
+      fixed: 'bite',
+      random: [{ move: 'hiss', weight: 0 }],
+      startWith: 'sometimes',
+      openerBySlot: { outer: 'nope', side: 'butt' },
+    };
+    const errs = errorsOf(d);
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*pattern\.fixed.*"bite"/));
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*random\[0\]\.weight/));
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*startWith/));
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*openerBySlot\.outer.*"nope"/));
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*openerBySlot\.side/));
+  });
+
   it('accepts opener and random no-repeat patterns, and reports broken ones (#4)', () => {
     const d = fixture();
     d.enemies.nibbit.pattern = { type: 'random', opener: ['hiss'], moves: ['butt', 'hiss'], noRepeat: true };

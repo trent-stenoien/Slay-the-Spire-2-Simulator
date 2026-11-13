@@ -465,10 +465,10 @@ class Combat {
     this.enemies = enemyDefs.map((enemyDef, i) => {
       const enemyHp = this.rng.int(enemyDef.hp.min, enemyDef.hp.max);
       const { pattern } = enemyDef;
-      if (pattern.type === 'alternate') throw new Error('not simulated yet (#287)');
       const startIndex =
         pattern.type === 'cycle' && pattern.start === 'random' ? this.rng.int(0, pattern.order.length - 1) : 0;
-      const firstMove = pattern.opener?.[0] ?? this.poolMove(i, startIndex, null);
+      const firstMove =
+        (pattern.type === 'alternate' ? undefined : pattern.opener?.[0]) ?? this.poolMove(i, startIndex, null);
       return {
         enemyId: enemyDef.id,
         name: enemyDef.name,
@@ -1303,7 +1303,26 @@ class Combat {
   private poolMove(i: number, patternIndex: number, last: string | null): string {
     const { pattern } = this.enemyDefs[i]!;
     const usedOnce = this.usedOnce[i]!;
-    if (pattern.type === 'alternate') throw new Error('not simulated yet (#287)');
+    if (pattern.type === 'alternate') {
+      // #287: the opener (by slot, else startWith), then the fixed move and a weighted pick take turns.
+      const randomPick = () => {
+        const total = pattern.random.reduce((sum, r) => sum + r.weight, 0);
+        let roll = this.rng.int(0, total - 1);
+        for (const r of pattern.random) {
+          if (roll < r.weight) return r.move;
+          roll -= r.weight;
+        }
+        return pattern.random[pattern.random.length - 1]!.move;
+      };
+      if (last === null) {
+        const n = this.enemyDefs.length;
+        const slot = i === 0 || i === n - 1 ? 'outer' : 'middle';
+        const opener = pattern.openerBySlot?.[slot];
+        if (opener) return opener;
+        return pattern.startWith === 'random' ? randomPick() : pattern.fixed;
+      }
+      return last === pattern.fixed ? randomPick() : pattern.fixed;
+    }
     if (pattern.type === 'cycle') return pattern.order[patternIndex] as string;
     // #226: a once-per-fight move that was already made is out of the pool for good.
     const fresh = pattern.moves.filter((id) => !usedOnce.has(id));
@@ -1317,7 +1336,12 @@ class Combat {
   private advancePattern(lastMoveId: string): void {
     const { enemy } = this;
     const { pattern } = this.enemyDef;
-    if (pattern.type === 'alternate') throw new Error('not simulated yet (#287)');
+    if (pattern.type === 'alternate') {
+      enemy.movesMade = (enemy.movesMade ?? 0) + 1;
+      if (this.enemyDef.moves[lastMoveId]?.oncePerFight) this.usedOnce[this.focus]!.add(lastMoveId);
+      enemy.nextMoveId = this.poolMove(this.focus, enemy.patternIndex, lastMoveId);
+      return;
+    }
     const openerLength = pattern.opener?.length ?? 0;
     const made = (enemy.movesMade ?? 0) + 1;
     enemy.movesMade = made;

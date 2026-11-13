@@ -256,3 +256,35 @@ describe('imported characters and enemies', () => {
     expect(enemyByCode('FW')?.pattern).toMatchObject({ order: ['acidGoop', 'inhale', 'acidGoop'] });
   });
 });
+
+describe('Inklet (#287)', () => {
+  const inklet = () => resolveEnemy(gameData.enemies.inklet!, 0);
+
+  it('is an Act 1 Overgrowth normal enemy with Slippery 1 and the alternate pattern', () => {
+    const e = enemyByCode('Ik')!;
+    expect(e).toMatchObject({ id: 'inklet', act: 1, zone: 'overgrowth', difficulty: 'normal' });
+    expect(e.startPowers).toEqual({ slippery: 1 });
+    expect(e.pattern).toEqual({
+      type: 'alternate',
+      fixed: 'jab',
+      random: [
+        { move: 'piercingGaze', weight: 1 },
+        { move: 'whirlwind', weight: 1 },
+      ],
+      openerBySlot: { outer: 'jab', middle: 'whirlwind' },
+    });
+  });
+
+  it.each([
+    [0, { min: 11, max: 17 }, 3, 2, 10],
+    [8, { min: 12, max: 18 }, 3, 2, 10],
+    [9, { min: 12, max: 18 }, 4, 3, 11],
+  ] as const)('at A%i has the wiki numbers', (asc, hp, jab, whirl, gaze) => {
+    const e = resolveEnemy(gameData.enemies.inklet!, asc);
+    expect(e.hp).toEqual(hp);
+    expect(e.moves.jab!.effects).toEqual([{ type: 'attack', damage: jab, hits: 1 }]);
+    expect(e.moves.whirlwind!.effects).toEqual([{ type: 'attack', damage: whirl, hits: 3 }]);
+    expect(e.moves.piercingGaze!.effects).toEqual([{ type: 'attack', damage: gaze, hits: 1 }]);
+    expect(e.pattern).toEqual(inklet().pattern);
+  });
+});
