@@ -1464,6 +1464,7 @@ class Combat {
           break;
         case 'drawUntil':
           if (source !== 'player') throw new Error('Enemies do not draw cards');
+          if (e.handSize !== undefined) throw new Error('Effect "drawUntil.handSize" is not simulated yet (#265)');
           this.drawUntil(e.stopOn);
           break;
         case 'applyPower':
@@ -1804,6 +1805,9 @@ class Combat {
   }
 
   private checkCondition(cond: Condition): void {
+    if (cond.kind === 'drewMatching') {
+      throw new Error('Condition "drewMatching" is not simulated yet (#265)');
+    }
     if (cond.kind === 'counter' && !SIMULATED_COUNTERS.includes(cond.counter)) {
       throw new Error(`Counter "${cond.counter}" is not simulated yet`);
     }

@@ -144,6 +144,16 @@ export function counterValue(counter: Counter, state: DeepReadonly<CombatState>,
       return c?.cardsPlayedThisCombat ?? 0;
     case 'attacksPlayedThisTurn':
       return c?.attacksPlayedThisTurn ?? 0;
+    case 'skillsPlayedThisTurn':
+      return c?.skillsPlayedThisTurn ?? 0;
+    case 'cardsDrawnThisCombat':
+      return c?.cardsDrawnThisCombat ?? 0;
+    case 'cardsDiscardedThisTurn':
+      return c?.cardsDiscardedThisTurn ?? 0;
+    case 'skillsInHand':
+    case 'attacksPlayedBeforeThis':
+      // #265: declared, not simulated; the engine throws before reading these.
+      return 0;
     case 'cardsExhaustedThisTurn':
       return c?.cardsExhaustedThisTurn ?? 0;
     case 'cardsExhaustedThisCombat':
@@ -191,6 +201,7 @@ export function conditionHolds(
     case 'handAll':
       return player.hand.every((c) => c.uid === selfUid || matches(c as CardInstance, cond.filter as CardFilter));
     case 'fatal':
+    case 'drewMatching':
       return false;
   }
 }
