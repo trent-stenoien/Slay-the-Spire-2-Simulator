@@ -234,6 +234,15 @@ describe('#113 Dark Embrace and Feel No Pain (on exhaust)', () => {
   });
 
   it('Dark Embrace: a card drawn by an Ethereal exhaust at the end of the turn stays in the hand', () => {
+    const inner = scripted((t) => (t === 1 ? ['darkEmbrace'] : []));
+    const turn2Hand: number[] = [];
+    const strategy: Strategy = {
+      decide(view) {
+        if (view.state.turn === 2 && turn2Hand.length === 0)
+          turn2Hand.push(...view.state.player.hand.map((c) => c.uid));
+        return inner.decide(view);
+      },
+    };
     const r = run(
       data(),
       [
@@ -242,8 +251,16 @@ describe('#113 Dark Embrace and Feel No Pain (on exhaust)', () => {
         ['strike0', 6],
       ],
       (t) => (t === 1 ? ['darkEmbrace'] : []),
+      1,
+      strategy,
     );
     const t1 = turnEvents(r.log, 1);
+    // The card drawn at the end of turn 1 is still in the hand when turn 2 starts (before turn 2's own draw).
+    const extra = events(t1, 'draw').at(-1)!;
+    const turn2Draws = events(turnEvents(r.log, 2), 'draw').map((e) => e.uid);
+    expect(turn2Hand).toContain(extra.uid);
+    expect(turn2Hand.length).toBe(5 + 1);
+    expect(turn2Draws).not.toContain(extra.uid);
     expect(events(t1, 'exhaust')).toEqual([
       { t: 'exhaust', uid: expect.any(Number), cardId: 'mist0I', reason: 'ethereal' },
     ]);
@@ -334,6 +351,19 @@ describe('#113 Rupture and Inferno (on HP loss, on your turn)', () => {
     const t2 = turnEvents(r.log, 2);
     expect(events(t2, 'loseHp')).toEqual([{ t: 'loseHp', side: 'player', amount: 1, hpAfter: 80 - 2 - 1 }]);
     expect(enemyDamage(t2)).toEqual([6]);
+  });
+
+  it('Inferno: each copy played loses 1 HP at the start of a turn', () => {
+    const r = run(
+      data(),
+      [
+        ['inferno', 2],
+        ['strike0', 4],
+      ],
+      (t) => (t === 1 ? ['inferno', 'inferno'] : []),
+    );
+    const t2 = turnEvents(r.log, 2);
+    expect(events(t2, 'loseHp').map((e) => e.amount)).toEqual([2]);
   });
 
   it('Inferno damage ignores Strength and Vulnerable, and Block on the enemy absorbs it', () => {

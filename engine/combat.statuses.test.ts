@@ -191,6 +191,14 @@ describe('#115 The Gambit', () => {
     expect(r.hpLost).toBe(80);
   });
 
+  it('a single unblocked point of enemy attack damage loses the combat', () => {
+    // Gambit gives 50 Block; a 51-damage hit leaves exactly 1 unblocked.
+    const r = logged(world(hitter(51)), play(['gambit'], []), { enemyId: 'hitter', deck: deckOf(['gambit', 1]) });
+    expect(events(r.log, 'damage').find((e) => e.source === 'enemy')).toMatchObject({ blocked: 50, hpLoss: 1 });
+    expect(r.outcome).toBe('loss');
+    expect(r.turns).toBe(1);
+  });
+
   it('losing HP from a card is not attack damage', () => {
     const r = logged(world(), play(['gambit', 'ouch', 'strike']), {
       enemyId: 'weak',
