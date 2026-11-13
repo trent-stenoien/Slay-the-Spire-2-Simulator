@@ -233,6 +233,12 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Juggernaut's damage also picks a random living enemy. Strategies, with 2+ enemies alive, play random-target
     attacks first and re-plan the rest of the turn on the new board, except that a targeted attack that would
     kill a living enemy goes first, aimed at it.
+44. **Poison-only cards (#46, Trent):** a card whose only effect is applying Poison (Deadly Poison, Bouncing
+    Flask) is played before the Attacks when the enemy will live at least two more turns. Estimate: the Attacks in
+    hand deal D a turn (Strength and Vulnerable counted, energy after the Poison card); the enemy lives 2+ turns
+    when HP - its Poison - 2 x max(0, D - its Block) > 0, so enemy Block favours Poison (Poison ignores Block).
+    Enemy Artifact counts against it: each application uses one stack and is negated, so a card is not played
+    when the Artifact stacks cover all its applications.
 
 ## Known failure points
 
