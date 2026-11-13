@@ -198,10 +198,10 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 ## Multi-enemy fights (#5)
 
 40. **Several enemies (#5):** a fight can have up to 5 enemies (`enemyIds`, left to right); each has its
-    own HP, Block, statuses, powers and move pattern. Enemy turn: every living enemy's Block resets, then
-    each one's Poison, then each moves left to right, then the player's "until the enemy turn ends"
-    powers end, then each enemy's temporary Strength loss ends, Strength per turn is gained and debuffs
-    tick. The fight is won only when every enemy is dead; a dead enemy never acts and can't be targeted.
+    own HP, Block, statuses, powers and move pattern. Enemy turn (#281): enemies take their turns
+    left to right, each finishing its whole turn (Block reset, Poison, move, pattern advance,
+    temporary Strength loss ends, Strength per turn gained, debuffs tick) before the next starts;
+    the player's "until the enemy turn ends" powers end after the last enemy's move. The fight is won only when every enemy is dead; a dead enemy never acts and can't be targeted.
     A single-target card hits the strategy's target; if that enemy dies mid-card, the rest of its hits
     and effects on it are lost (other effects still resolve). A dead or missing target falls back to the
     current enemy, else the leftmost living one (also for cards played by effects, Replay and Juggernaut;

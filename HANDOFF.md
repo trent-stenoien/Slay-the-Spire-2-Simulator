@@ -27,7 +27,7 @@ Full scoping report: `docs/v2-scoping.md` (cards #258–#276; each card body has
 - After #45: #269 Silent multi-enemy cards, #267 Shiv powers, #275 Kaiser Crab, #276 Queen (these also have questions).
 
 ## Questions waiting for Trent (also on each card)
-- #5 follow-ups: enemy turn steps per step for all enemies (as built) vs each enemy's full turn; Vicious once per enemy on ALL Vulnerable (as built);
+- #5 follow-ups: Vicious once per enemy on ALL Vulnerable (as built);
   "lowest HP" ignores Block (as built); Omnislice splash not simulated in multi-enemy fights (new card?).
 - #262: keep the Shiv play-order default (Blade Dance/Up My Sleeve first; Storm of Steel last, only with other cards in hand)?
 - #259 discard order (curses/statuses, Sly, Strikes, Defends?) and Well-Laid Plans' retain; Dodge and Roll Block and Dexterity.

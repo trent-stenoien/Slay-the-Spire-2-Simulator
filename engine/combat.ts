@@ -1212,35 +1212,40 @@ class Combat {
   }
 
   /**
-   * Block resets, Poison, the move, pattern advance, then enemy debuffs tick. Returns the outcome if
-   * combat ended. #5: each step runs for every living enemy, left to right, before the next step;
-   * a dead enemy is skipped. Combat ends only when every enemy is dead.
+   * #281: enemies take their turns in order, left to right; each finishes its whole turn (Block reset,
+   * Poison, move, pattern advance, end-of-turn debuff tick) before the next starts. A dead enemy is
+   * skipped; combat ends only when every enemy is dead. The player's own end-of-enemy-turn effects
+   * (Intangible, Colossus, Flame Barrier) wear off after the last enemy's move. Returns the outcome
+   * if combat ended.
    */
   private enemyTurn(): Outcome | null {
     const { player, log } = this;
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'enemy' });
     this.playerTurn = false;
     this.relicTurnLoss = 0;
-    for (const i of this.living()) {
+    const last = this.enemies.length - 1;
+    let playerPowersEnded = false;
+    const endPlayerPowers = () => {
+      playerPowersEnded = true;
+      // #115 Intangible lasts through the enemy's next move, then goes down by 1.
+      if (this.power('intangible') > 0) this.applyPower('intangible', -1);
+      this.endEnemyTurnPowers();
+    };
+    for (let i = 0; i <= last; i++) {
+      if (this.enemies[i]!.hp <= 0) continue;
       this.focusOn(i);
       this.enemy.block = 0;
       log?.push({ t: 'blockReset', side: 'enemy' });
-    }
-    // Poison: HP loss equal to stacks (ignores Block and modifiers), then -1. A kill ends combat before the move.
-    for (const i of this.living()) {
-      if (this.enemies[i]!.poison <= 0) continue;
-      this.focusOn(i);
-      const { enemy } = this;
-      const amount = this.slipperyLoss(enemy.poison);
-      enemy.hp -= amount;
-      enemy.poison--;
-      log?.push({ t: 'poisonDamage', amount, hpAfter: Math.max(enemy.hp, 0) });
-      if (this.won()) return 'win';
-    }
-    for (const i of this.living()) {
-      // #109 Thorns can kill an enemy during its own move; the others still act.
-      if (this.enemies[i]!.hp <= 0) continue;
-      this.focusOn(i);
+      // Poison: HP loss equal to stacks (ignores Block and modifiers), then -1. A kill skips the move.
+      if (this.enemy.poison > 0) {
+        const { enemy } = this;
+        const amount = this.slipperyLoss(enemy.poison);
+        enemy.hp -= amount;
+        enemy.poison--;
+        log?.push({ t: 'poisonDamage', amount, hpAfter: Math.max(enemy.hp, 0) });
+        if (this.won()) return 'win';
+        if (enemy.hp <= 0) continue;
+      }
       const { id: moveId, move } = this.currentMove();
       let died: Side | null = null;
       if (this.enemyStunned()) {
@@ -1254,31 +1259,35 @@ class Combat {
       this.advancePattern(moveId);
       if (died === 'player' || player.hp <= 0) return 'loss';
       if (died === 'enemy' || this.won()) return 'win';
+      if (i === last) endPlayerPowers();
+      this.endEnemyOwnTurn(i);
     }
-    // #115 Intangible lasts through the enemy's next move, then goes down by 1.
-    if (this.power('intangible') > 0) this.applyPower('intangible', -1);
-    this.endEnemyTurnPowers();
-    for (const i of this.living()) {
-      const e = this.enemies[i]!;
-      const due =
-        e.powers?.strengthLossThisTurn || e.powers?.strengthPerTurn || DEBUFF_KINDS.some((k) => e.debuffs[k] > 0);
-      if (!due) continue;
-      this.focusOn(i);
-      const { enemy } = this;
-      // #110: the enemy's temporary Strength loss ends with its turn.
-      const loss = enemy.powers?.strengthLossThisTurn ?? 0;
-      if (loss > 0) this.applyEnemyPower('strengthLossThisTurn', -loss);
-      // #203 Strength per turn (Byrdonis): at the end of its own turn, after the move.
-      const perTurn = enemy.powers?.strengthPerTurn ?? 0;
-      if (perTurn > 0) {
-        enemy.strength += perTurn;
-        log?.push({ t: 'strength', side: 'enemy', amount: perTurn, total: enemy.strength });
-      }
-      // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
-      this.tickDebuffs('enemy');
-    }
+    if (!playerPowersEnded) endPlayerPowers();
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'enemy' });
     return null;
+  }
+
+  /** The end of enemy `i`'s own turn: temporary Strength loss ends, Strength per turn, debuffs tick down. */
+  private endEnemyOwnTurn(i: number): void {
+    const { log } = this;
+    const e = this.enemies[i]!;
+    if (e.hp <= 0) return;
+    const due =
+      e.powers?.strengthLossThisTurn || e.powers?.strengthPerTurn || DEBUFF_KINDS.some((k) => e.debuffs[k] > 0);
+    if (!due) return;
+    this.focusOn(i);
+    const { enemy } = this;
+    // #110: the enemy's temporary Strength loss ends with its turn.
+    const loss = enemy.powers?.strengthLossThisTurn ?? 0;
+    if (loss > 0) this.applyEnemyPower('strengthLossThisTurn', -loss);
+    // #203 Strength per turn (Byrdonis): at the end of its own turn, after the move.
+    const perTurn = enemy.powers?.strengthPerTurn ?? 0;
+    if (perTurn > 0) {
+      enemy.strength += perTurn;
+      log?.push({ t: 'strength', side: 'enemy', amount: perTurn, total: enemy.strength });
+    }
+    // Debuffs on the enemy tick down at the end of the enemy's own turn, after its move.
+    this.tickDebuffs('enemy');
   }
 
   private currentMove(): { id: string; move: EnemyMove } {
