@@ -238,6 +238,11 @@ export const COUNTERS = [
   'cardsPlayedThisTurn',
   'cardsPlayedThisCombat',
   'attacksPlayedThisTurn',
+  'skillsPlayedThisTurn',
+  'attacksPlayedBeforeThis',
+  'cardsDiscardedThisTurn',
+  'cardsDrawnThisCombat',
+  'skillsInHand',
   'cardsExhaustedThisTurn',
   'cardsExhaustedThisCombat',
   'lastEffectCount',
@@ -292,6 +297,20 @@ export const POWER_IDS = [
   'calamity',
   'helloWorld',
   'entropy',
+  // #264, #266: declared, not simulated
+  'dexterityThisTurn',
+  'retainBlock',
+  'doubleBlock',
+  'burst',
+  'freeNextSkill',
+  'doubleAttackNextTurn',
+  'dexterityLossPerTurn',
+  'afterimage',
+  'serpentForm',
+  'speedster',
+  'toolsOfTheTrade',
+  'wellLaidPlans',
+  'tracking',
 ] as const;
 
 /** #215 adds artifact, strengthPerTurn, slippery: valid data, not simulated (not in SIMULATED_ENEMY_POWERS). */
