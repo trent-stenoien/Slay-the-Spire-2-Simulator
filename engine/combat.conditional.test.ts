@@ -325,6 +325,21 @@ describe('#111 Fisticuffs', () => {
     expect(hitter.id).toBe('wall');
   });
 
+  it('damage soaked up by enemy Block still counts: 7 into 10 Block gains 7 (no HP lost by the enemy)', () => {
+    const guard = makeEnemy('guard', 999, { up: { name: 'Up', effects: [{ type: 'gainBlock', amount: 10 }] } });
+    const d = world({}, ['fisticuffs'], guard);
+    const strategy: Strategy = {
+      decide: (view) => {
+        const c = view.state.turn === 2 && view.playable.find((p) => p.cardId === 'fisticuffs');
+        return c ? { kind: 'play', uid: c.uid } : { kind: 'endTurn' };
+      },
+    };
+    const r = run(d, strategy, deckOf(['fisticuffs', 1]), { enemyId: 'guard' });
+    const hit = events(r.log, 'damage').find((e) => e.target === 'enemy')!;
+    expect(hit).toMatchObject({ amount: 7, blocked: 7, hpLoss: 0 });
+    expect(blockGains(r.log).at(-1)!.amount).toBe(7);
+  });
+
   it('Dexterity applies to the Block gained', () => {
     const d = world({ dex: helper('dex', [{ type: 'applyPower', power: 'dexterity', amount: 2 }]) }, ['fisticuffs']);
     const r = run(d, turnOne('dex', 'fisticuffs'), deckOf(['dex', 1], ['fisticuffs', 1]));
