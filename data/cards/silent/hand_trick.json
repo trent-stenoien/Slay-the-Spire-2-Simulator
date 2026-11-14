@@ -13,6 +13,10 @@
     {
       "type": "gainBlock",
       "amount": 7
+    },
+    {
+      "type": "script",
+      "id": "handTrick"
     }
   ],
   "upgraded": {
@@ -20,12 +24,16 @@
       {
         "type": "gainBlock",
         "amount": 10
+      },
+      {
+        "type": "script",
+        "id": "handTrick"
       }
     ]
   },
   "description": "Gain 7 Block. / Add Sly to a Skill in your Hand this turn.",
   "upgradedDescription": "Gain 10 Block. / Add Sly to a Skill in your Hand this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -11,13 +11,21 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "script",
+      "id": "nightmare",
+      "values": [
+        3
+      ]
+    }
+  ],
   "upgraded": {
     "cost": 2
   },
   "description": "Choose a card. / Next turn, add 3 copies of that card into your Hand. / Exhaust.",
   "upgradedDescription": "Choose a card. / Next turn, add 3 copies of that card into your Hand. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

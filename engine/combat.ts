@@ -800,6 +800,10 @@ class Combat {
   private slyQueue: CardInstance[] = [];
   /** #314: above 0 while a card is being played or a discard is running (Sly cards wait in slyQueue). */
   private slyHold = 0;
+  /** #268 uids of cards that have Sly only this turn (Hand Trick). */
+  private slyTemp = new Set<number>();
+  /** #268 Nightmare: the chosen cards, by the id the scheduled effect carries. */
+  private nightmareSnaps: CardInstance[] = [];
 
   private startPlayerTurn(): Outcome | null {
     const { player, log, counters } = this;
@@ -1568,6 +1572,7 @@ class Combat {
     for (const pile of [player.hand, player.drawPile, player.discardPile, player.exhaustPile]) {
       for (const c of pile) delete c.costThisTurn;
     }
+    this.endSlyTemp();
   }
 
   /**
@@ -2035,6 +2040,9 @@ class Combat {
           else if (source === 'player' && e.id === 'omnisliceSplash') died = this.omnisliceSplash();
           else if (source === 'player' && e.id === 'scheduledBlock') this.scheduledBlock(e.values?.[0] ?? 0);
           else if (source === 'player' && e.id === 'expose') died = this.expose();
+          else if (source === 'player' && e.id === 'handTrick') this.handTrick();
+          else if (source === 'player' && e.id === 'nightmare') this.nightmare(e.values?.[0] ?? 3);
+          else if (source === 'player' && e.id === 'nightmareAdd') this.nightmareAdd(e.values);
           else if (source === 'player' && e.id === 'malaise') died = this.malaise(x + (e.values?.[0] ?? 0));
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
@@ -2498,6 +2506,85 @@ class Combat {
     player.block += gained;
     this.log?.push({ t: 'block', side: 'player', amount: gained, total: player.block });
     this.blockGained(gained);
+  }
+
+  /**
+   * #268 Hand Trick: a Skill in the hand gains Sly until the end of this turn (a per-instance keyword,
+   * removed by `endSlyTurn`). Builder call: the engine picks the Skill without Sly that costs the most
+   * (a free play saves the most), ties in hand order; no Skill, no effect.
+   */
+  private handTrick(): void {
+    const skills = this.player.hand.filter((c) => c.type === 'skill' && !c.keywords.includes('sly'));
+    let best: CardInstance | undefined;
+    for (const c of skills) {
+      if (!best || (this.costOf(c) ?? 0) > (this.costOf(best) ?? 0)) best = c;
+    }
+    if (!best) return;
+    best.keywords.push('sly');
+    this.slyTemp.add(best.uid);
+  }
+
+  /** #268: Sly given for one turn (Hand Trick) ends: the card is its printed self again, wherever it is. */
+  private endSlyTemp(): void {
+    if (this.slyTemp.size === 0) return;
+    const { player } = this;
+    for (const pile of [player.hand, player.drawPile, player.discardPile, player.exhaustPile]) {
+      for (const c of pile) {
+        if (!this.slyTemp.has(c.uid)) continue;
+        const i = c.keywords.lastIndexOf('sly');
+        if (i >= 0) c.keywords.splice(i, 1);
+      }
+    }
+    this.slyTemp.clear();
+  }
+
+  /**
+   * #268 Nightmare: choose a card in the hand (Strategy.choose, purpose 'copy'); at the start of next turn
+   * (after the draw) `count` copies of it are added to the hand. The copy is a snapshot taken now (upgrade,
+   * damage bonus, Replay and cost for the rest of combat kept, like Dual Wield). An empty hand: no effect.
+   */
+  private nightmare(count: number): void {
+    const [picked] = this.selectCards([...this.player.hand], 'choose', 1, {
+      purpose: 'copy',
+      from: 'hand',
+      to: 'hand',
+    });
+    if (!picked) return;
+    const snap: CardInstance = {
+      ...picked,
+      keywords: [...picked.keywords],
+      effects: picked.effects.map((fx) => ({ ...fx })),
+    };
+    if (picked.triggers) snap.triggers = picked.triggers.map((t) => ({ when: t.when, effects: [...t.effects] }));
+    // Sly that was only given for this turn (Hand Trick) is not part of the copy.
+    const i = snap.keywords.lastIndexOf('sly');
+    if (this.slyTemp.has(picked.uid) && i >= 0) snap.keywords.splice(i, 1);
+    const id = this.nightmareSnaps.push(snap) - 1;
+    (this.player.scheduled ??= []).push({
+      turn: this.state.turn + 1,
+      at: 'turnStart',
+      effects: [{ type: 'script', id: 'nightmareAdd', values: [id, count] }],
+    });
+  }
+
+  private nightmareAdd(values: readonly number[] | undefined): void {
+    const [id = -1, count = 0] = values ?? [];
+    const snap = this.nightmareSnaps[id];
+    if (!snap) return;
+    for (let n = 0; n < count; n++) {
+      const copy: CardInstance = {
+        ...snap,
+        uid: this.nextUid++,
+        keywords: [...snap.keywords],
+        effects: snap.effects.map((fx) => ({ ...fx })),
+        generated: true,
+      };
+      if (snap.triggers) copy.triggers = snap.triggers.map((t) => ({ when: t.when, effects: [...t.effects] }));
+      delete copy.costThisTurn;
+      delete copy.freeThisTurn;
+      const to = this.placeCard(copy, 'hand');
+      this.log?.push({ t: 'generated', uid: copy.uid, cardId: copy.cardId, to, source: 'copyOf' });
+    }
   }
 
   /** #260 Expose: remove all Artifact and Block from the enemy (the Vulnerable that follows is then not negated). */
