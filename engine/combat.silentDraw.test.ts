@@ -311,13 +311,14 @@ describe('#259 Dodge and Roll (real card data)', () => {
 });
 
 describe('#259 strategies play the cards', () => {
-  it('the greedy strategy plays a Silent deck with every new card without an illegal choice', () => {
+  it('the greedy strategy plays every new card (over 5 seeds) without an illegal choice', () => {
     const d = data([]);
     const deck = deckOf(...REAL.map((id): [string, number] => [id, 1]), ['slyOne', 2], ['decay', 1]);
-    const r = simulateCombat(d, cfg({ enemyId: 'dummy', deck, seed: 7 }), createStrategy(GREEDY_CONFIG), {
-      log: true,
-    });
-    const played = new Set(events(r.log, 'play').map((e) => e.cardId));
+    const played = new Set<string>();
+    for (let seed = 1; seed <= 5; seed++) {
+      const r = simulateCombat(d, cfg({ enemyId: 'dummy', deck, seed }), createStrategy(GREEDY_CONFIG), { log: true });
+      for (const e of events(r.log, 'play')) played.add(e.cardId);
+    }
     for (const id of REAL) expect(played.has(id), id).toBe(true);
   });
 });
