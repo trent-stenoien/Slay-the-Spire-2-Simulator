@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { gameData } from '../../data/index';
 import { SIMULATED_POWER_IDS, simulateCombat } from '../combat';
-import { resolveEnemy } from '../enemy';
+import { patternMoveIds, resolveEnemy } from '../enemy';
 import { GREEDY_CONFIG } from '../strategies';
 import { makeEnemy } from '../testFixtures';
 import type {
@@ -20,8 +20,8 @@ import type {
 
 /** Test-side control of the engine's Rng: forced enemy HP roll and forced draw order. */
 const control = vi.hoisted(() => ({
-  enemyHp: 0,
-  rolled: false,
+  /** HP rolls still to be returned: the engine's first Rng calls, one per enemy, left to right. */
+  enemyHps: [] as number[],
   /** Card refs ("id" or "id+" for upgraded) still to be drawn, in draw order. */
   demand: [] as string[],
   error: null as string | null,
@@ -35,12 +35,9 @@ vi.mock('../rng', async (importOriginal) => {
       const rng = real.createRng(seed);
       return {
         ...rng,
-        // The engine's first Rng call is the enemy HP roll (see the constructor in combat.ts).
+        // The engine's first Rng calls are the enemy HP rolls, one per enemy (see the constructor in combat.ts).
         int: (min: number, max: number) => {
-          if (!control.rolled) {
-            control.rolled = true;
-            return control.enemyHp;
-          }
+          if (control.enemyHps.length > 0) return control.enemyHps.shift()!;
           return rng.int(min, max);
         },
         // Order the pile so that popping from the end follows the recorded draws.
@@ -84,7 +81,11 @@ type Side = Record<string, number>;
 interface State {
   player?: Side;
   enemy?: Side;
+  /** Multi-enemy fights: one entry per enemy alias (an enemy that is dead reads hp 0). */
+  enemies?: EnemyStates;
 }
+/** Fields of a multi-enemy state: one Side per enemy, keyed by alias. */
+type EnemyStates = Record<string, Side>;
 interface Turn {
   hand: CardRef[];
   /** Cards drawn during the turn (Pommel Strike), in draw order. */
@@ -92,16 +93,21 @@ interface Turn {
   /** Cards that left the draw pile without being drawn (Havoc's top card), in order. Forced after hand and drawn. Not checked. */
   playedFromDraw?: CardRef[];
   plays: CardRef[];
-  /** Potions used this turn: before play N (1-based; plays.length + 1 = before ending the turn). */
-  potions?: { potion: string; beforePlay: number }[];
+  /** Multi-enemy fights: the alias of the enemy each play targets (same length as plays; null = untargeted). */
+  targets?: (string | null)[];
+  /** Potions used this turn: before play N (1-based; plays.length + 1 = before ending the turn). `target`: enemy alias. */
+  potions?: { potion: string; beforePlay: number; target?: string }[];
   /** Answers to Strategy.choose prompts this turn, in order (Armaments: which card to upgrade). */
   choices?: { source?: string; pick: CardRef[] }[];
   atStart?: State;
   afterPlays?: State;
   afterEnemy?: State;
+  /** Enemy HP after each play. Multi-enemy: the HP of the enemy that play (or potion) targeted. */
   enemyHpAfterEachPlay?: number[];
   /** The move the enemy makes after this turn's plays (single enemy; all turns or none). */
   enemyMove?: string;
+  /** Multi-enemy: each living enemy's move after this turn's plays, by alias (turn 1 = the opener). Give turn 1 for every enemy. */
+  enemyMoves?: Record<string, string>;
 }
 interface Fixture {
   combat: string;
@@ -110,7 +116,9 @@ interface Fixture {
   character: string;
   ascension: number;
   deck: { card: string; count: number; upgraded?: boolean }[];
-  enemy: { id: string; startHp: number };
+  /** One enemy; or `enemies` for a multi-enemy fight (left to right; `alias` names each in targets and states). */
+  enemy?: { id: string; startHp: number };
+  enemies?: { id: string; startHp: number; alias: string }[];
   player: { startHp: number; maxHp: number };
   relics?: { id: string; choice?: number }[];
   potions?: string[];
@@ -126,9 +134,27 @@ interface Fixture {
 const files = import.meta.glob<Fixture>('./*.json', { eager: true, import: 'default' });
 
 /** Every field is read off a snapshot of the live state; powers by id, absent = 0. */
-function snapshot(view: StrategyView): { player: Side; enemy: Side } {
+interface Snap {
+  player: Side;
+  enemy: Side;
+  enemies: EnemyStates;
+}
+function snapshot(view: StrategyView, aliases: string[] = []): Snap {
   const { player, enemy } = view.state;
+  const side = (e: typeof enemy): Side => ({
+    hp: Math.max(0, e.hp),
+    block: e.block,
+    strength: e.strength,
+    poison: e.poison,
+    ...e.debuffs,
+    ...(e.powers as Side | undefined),
+  });
+  const enemies: EnemyStates = {};
+  (view.state.enemies ?? []).forEach((e, i) => {
+    if (aliases[i] !== undefined) enemies[aliases[i]!] = side(e);
+  });
   return {
+    enemies,
     player: {
       hp: player.hp,
       block: player.block,
@@ -138,15 +164,13 @@ function snapshot(view: StrategyView): { player: Side; enemy: Side } {
       ...player.debuffs,
       ...(player.powers as Side | undefined),
     },
-    enemy: {
-      hp: enemy.hp,
-      block: enemy.block,
-      strength: enemy.strength,
-      poison: enemy.poison,
-      ...enemy.debuffs,
-      ...(enemy.powers as Side | undefined),
-    },
+    enemy: side(enemy),
   };
+}
+
+/** The fixture's enemies, left to right; a single `enemy` gets the alias "" and the multi-enemy code paths stay off. */
+function enemyList(fx: Fixture): { id: string; startHp: number; alias: string }[] {
+  return fx.enemies ?? [{ ...fx.enemy!, alias: '' }];
 }
 
 /** Fields a fixture state may name; anything else is a typo. */
@@ -162,6 +186,11 @@ function checkFields(fx: Fixture): string[] {
         for (const f of Object.keys(t[stage]?.[who] ?? {})) {
           if (!allowed[who].has(f)) bad.push(`turn ${i + 1} ${stage}.${who}.${f}`);
         }
+      }
+      for (const [alias, side] of Object.entries(t[stage]?.enemies ?? {})) {
+        if (!enemyList(fx).some((e) => e.alias === alias)) bad.push(`turn ${i + 1} ${stage}.enemies.${alias}`);
+        for (const f of Object.keys(side))
+          if (!allowed.enemy.has(f)) bad.push(`turn ${i + 1} ${stage}.enemies.${alias}.${f}`);
       }
     }
   });
@@ -189,10 +218,11 @@ function drawPileChanges(log: readonly GameEvent[]): { turn: number; text: strin
  * Turn 1's move is the one shown at combat start; turn N's is the one made after turn N's plays.
  */
 function enemyMoveProblem(fx: Fixture, data: GameData): string | null {
-  const def = data.enemies[fx.enemy.id];
-  if (!def) return `unknown enemy ${fx.enemy.id}`;
+  if (fx.enemies) return multiEnemyMoveProblem(fx, data);
+  const def = data.enemies[fx.enemy!.id];
+  if (!def) return `unknown enemy ${fx.enemy!.id}`;
   const { pattern, moves } = resolveEnemy(def, fx.ascension);
-  if (pattern.type !== 'random') return `${fx.enemy.id} follows a fixed cycle, not a random pick`;
+  if (pattern.type !== 'random') return `${fx.enemy!.id} follows a fixed cycle, not a random pick`;
   const used = new Set<string>();
   let last: string | null = null;
   for (const [i, t] of fx.turns.entries()) {
@@ -202,7 +232,7 @@ function enemyMoveProblem(fx: Fixture, data: GameData): string | null {
     if (opener !== undefined) {
       if (id !== opener) return `turn ${i + 1}: ${id} but the opener forces ${opener}`;
     } else {
-      if (!pattern.moves.includes(id)) return `turn ${i + 1}: ${id} is not in ${fx.enemy.id}'s move pool`;
+      if (!pattern.moves.includes(id)) return `turn ${i + 1}: ${id} is not in ${fx.enemy!.id}'s move pool`;
       if (used.has(id)) return `turn ${i + 1}: ${id} is once per fight and was already made`;
       if (pattern.noRepeat && id === last) return `turn ${i + 1}: ${id} repeats the previous move (no-repeat)`;
     }
@@ -212,10 +242,63 @@ function enemyMoveProblem(fx: Fixture, data: GameData): string | null {
   return null;
 }
 
+/**
+ * Why the recorded per-enemy moves (`enemyMoves`) are not legal, or null when they are. Every enemy needs its
+ * turn-1 move; a move must be in its pattern; an `alternate` pattern (Inklet) must take its two halves in turns.
+ */
+function multiEnemyMoveProblem(fx: Fixture, data: GameData): string | null {
+  for (const e of fx.enemies!) {
+    const def = data.enemies[e.id];
+    if (!def) return `unknown enemy ${e.id}`;
+    const { pattern } = resolveEnemy(def, fx.ascension);
+    const all = patternMoveIds(pattern);
+    let last: string | undefined;
+    for (const [i, t] of fx.turns.entries()) {
+      const id = t.enemyMoves?.[e.alias];
+      if (id === undefined) {
+        if (i === 0) return `turn 1: enemyMoves.${e.alias} is missing (every enemy needs its turn-1 move)`;
+        last = undefined;
+        continue;
+      }
+      if (!all.includes(id)) return `turn ${i + 1}: ${e.alias} (${e.id}) has no move ${id}`;
+      if (pattern.type === 'alternate' && last !== undefined) {
+        const wasFixed = last === pattern.fixed;
+        const isFixed = id === pattern.fixed;
+        if (wasFixed === isFixed) return `turn ${i + 1}: ${e.alias} makes ${id} after ${last} (alternate pattern)`;
+      }
+      last = id;
+    }
+  }
+  return null;
+}
+
+/**
+ * Multi-enemy fights: each enemy gets its own copy of its definition (id `<id>__<alias>`, so two Inklets can
+ * differ) with the recorded moves as a harness-only cycle. A turn where the enemy has no entry (it is dead)
+ * repeats its previous move.
+ */
+function withEnemyMovesMulti(fx: Fixture, data: GameData): { data: GameData; enemyIds: string[] } {
+  const out = structuredClone(data);
+  const enemyIds = fx.enemies!.map((e) => {
+    const def = structuredClone(out.enemies[e.id]!);
+    def.id = `${e.id}__${e.alias}`;
+    let last = '';
+    def.pattern = {
+      type: 'cycle',
+      order: fx.turns.map((t) => (last = t.enemyMoves?.[e.alias] ?? last)),
+      start: 'first',
+    };
+    for (const o of Object.values(def.ascension)) delete o.pattern;
+    out.enemies[def.id] = def;
+    return def.id;
+  });
+  return { data: out, enemyIds };
+}
+
 /** The data with the enemy's random pattern replaced by the recorded move order (a harness-only cycle). */
 function withEnemyMoves(fx: Fixture, data: GameData): GameData {
   const out = structuredClone(data);
-  const def = out.enemies[fx.enemy.id]!;
+  const def = out.enemies[fx.enemy!.id]!;
   def.pattern = { type: 'cycle', order: fx.turns.map((t) => t.enemyMove!), start: 'first' };
   for (const o of Object.values(def.ascension)) delete o.pattern;
   return out;
@@ -223,11 +306,16 @@ function withEnemyMoves(fx: Fixture, data: GameData): GameData {
 
 /** Replays a fixture through the engine; returns every mismatch, one line each. */
 function replay(fx: Fixture, data: GameData = gameData): string[] {
-  if (fx.turns.some((t) => t.enemyMove !== undefined)) {
+  let enemyIds: string[] | undefined;
+  if (fx.turns.some((t) => t.enemyMove !== undefined || t.enemyMoves !== undefined)) {
     const problem = enemyMoveProblem(fx, data);
     if (problem) return [`enemy moves: ${problem}`];
-    data = withEnemyMoves(fx, data);
+    if (fx.enemies) ({ data, enemyIds } = withEnemyMovesMulti(fx, data));
+    else data = withEnemyMoves(fx, data);
   }
+  const enemies = enemyList(fx);
+  const multi = !!fx.enemies;
+  const aliases = enemies.map((e) => e.alias);
   const mismatches: string[] = [];
   const miss = (turn: number | string, stage: string, field: string, expected: unknown, actual: unknown) =>
     mismatches.push(`turn ${turn} ${stage}: ${field}: expected ${expected}, engine ${actual}`);
@@ -235,12 +323,24 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
   const abort = (msg: string) => {
     aborted ??= msg;
   };
+  const aliasIndex = (alias: string | null | undefined): number | undefined => {
+    if (alias === null || alias === undefined) return undefined;
+    const i = aliases.indexOf(alias);
+    if (i < 0) abort(`unknown enemy alias ${alias}`);
+    return i < 0 ? undefined : i;
+  };
 
-  const compare = (turn: number, stage: string, want: State | undefined, got: { player: Side; enemy: Side }) => {
+  const compare = (turn: number, stage: string, want: State | undefined, got: Snap) => {
     for (const who of ['player', 'enemy'] as const) {
       for (const [field, value] of Object.entries(want?.[who] ?? {})) {
         const actual = got[who][field] ?? 0;
         if (actual !== value) miss(turn, stage, `${who}.${field}`, value, actual);
+      }
+    }
+    for (const [alias, side] of Object.entries(want?.enemies ?? {})) {
+      for (const [field, value] of Object.entries(side)) {
+        const actual = got.enemies[alias]?.[field] ?? 0;
+        if (actual !== value) miss(turn, stage, `enemy ${alias}.${field}`, value, actual);
       }
     }
   };
@@ -251,6 +351,8 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
   let step = 0;
   /** A play was just made: the next call reads the enemy HP after it. */
   let pending = false;
+  /** Index of the enemy the last play or potion targeted (multi-enemy fights). */
+  let lastTarget: number | undefined;
   /** uids in hand when each turn's first decision came (the turn's draw). */
   const startHands: Record<number, Set<number>> = {};
   const afterEach: Record<number, number[]> = {};
@@ -259,7 +361,10 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
   /** Turn bookkeeping on the first call of each turn, and the enemy HP after the last play. */
   const observe = (view: StrategyView): Turn | null => {
     const t = view.state.turn;
-    if (pending && t === turn) (afterEach[turn] ??= []).push(view.state.enemy.hp);
+    if (pending && t === turn) {
+      const hit = multi && lastTarget !== undefined ? view.state.enemies?.[lastTarget] : undefined;
+      (afterEach[turn] ??= []).push(Math.max(0, (hit ?? view.state.enemy).hp));
+    }
     pending = false;
     const plan = fx.turns[t - 1];
     if (!plan) {
@@ -267,7 +372,7 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
       return null;
     }
     if (t !== turn) {
-      const snap = snapshot(view);
+      const snap = snapshot(view, aliases);
       if (t > 1) compare(t - 1, 'after enemy move', fx.turns[t - 2]!.afterEnemy, snap);
       turn = t;
       step = 0;
@@ -290,12 +395,14 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
       const use = plan?.potions?.find((p, i) => p.beforePlay === step + 1 && !usedPotions.has(`${turn}:${i}`));
       if (!plan || !use) return null;
       usedPotions.add(`${turn}:${plan.potions!.indexOf(use)}`);
+      const target = aliasIndex(use.target);
+      if (target !== undefined) lastTarget = target;
       const slot = (view.state.player.potions ?? []).indexOf(use.potion);
       if (slot < 0) {
         abort(`turn ${turn} before play ${step + 1}: potion ${use.potion} is not held`);
         return null;
       }
-      return { slot };
+      return target === undefined ? { slot } : { slot, target };
     },
     decide(view) {
       if (aborted) return { kind: 'endTurn' };
@@ -303,7 +410,7 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
       if (!plan) return { kind: 'endTurn' };
       const want = queue.shift();
       if (want === undefined) {
-        compare(turn, 'after plays', plan.afterPlays, snapshot(view));
+        compare(turn, 'after plays', plan.afterPlays, snapshot(view, aliases));
         return { kind: 'endTurn' };
       }
       const card = view.playable.find((c) => matches(c, want));
@@ -312,9 +419,11 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
         abort(`turn ${turn} play ${step + 1}: ${want} is not playable in the engine (hand: ${hand})`);
         return { kind: 'endTurn' };
       }
+      const target = aliasIndex(plan.targets?.[step]);
+      if (target !== undefined) lastTarget = target;
       step++;
       pending = true;
-      return { kind: 'play', uid: card.uid };
+      return target === undefined ? { kind: 'play', uid: card.uid } : { kind: 'play', uid: card.uid, target };
     },
     choose(_view, request: ChoiceRequest): ChoiceResponse {
       const what = `${request.purpose} for ${request.sourceCardId ?? request.sourcePower ?? '?'}`;
@@ -341,7 +450,8 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
   const config: CombatConfig = {
     characterId: fx.character,
     deck: fx.deck.map((d) => ({ cardId: d.card, upgraded: d.upgraded ?? false, count: d.count })),
-    enemyId: fx.enemy.id,
+    enemyId: enemyIds?.[0] ?? enemies[0]!.id,
+    ...(multi ? { enemyIds: enemyIds ?? enemies.map((e) => e.id) } : {}),
     ascension: fx.ascension,
     strategy: GREEDY_CONFIG,
     seed: 1,
@@ -353,8 +463,7 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
     ...(fx.playerStart ? { playerStart: fx.playerStart } : {}),
   };
 
-  control.enemyHp = fx.enemy.startHp;
-  control.rolled = false;
+  control.enemyHps = enemies.map((e) => e.startHp);
   control.error = null;
   control.demand = fx.turns.flatMap((t) => [...t.hand, ...(t.drawn ?? []), ...(t.playedFromDraw ?? [])]);
 
@@ -656,6 +765,60 @@ describe('golden harness (#210, synthetic fixtures)', () => {
       const gap = withMoves(['a', 'b']);
       delete gap.turns[1]!.enemyMove;
       expect(replay(gap, data)).toEqual(['enemy moves: turn 2: enemyMove is missing (list it on every turn)']);
+    });
+  });
+
+  describe('multi-enemy fixtures (enemies, targets, per-enemy states and moves)', () => {
+    const inklets = Object.values(files).find((f) => f.combat === 'inklets-a0-01')!;
+
+    it('replays a real multi-enemy fixture with no mismatch', () => {
+      expect(replay(inklets)).toEqual([]);
+    });
+
+    it("a different target shows up in that enemy's HP", () => {
+      const fx = structuredClone(inklets);
+      fx.turns[0]!.targets = ['B', 'B', 'C'];
+      const out = replay(fx);
+      expect(out).toContain('turn 1 after play 3: enemy.hp: expected 0, engine 12');
+      expect(out).toContain('turn 1 after plays: enemy C.hp: expected 13, engine 12');
+    });
+
+    it('a per-enemy state is compared by alias', () => {
+      const fx = structuredClone(inklets);
+      fx.turns[1]!.afterPlays = { enemies: { C: { hp: 11 } } };
+      expect(replay(fx)).toEqual(['turn 2 after plays: enemy C.hp: expected 11, engine 12']);
+    });
+
+    it('rejects an unknown alias and an unknown state field', () => {
+      const fx = structuredClone(inklets);
+      fx.turns[0]!.targets = ['B', 'B', 'Z'];
+      expect(replay(fx)[0]).toBe('replay stopped: unknown enemy alias Z');
+      const typo = structuredClone(inklets);
+      typo.turns[0]!.atStart = { enemies: { A: { hpp: 1 }, Q: { hp: 1 } } };
+      expect(checkFields(typo)).toEqual(['turn 1 atStart.enemies.A.hpp', 'turn 1 atStart.enemies.Q']);
+    });
+
+    it('fails precisely on a move the enemy does not have, a missing opener and a broken alternation', () => {
+      const move = (turn: number, alias: string, id: string | undefined) => {
+        const fx = structuredClone(inklets);
+        if (id === undefined) delete fx.turns[turn]!.enemyMoves![alias];
+        else fx.turns[turn]!.enemyMoves![alias] = id;
+        return replay(fx);
+      };
+      expect(move(0, 'A', 'nope')).toEqual(['enemy moves: turn 1: A (inklet) has no move nope']);
+      expect(move(0, 'B', undefined)).toEqual([
+        'enemy moves: turn 1: enemyMoves.B is missing (every enemy needs its turn-1 move)',
+      ]);
+      expect(move(1, 'A', 'jab')).toEqual(['enemy moves: turn 2: A makes jab after jab (alternate pattern)']);
+    });
+
+    it('forced moves drive the damage: a different opener for C changes the player HP', () => {
+      const fx = structuredClone(inklets);
+      fx.turns[0]!.enemyMoves!.C = 'whirlwind';
+      fx.turns[1]!.enemyMoves!.C = 'jab';
+      fx.turns[2]!.enemyMoves!.C = 'whirlwind';
+      fx.turns[3]!.enemyMoves!.C = 'jab';
+      expect(replay(fx)).toContain('turn 1 after enemy move: player.hp: expected 74, engine 71');
     });
   });
 
