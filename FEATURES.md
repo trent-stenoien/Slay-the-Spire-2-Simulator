@@ -122,6 +122,11 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     4 Block counts when a set of Attacks reaches the 3rd Attack of the turn. Enemy Thorns: every Attack hit deals its
     Thorns to the player (Block absorbs, Intangible caps at 1). Personal Hive: every Attack hit adds that many Dazed to
     a random place in the draw pile. StrategyView.relics lists the relic ids. Shuriken, Kunai, Kusarigama pending Trent.
+    **Enemy-punishment factors (#339 part 4, Trent):** Shivs-first exception: against Aeonglass (Withering Presence) a Shiv
+    that would be the Nth card played this combat (which adds a Wither) is held back unless it kills. Bygone Effigy (Slow,
+    +10% damage per card played this turn): Attacks wait for other cards that still leave Energy for the cheapest Attack,
+    unless the hand's Attacks already kill it; if that leaves nothing to play, the Attacks go. Infested Prism, Test
+    Subject, Globe Head and the toads are not in data yet.
     **Shiv makers (#339, Trent):** Storm of Steel is an attack worth the damage of the Shivs it makes (hand cards it
     would discard, Accuracy, Phantom Blades and Fan of Knives included). When it is the best attack, every other card is
     played before it, but only those that leave 1 Energy for it. With Energy for only one of Storm of Steel and Shadow

@@ -2303,8 +2303,12 @@ export function blockIsLast(config: StrategyConfig): boolean {
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
   // #356: the Shiv kept for Phantom Blades is not played by any other rule either.
   const held = heldShiv(raw);
-  const kept = held ? { ...raw, playable: raw.playable.filter((c) => c.uid !== held.uid) } : raw;
-  const view = withStormRules(
+  const punished = punishedShivs(raw);
+  const kept =
+    held || punished.length > 0
+      ? { ...raw, playable: raw.playable.filter((c) => c.uid !== held?.uid && !punished.some((p) => p.uid === c.uid)) }
+      : raw;
+  const base = withStormRules(
     withSlyEffects(
       withoutWaitingForAttacks(
         withoutWaitingForBlock(
@@ -2319,9 +2323,12 @@ function decide(raw: StrategyView, config: StrategyConfig): Decision {
   const escape = pickSandpitEscape(raw, true);
   if (escape) return play(escape);
   // #267 (Trent, Nov 14): Shivs in hand are always played, unless that would kill the player.
-  const shiv = pickShivPlay(raw);
+  const shiv = pickShivPlay({ ...raw, playable: raw.playable.filter((c) => !punished.some((p) => p.uid === c.uid)) });
   if (shiv) return play(shiv);
-  const d = decideWith(view, config, false);
+  const view = withSlowOrder(base);
+  let d = decideWith(view, config, false);
+  // #339: if waiting for Slow left nothing to play, the Attacks go after all.
+  if (d.kind === 'endTurn' && view !== base) d = decideWith(base, config, false);
   if (d.kind !== 'endTurn') return d;
   // #110: Panic Button is the last resort, once nothing else is left to play.
   const panic = pickPanic(raw);
@@ -2403,6 +2410,37 @@ function heldShiv(view: StrategyView): Card | undefined {
   const shivs = view.playable.filter(isShivCard);
   if (shivs.length !== 1 || shivKills(view, shivs[0]!)) return undefined;
   return shivs[0];
+}
+
+/**
+ * #339 (Trent): the Shivs-first exception: Shivs are not played first when the enemy makes each card play worse.
+ * Aeonglass's Withering Presence adds a Wither every N cards played, so a Shiv that would be the Nth card is held
+ * back (it is still played when it kills an enemy). Shivs that do not trigger a Wither are played as usual.
+ */
+function punishedShivs(view: StrategyView): Card[] {
+  const every = view.state.enemy?.powers?.witheringPresence ?? 0;
+  if (every <= 0) return [];
+  const next = (view.state.player.counters?.cardsPlayedThisCombat ?? 0) + 1;
+  if (next % every !== 0) return [];
+  return view.playable.filter((c) => isShivCard(c) && !shivKills(view, c));
+}
+
+/**
+ * #339 (Trent): Bygone Effigy's Slow makes it take 10% more Attack damage per card played this turn, so cards
+ * count: while it is up, Attacks wait for the other cards (those that still leave Energy for the cheapest
+ * Attack), unless the Attacks in hand already kill it. Shivs are free and keep going first.
+ */
+function withSlowOrder(view: StrategyView): StrategyView {
+  const { state } = view;
+  if ((state.enemy?.powers?.slow ?? 0) <= 0) return view;
+  const energy = state.player.energy;
+  const attacks = view.playable.filter((c) => isAttackCard(c) && !isShivCard(c));
+  if (attacks.length === 0) return view;
+  const cheapest = Math.min(...attacks.map((c) => (c.xCost ? 1 : (c.cost ?? 0))));
+  const others = view.playable.filter((c) => !isAttackCard(c) && (c.cost ?? 0) + cheapest <= energy);
+  if (others.length === 0) return view;
+  if (attackDamageThisTurn(view, energy) >= state.enemy.hp + state.enemy.block) return view;
+  return { ...view, playable: view.playable.filter((c) => !attacks.some((a) => a.uid === c.uid)) };
 }
 
 /**
