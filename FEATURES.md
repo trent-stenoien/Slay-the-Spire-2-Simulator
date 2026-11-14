@@ -359,9 +359,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     (Fire Potion) and Poison itself do not. Noxious Fumes: at the start of each of your turns (after the draw)
     apply 2 (3) Poison to ALL enemies. Corrosive Wave: for the rest of this turn, every card you draw applies
     2 (3) Poison to ALL enemies. Outbreak (main v0.107.1, Uncommon Power): every 3rd time you apply Poison deals
-    11 damage to ALL enemies (power damage, Block absorbs). Builder's rule: one Poison effect or trigger is one
-    application however many enemies it hits, an Artifact-negated application does not count, and applications
-    are counted only while Outbreak is in play. Mirage: Block equal to the total Poison on all living enemies
+    11 (15 upgraded; cost 2, upgraded 1) damage to ALL enemies (power damage, Block absorbs). Each enemy that
+    receives Poison is one application (#332, Trent: Poison to ALL on 3 enemies = 3), an Artifact-negated
+    application does not count, and applications are counted only while Outbreak is in play. Mirage: Block equal to the total Poison on all living enemies
     (Dexterity and Frail apply; Exhaust).
 
 ## Known failure points

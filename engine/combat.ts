@@ -471,7 +471,7 @@ class Combat {
   private panacheCount = 0;
   /** #113: cards drawn while Automation was on (kept across turns). */
   private automationCount = 0;
-  /** #263 Poison applications this combat (Outbreak fires on every 3rd). */
+  /** #263/#332 Poison applications this combat, one per enemy poisoned (Outbreak fires on every 3rd). */
   private poisonApplications = 0;
   /** #265: cards drawn since the last `draw`/`drawUntil` effect began (Escape Plan's drewMatching). */
   private lastDrawn: CardInstance[] = [];
@@ -1808,11 +1808,12 @@ class Combat {
         }
         case 'applyPoison':
           if (source !== 'player') throw new Error('Poison on the player is not simulated yet');
+          let poisoned = 0;
           died = this.onEnemies(e.allEnemies, () => {
-            this.poisonCurrent(e.amount);
+            if (this.poisonCurrent(e.amount) && e.amount > 0) poisoned++;
           });
-          // #263 Outbreak counts the whole effect (all targets) as one application.
-          if (!died && e.amount > 0 && this.poisonApplied()) died = 'enemy';
+          // #332 Outbreak counts every enemy that receives the Poison as one application.
+          if (!died && this.poisonApplied(poisoned)) died = 'enemy';
           break;
         case 'gainEnergy':
           if (source !== 'player') throw new Error('Enemies have no energy');
@@ -3157,8 +3158,7 @@ class Combat {
         // #263 Envenom (Trent: Attack cards only): unblocked damage from this hit poisons the target.
         const envenom = this.power('envenom');
         if (envenom > 0 && perHit - blocked > 0 && t.hp > 0) {
-          this.poisonCurrent(envenom);
-          this.poisonApplied();
+          if (this.poisonCurrent(envenom)) this.poisonApplied(1);
           this.focusOn(i);
         }
         if (this.won()) return 'enemy';
@@ -3181,21 +3181,26 @@ class Combat {
    * Returns true if combat is won (Outbreak).
    */
   private poisonAllFromPower(amount: number): boolean {
+    let poisoned = 0;
     this.onEnemies(true, () => {
-      this.poisonCurrent(amount);
+      if (this.poisonCurrent(amount) && amount > 0) poisoned++;
     });
-    return this.poisonApplied() || this.won();
+    return this.poisonApplied(poisoned) || this.won();
   }
 
   /**
-   * #263 Outbreak: every 3rd time Poison is applied (one effect or trigger = one application, however
-   * many enemies it hits), deal its damage to ALL enemies. Returns true if every enemy is dead.
+   * #263/#332 Outbreak: every 3rd time Poison is applied (each enemy that receives it is one
+   * application), deal its damage to ALL enemies. `count` applications are added; the damage fires once
+   * per 3rd crossed. Returns true if every enemy is dead.
    */
-  private poisonApplied(): boolean {
+  private poisonApplied(count: number): boolean {
     const outbreak = this.power('outbreak');
     if (outbreak <= 0) return false;
-    if (++this.poisonApplications % OUTBREAK_APPLICATIONS !== 0) return false;
-    return this.powerDamage(outbreak, 'all');
+    for (let i = 0; i < count; i++) {
+      if (++this.poisonApplications % OUTBREAK_APPLICATIONS !== 0) continue;
+      if (this.powerDamage(outbreak, 'all')) return true;
+    }
+    return false;
   }
 
   /**

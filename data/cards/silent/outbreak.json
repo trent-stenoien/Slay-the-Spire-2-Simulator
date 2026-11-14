@@ -17,10 +17,17 @@
     }
   ],
   "upgraded": {
-    "cost": 1
+    "cost": 1,
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "outbreak",
+        "amount": 15
+      }
+    ]
   },
   "description": "Every 3 times you apply Poison, deal 11 damage to ALL enemies.",
-  "upgradedDescription": "Every 3 times you apply Poison, deal 11 damage to ALL enemies.",
+  "upgradedDescription": "Every 3 times you apply Poison, deal 15 damage to ALL enemies.",
   "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
