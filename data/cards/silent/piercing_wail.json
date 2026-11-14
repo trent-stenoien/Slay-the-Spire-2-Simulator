@@ -15,7 +15,8 @@
     {
       "type": "applyEnemyPower",
       "power": "strengthLossThisTurn",
-      "amount": 6
+      "amount": 6,
+      "allEnemies": true
     }
   ],
   "upgraded": {
@@ -23,7 +24,8 @@
       {
         "type": "applyEnemyPower",
         "power": "strengthLossThisTurn",
-        "amount": 8
+        "amount": 8,
+        "allEnemies": true
       }
     ]
   },

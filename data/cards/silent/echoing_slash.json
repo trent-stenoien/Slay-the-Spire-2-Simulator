@@ -14,7 +14,8 @@
       "type": "attack",
       "damage": 10,
       "hits": 1,
-      "allEnemies": true
+      "allEnemies": true,
+      "repeatPerKill": true
     }
   ],
   "upgraded": {
@@ -23,13 +24,14 @@
         "type": "attack",
         "damage": 13,
         "hits": 1,
-        "allEnemies": true
+        "allEnemies": true,
+        "repeatPerKill": true
       }
     ]
   },
   "description": "Deal 10 damage to ALL enemies. / Repeat this effect for each enemy killed.",
   "upgradedDescription": "Deal 13 damage to ALL enemies. / Repeat this effect for each enemy killed.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
