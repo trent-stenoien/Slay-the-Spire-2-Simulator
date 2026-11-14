@@ -148,8 +148,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     (#127); Battle Trance after other draw; Tremble first among Attacks; Havoc early; Mad Science
     never played; Alchemize is not played (#171).
 20. **Attack choice:** an attack that applies Vulnerable goes first only when the enemy has no
-    Vulnerable and there is energy for it plus another attack; otherwise by damage per energy, a 0-cost
-    attack first, ties to the higher total damage (#11, #149, #12). X-cost
+    Vulnerable and there is energy for it plus another attack; otherwise the set of attacks that deals
+    the most total damage within the Energy is played, free attacks always in it; ties go to more damage per
+    Energy, then fewer cards (#11, #149, #12). The set's biggest attack goes first. X-cost
     attacks are compared at their damage for 1 energy: Strike before Whirlwind, Whirlwind+ before
     Strike; ties go to the other attack (#147). Cascade is played with the X-cost attacks.
     **Block choice (#12):** a Block group that is not last plays the cheapest set of block cards (in Energy,

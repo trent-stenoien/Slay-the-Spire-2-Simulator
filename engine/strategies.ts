@@ -1350,8 +1350,42 @@ function vulnerableFirst(card: Card, attacks: readonly Card[], energy: number, e
 }
 
 /**
- * Best attack to play: Vulnerable-appliers first (only under vulnerableFirst, #11), then the most base damage
- * per energy (#12, Trent; a 0-cost attack is free, so first), then the higher total base damage (damage × hits),
+ * #12 (Trent): the attacks that deal the most total damage within the Energy, free (0-cost) attacks always
+ * included. Ties: more damage per Energy, then fewer cards, then the lowest uids. Its first card goes first
+ * (highest total damage, then damage per Energy, draws, lowest uid) and the rest follow as the turn is
+ * re-planned. Only the first 10 paid attacks are searched. Undefined when no attack is affordable.
+ */
+function pickAttackFromBestSet(attacks: readonly Card[], energy: number, state?: State): Card | undefined {
+  const value = (c: Card) => totalBaseDamage(c, energy, state) + shivDamageMade(c);
+  const byUid = [...attacks].sort((a, b) => a.uid - b.uid);
+  const free = byUid.filter((c) => (c.cost ?? 0) <= 0);
+  const paid = byUid.filter((c) => (c.cost ?? 0) > 0 && (c.cost ?? 0) <= energy).slice(0, 10);
+  let bestSet: { cards: Card[]; damage: number; cost: number } | undefined;
+  for (let mask = 0; mask < 1 << paid.length; mask++) {
+    const set = [...free, ...paid.filter((_, i) => mask & (1 << i))];
+    if (set.length === 0) continue;
+    const cost = set.reduce((n, c) => n + (c.cost ?? 0), 0);
+    if (cost > energy) continue;
+    const damage = set.reduce((n, c) => n + value(c), 0);
+    const perEnergy = cost > 0 ? damage / cost : Infinity;
+    const bestPer = bestSet ? (bestSet.cost > 0 ? bestSet.damage / bestSet.cost : Infinity) : -1;
+    if (
+      !bestSet ||
+      damage > bestSet.damage ||
+      (damage === bestSet.damage &&
+        (perEnergy > bestPer || (perEnergy === bestPer && set.length < bestSet.cards.length)))
+    )
+      bestSet = { cards: set, damage, cost };
+  }
+  return (
+    bestSet &&
+    best(bestSet.cards, (c) => [totalBaseDamage(c, energy, state), attackDamagePerEnergy(c, state), draws(c)])
+  );
+}
+
+/**
+ * Best attack to play: Vulnerable-appliers first (only under vulnerableFirst, #11), then the first card of the
+ * set that deals the most total damage within the Energy (pickAttackFromBestSet, #12, Trent),
  * then cards that draw (#107), ties → lowest uid. X-cost attacks (never at 0
  * energy; they spend all of it) are compared with the best other attack by damage per energy
  * (#147, single enemy): the X-cost attack goes first only when it applies Vulnerable and the other
@@ -1372,11 +1406,12 @@ export function pickAttack(
   const rank = (c: Card, x: number) =>
     slippery
       ? [vuln(c), attackHitCount(c, energy), -totalBaseDamage(c, x, state), draws(c)]
-      : [vuln(c), attackDamagePerEnergy(c, state), totalBaseDamage(c, x, state), draws(c)];
-  const other = best(
-    attacks.filter((c) => !c.xCost),
-    (c) => rank(c, energy),
-  );
+      : [vuln(c), totalBaseDamage(c, x, state), draws(c)];
+  const sized = attacks.filter((c) => !c.xCost);
+  const other =
+    slippery || attacks.some((c) => vuln(c) > 0)
+      ? best(sized, (c) => rank(c, energy))
+      : (pickAttackFromBestSet(sized, energy, state) ?? best(sized, (c) => rank(c, energy)));
   const x = best(
     attacks.filter((c) => c.xCost),
     (c) => rank(c, 1),
