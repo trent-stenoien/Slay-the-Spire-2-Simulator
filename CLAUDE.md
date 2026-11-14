@@ -19,8 +19,8 @@ request (branch name, what changed, test/typecheck/build results).
 All work is tracked on the Kanban board https://github.com/users/trent-stenoien/projects/4.
 Each card is an issue in this repo (auto-added to the board in Backlog), labelled with an area
 (`engine`, `data`, `ui`, `strategy`) and a version. One character per version:
-`version: v1` (Ironclad, complete), `version: v2` (The Silent, multi-enemy fights, and a fight or
-two from Acts 2 and 3), `version: future` (Defect, Necrobinder and Regent, until Trent picks the
+`version: v1` (Ironclad, complete), `version: v2` (the Silent, multi-enemy fights, and all Act 2 and
+Act 3 bosses), `version: future` (Defect, Necrobinder and Regent, until Trent picks the
 next character; also the default when no version was set), or `version: multiplayer` (multiplayer-only
 cards and tasks). Cards for a version later than the one in development stay in Backlog. Columns: Backlog → Questions or Ready → In progress → In review → Done.
 
