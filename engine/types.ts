@@ -108,6 +108,7 @@
  * #322 Summons     — Effect `spawnEnemies`; EnemyDef.onDeath (Phrog Parasite: 4 stunned Wrigglers);
  *                     RandomPattern.weights / noRepeatMoves (Twig Slime M); CyclePattern.startBySlot
  *                     (Wriggler). Declared, not simulated yet; validators reject the new fields in data.
+ * #333 Spawn log   — GameEvent `spawn` (an enemy joined mid-fight; one per spawned enemy).
  *
  * #5 Multi-enemy    — CombatConfig.enemyIds / RunConfig.enemyIds; CombatState.enemies (`enemy` is
  *                     the current one); StrategyView.intents; Decision / PotionUse `target`;
@@ -1271,6 +1272,8 @@ export type GameEvent =
    * next `target` event. Logged only in fights with several enemies, whenever the current enemy changes.
    */
   | { t: 'target'; enemy: number }
+  /** #333: an enemy joined mid-fight (spawnEnemies, #322), one event per enemy. `index` is its slot in CombatState.enemies. */
+  | { t: 'spawn'; enemyId: string; index: number; hp: number; stunned?: boolean }
   | { t: 'shuffle'; reason: 'start' | 'reshuffle'; count: number }
   | { t: 'turnStart'; turn: number; side: Side }
   | { t: 'draw'; uid: number; cardId: string }

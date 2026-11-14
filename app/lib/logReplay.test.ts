@@ -5,6 +5,28 @@ import { ascensionLabel, buildReplay, describeEvent, enemyIntentLabel, intendedM
 import { GREEDY_CONFIG } from '../../engine/strategies';
 import type { PowerId } from '../../engine/types';
 
+describe('spawn events (#333)', () => {
+  const nm = (id: string) => id;
+  it('describeEvent names the new enemy, its slot, HP and Stunned', () => {
+    expect(describeEvent({ t: 'spawn', enemyId: 'wriggler', index: 1, hp: 18, stunned: true }, nm)).toBe(
+      'Wriggler appears as Enemy 2 (18 HP, Stunned)',
+    );
+    expect(describeEvent({ t: 'spawn', enemyId: 'twig_slime', index: 3, hp: 7 }, nm)).toBe(
+      'Twig Slime appears as Enemy 4 (7 HP)',
+    );
+  });
+  it('buildReplay adds a snapshot for the spawned enemy so later target events work', () => {
+    const r = buildReplay([
+      { t: 'combatStart', seed: 1, enemyHp: 10, playerHp: 50 },
+      { t: 'turnStart', turn: 1, side: 'player' },
+      { t: 'spawn', enemyId: 'wriggler', index: 1, hp: 18, stunned: true },
+      { t: 'target', enemy: 1 },
+      { t: 'loseHp', side: 'enemy', amount: 3, hpAfter: 15 },
+    ]);
+    expect(r.rounds[0]!.end.enemies.map((e) => e.hp)).toEqual([10, 15]);
+  });
+});
+
 describe('log replay', () => {
   const result = runCombat(
     gameData,

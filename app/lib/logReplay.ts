@@ -130,6 +130,16 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
       case 'target':
         enemy = enemies[ev.enemy] ?? enemy;
         break;
+      case 'spawn':
+        enemies[ev.index] = {
+          hp: ev.hp,
+          maxHp: ev.hp,
+          block: 0,
+          strength: 0,
+          debuffs: emptyDebuffs(),
+          poison: 0,
+        };
+        break;
       case 'blockReset':
         side(ev.side).block = 0;
         break;
@@ -288,6 +298,9 @@ export function describeEvent(
     case 'target':
       // #5: the following lines are about this enemy (1-based, left to right).
       return `Enemy ${ev.enemy + 1}:`;
+    case 'spawn':
+      // #333: an enemy joined mid-fight (1-based slot, left to right).
+      return `${ev.enemyId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} appears as Enemy ${ev.index + 1} (${ev.hp} HP${ev.stunned ? ', Stunned' : ''})`;
     case 'potion':
       return `You use ${ev.potionId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`;
     default:

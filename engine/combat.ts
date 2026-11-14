@@ -651,6 +651,12 @@ class Combat {
       this.deathHooks ||= def.onDeath !== undefined;
       const i = this.enemyDefs.length - 1;
       this.enemies.push(this.makeEnemy(def, i));
+      const hp = this.enemies[i]!.hp;
+      this.log?.push(
+        e.stunned
+          ? { t: 'spawn', enemyId: def.id, index: i, hp, stunned: true }
+          : { t: 'spawn', enemyId: def.id, index: i, hp },
+      );
       this.focusOn(i);
       for (const [power, amount] of Object.entries(def.startPowers ?? {}) as [EnemyPowerId, number][]) {
         if (amount > 0) this.applyEnemyPower(power, amount);
