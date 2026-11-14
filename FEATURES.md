@@ -199,7 +199,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Block), so it is never held while dying. Poison Potion (#303, Silent): Apply 6 Poison; used at
     once, after the Strength Potion and before the Fire Potion.
     Slow (#303, Bygone Effigy starts with it): each Attack the player deals to that enemy takes +10% per
-    card played earlier this turn (the card itself and potions do not count; Strike 6 -> 7 after 2 cards,
+    card played earlier this turn (the card itself and potions do not count; every played card counts,
+    cards played by other cards included, #314: Sly, Havoc, ...; Strike 6 -> 7 after 2 cards,
     Strike+ 9 -> 10, 8 after 4). One multiplier with Vulnerable (floored once); resets each player turn;
     Poison and fixed HP loss are unaffected. Built-in kill checks count it. Sleep is a no-effect opener move.
 38. **Golden combats (#177, #210):** every fixture in `engine/golden/` replays through the engine
@@ -282,7 +283,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 48. **Silent damage, Block and debuff cards (#260, Trent):** X-cost cards (Skewer, Malaise) spend all the Energy
     left, so two X-cost cards in one hand play only one unless Energy is gained in between. Bullet Time makes only the
     cards in hand at that moment free this turn (X-cost cards still spend their X) and blocks all later draws this turn.
-    Precise Cut deals 2 less per other card in hand, floored at 0 before Strength. Grand Finale is playable only with
+    Precise Cut deals max(0, base + Strength − 2 × other cards in hand) (#314: Strength before the floor; 3
+    Strength, 8 other cards: 13 + 3 − 16 = 0); the strategy's estimate floors the same way. Grand Finale is playable only with
     an empty draw pile. Expose removes the enemy's Block and Artifact before it applies Vulnerable. Malaise takes X
     (X+1 upgraded) Strength from the enemy for good, then applies that much Weak; Artifact negates each separately.
     Strangle: the enemy loses 2 (3) HP for every card played after it this turn. Piercing Wail hits one enemy.
@@ -303,18 +305,25 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 
 ## Silent Sly keyword (#261)
 
-51. **Sly (#261, Trent):** a Sly card discarded from the hand by a card or power effect during the player's turn
-    (the shared discard step of item 49) is played at once, before the rest of the discarding effect, exactly as
-    if played from the hand (all effects, on-play triggers, cards-played counters, Slow, Calamity) but for free;
-    a single-target Attack hits a random living enemy (seeded Rng, one draw only while 2+ live). Afterwards it
-    goes where a played card goes (discard pile, Exhaust, a Power leaves play). Several Sly cards discarded at
-    once play in discard order; a Sly card may itself discard (and play) another; a Sly play that kills the last
-    enemy wins and the rest of the discarding card does not resolve. The discarding card keeps its own target,
-    Slow count and Vigor (a Sly Attack does not reuse Vigor an Attack already claimed). The end-of-turn hand
-    discard never plays Sly cards. Abrasive, Flick-Flack (6/8, main), Haze (cost 3, Sly, main), Reflex,
+51. **Sly (#261, #314, Trent):** a Sly card discarded from the hand by a card or power effect during the player's
+    turn (the shared discard step of item 49) goes to the discard pile and is played right AFTER the card that
+    discarded it finishes (its Replays and on-play triggers included; for Tools of the Trade, after its whole
+    discard), exactly as if played from the hand (all effects, on-play triggers, cards-played counters, Slow,
+    Vigor, Calamity) but for free; a single-target Attack hits a random living enemy (seeded Rng, one draw only
+    while 2+ live) and the player's target is kept afterwards. Afterwards it goes where a played card goes
+    (discard pile, Exhaust, a Power leaves play). Several Sly cards discarded by one card play in hand (draw)
+    order; a Sly card may itself discard (and play) another, after it finishes; a Sly play that kills the last
+    enemy wins like any played card. Vigor goes to the first Attack played (an Attack that discards a Sly Attack
+    has used it; after a Skill such as Survivor the Sly Attack uses it). A queued Sly card that left the
+    discard pile before its turn (reshuffled by a later draw of the discarding card) is not played. The end-of-turn
+    hand discard never plays Sly cards. Abrasive, Flick-Flack (6/8, main), Haze (cost 3, Sly, main), Reflex,
     Ricochet, Tactician and Untouchable are simulated.
-52. **Sly strategy (#261, orchestrator's default):** while a Sly card that does not hurt is in the hand, the
-    cheapest playable "Discard N" card (Survivor, Acrobatics, Prepared, Dagger Throw) is played first.
+52. **Sly strategy (#314, Trent):** a "Discard N" card (Survivor, Acrobatics, Prepared, Dagger Throw) is
+    weighed with the free effects of the Sly card(s) it would discard (the discard order of item 49) added to
+    its own, against its Energy cost, like other plays (Survivor + Untouchable is 14 Block for 1, Survivor +
+    Ricochet is a 12-damage Attack for 1). It is played before the groups when the Sly energy pays for it
+    and another card wants energy (Survivor + Tactician + Strike + Defend: Survivor, then Strike and Defend),
+    or when a Sly card draws (Reflex) and energy is left afterwards to play the drawn cards.
 
 ## Known failure points
 

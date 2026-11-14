@@ -716,6 +716,10 @@ class Combat {
    */
   /** #303 Slow: cards played before the current one this turn (resets each player turn). */
   private slowCards = 0;
+  /** #314 Sly cards discarded during a card play (or Tools of the Trade's discard), waiting to be played. */
+  private slyQueue: CardInstance[] = [];
+  /** #314: above 0 while a card is being played or a discard is running (Sly cards wait in slyQueue). */
+  private slyHold = 0;
 
   private startPlayerTurn(): Outcome | null {
     const { player, log, counters } = this;
@@ -777,59 +781,81 @@ class Combat {
       min: n,
       max: n,
     };
+    // #314: Sly cards discarded here are played once the whole discard is done, in hand order.
+    const mark = this.slyQueue.length;
+    this.slyHold++;
     for (const c of options.length === n ? options : this.choose(request, options)) {
       const at = player.hand.indexOf(c);
       if (at < 0) continue;
       player.hand.splice(at, 1);
-      // #261: a Sly card played on discard may end combat; the rest of the discard stops there.
-      if (this.discardCard(c)) return;
+      this.discardCard(c);
     }
+    this.slyHold--;
+    this.playQueuedSly(mark, options);
   }
 
   /**
    * #259: the one shared hook for a card discarded from the hand by an effect ("Discard N" on Survivor,
    * Acrobatics, Prepared, Dagger Throw; Storm of Steel's whole hand; Tools of the Trade). The caller has already taken `c` out of the hand. It goes to the discard pile, is logged
    * as moved hand → discard and counts as discarded this turn (Memento Mori). The end-of-turn hand
-   * discard and the full-hand discard of a draw do NOT come here. #261 Sly: a Sly card discarded here during
-   * the player's turn is played for free right away (see slyPlay) instead of staying in the discard pile.
-   * Returns the side that died when that play ended combat.
+   * discard and the full-hand discard of a draw do NOT come here. #261/#314 Sly: a Sly card discarded here
+   * during the player's turn is queued and played for free once the card (or Tools of the Trade's discard)
+   * that discarded it has finished (see playQueuedSly). Returns the side that died when a play ended combat
+   * (only when nothing is being played, so the Sly card is played at once).
    */
   private discardCard(c: CardInstance): Side | null {
     this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: 'hand', to: 'discard' });
     this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
-    if (this.playerTurn && c.keywords.includes('sly') && this.canPlayFree(c)) return this.slyPlay(c);
     this.player.discardPile.push(c);
+    if (!this.playerTurn || !c.keywords.includes('sly') || !this.canPlayFree(c)) return null;
+    this.slyQueue.push(c);
+    return this.slyHold > 0 ? null : this.playQueuedSly(this.slyQueue.length - 1, []);
+  }
+
+  /**
+   * #314 Sly (Trent): the Sly cards queued since `mark` are played one by one, in the order they had in
+   * the hand (`handBefore`, the hand when the discarding card started; cards not in it keep their discard
+   * order, after the others). A queued card that left the discard pile since (reshuffled, exhausted) is not
+   * played. Stops when combat ends. Returns the side that died, if one did.
+   */
+  private playQueuedSly(mark: number, handBefore: readonly CardInstance[]): Side | null {
+    if (this.slyQueue.length <= mark) return null;
+    const queued = this.slyQueue.splice(mark);
+    const key = (c: CardInstance, i: number) => {
+      const at = handBefore.indexOf(c);
+      return at < 0 ? handBefore.length + i : at;
+    };
+    const ordered = queued.map((c, i) => ({ c, k: key(c, i) })).sort((a, b) => a.k - b.k);
+    for (const { c } of ordered) {
+      if (this.player.hp <= 0) return 'player';
+      if (this.won()) return 'enemy';
+      const at = this.player.discardPile.indexOf(c);
+      if (at < 0) continue;
+      this.player.discardPile.splice(at, 1);
+      const died = this.slyPlay(c);
+      if (died) return died;
+    }
     return null;
   }
 
   /**
-   * #261 Sly (Trent): the discarded Sly card is played at once, before the rest of the effect that discarded
-   * it (the wiki does not say; resolved immediately), exactly like a card played from the hand (all effects,
-   * on-play triggers and counters, Slow included) but for free (X = the energy left, not spent). A
-   * single-target Attack hits a random living enemy (seeded Rng, one draw only while 2+ live, as #45).
-   * Afterwards it goes where a played card goes (discard pile, Exhaust, or out of play for a Power). The
-   * outer card's target, Vigor, Slow count and last attack damage are restored for its remaining effects.
+   * #261 Sly: the discarded Sly card is played exactly like a card played from the hand (all effects,
+   * on-play triggers and counters, Vigor and Slow included) but for free (X = the energy left, not spent).
+   * #314: it plays after the discarding card has finished, so it shares nothing with it. A single-target
+   * Attack hits a random living enemy (seeded Rng, one draw only while 2+ live, as #45); the target the
+   * player had is kept afterwards while it lives. Afterwards the card goes where a played card goes
+   * (discard pile, Exhaust, or out of play for a Power).
    */
   private slyPlay(card: CardInstance): Side | null {
     const { player } = this;
-    const keep = {
-      focus: this.focus,
-      vigor: this.activeVigor,
-      slow: this.slowCards,
-      damage: this.lastAttackDamage,
-      drawn: this.lastDrawn,
-    };
+    const focus = this.focus;
     if (targetsOneEnemy(card)) {
       const alive = this.living();
       if (alive.length > 1) this.focusOn(alive[this.rng.int(0, alive.length - 1)]!);
     }
     let died = this.playCard(card, card.xCost ? player.energy : 0, 'effect');
     if (!died && player.hp > 0 && !this.won()) this.calamity(card);
-    this.activeVigor = keep.vigor;
-    this.slowCards = keep.slow;
-    this.lastAttackDamage = keep.damage;
-    this.lastDrawn = keep.drawn;
-    if ((this.enemies[keep.focus]?.hp ?? 0) > 0) this.focusOn(keep.focus);
+    if ((this.enemies[focus]?.hp ?? 0) > 0) this.focusOn(focus);
     else this.retarget();
     died ??= player.hp <= 0 ? 'player' : this.won() ? 'enemy' : null;
     return died;
@@ -1165,6 +1191,26 @@ class Combat {
     by?: 'effect' | 'trigger' | 'power',
     exhaust = false,
   ): Side | null {
+    // #314: Sly cards this card discards are played once it has finished (Replays and triggers included).
+    const mark = this.slyQueue.length;
+    const handBefore = [...this.player.hand];
+    this.slyHold++;
+    const died = this.resolvePlay(card, xPaid, by, exhaust);
+    this.slyHold--;
+    if (died || this.player.hp <= 0 || this.won()) {
+      this.slyQueue.length = mark;
+      return died ?? (this.player.hp <= 0 ? 'player' : 'enemy');
+    }
+    return this.playQueuedSly(mark, handBefore);
+  }
+
+  /** playCard without the Sly queue (#314). */
+  private resolvePlay(
+    card: CardInstance,
+    xPaid: number,
+    by: 'effect' | 'trigger' | 'power' | undefined,
+    exhaust: boolean,
+  ): Side | null {
     const { player, log, counters } = this;
     // #5: a card played by an effect, power or trigger keeps the current target while it lives (#45: random).
     this.retarget();
@@ -1195,7 +1241,7 @@ class Combat {
     const afterimage = this.power('afterimage');
     const serpentForm = this.power('serpentForm');
     // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
-    // #261: a card played in the middle of an Attack (Sly) does not get the Vigor that Attack already claimed.
+    // A card played in the middle of an Attack (Havoc-like plays) does not get the Vigor that Attack already claimed.
     const vigor = card.type === 'attack' ? Math.max(0, this.power('vigor') - this.activeVigor) : 0;
     this.activeVigor = vigor;
     // #110 powers that react to this play, read before its own effects can add to them.
@@ -1781,8 +1827,9 @@ class Combat {
           // #111: per hit damage + amount × counter; hits + extra × counter; both read before the attack.
           if (source !== 'player') throw new Error('Effect "attackFrom" is not simulated yet on enemy moves');
           this.checkCounters(e.bonusPer, e.extraHitsPer);
-          // Precise Cut (#260): a negative bonus floors the card's damage at 0, before Strength.
-          const per = Math.max(0, e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount, card));
+          // Precise Cut (#260, #314): a negative bonus may take the base below 0; Strength is added to it and
+          // the hit is floored at 0 afterwards (attackDamage): max(0, base + Strength − 2 × other cards).
+          const per = e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount, card);
           const hits = e.hits + this.perCounter(e.extraHitsPer, lastCount, card);
           died = this.attack(source, other, per, Math.max(0, hits), e.allEnemies);
           break;
@@ -2208,7 +2255,7 @@ class Combat {
       count++;
       // #259: a card moved from the hand to the discard pile is discarded (the shared discard hook).
       if (e.from === 'hand' && e.to === 'discard') {
-        // #261: a Sly play that ends combat stops the discard (resolveEffects then sees the outcome).
+        // #261: a Sly play that ends combat stops the discard (only outside a card play, see discardCard).
         if (this.discardCard(c)) break;
         continue;
       }

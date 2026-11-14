@@ -1,4 +1,7 @@
-/** #261 Sly: a Sly card discarded from the hand by a card effect during the player's turn is played for free. */
+/**
+ * #261 Sly: a Sly card discarded from the hand by a card effect during the player's turn is played for free.
+ * #314: it plays after the discarding card has finished, several in hand order.
+ */
 import { describe, expect, it } from 'vitest';
 import { simulateCombat } from './combat';
 import { cfg, deckOf, dummy, events, withEnemy } from './combatTestHelpers';
@@ -42,7 +45,7 @@ function data(innate: string[]): GameData {
   });
   for (const id of REAL) d.cards[id] = structuredClone(gameData.cards[id]!);
   d.cards.pad = custom('pad', []);
-  // Discards in the middle of the card: a Sly card resolves before the effects after the discard.
+  // Discards in the middle of the card: a Sly card waits until the effects after the discard are done (#314).
   d.cards.discardThenBlock = custom('discardThenBlock', [discardOne, { type: 'gainBlock', amount: 5 }]);
   d.cards.discardThenHit = custom('discardThenHit', [discardOne, { type: 'attack', damage: 10, hits: 1 }], {
     type: 'attack',
@@ -50,6 +53,7 @@ function data(innate: string[]): GameData {
   d.cards.hitThenDiscard = custom('hitThenDiscard', [{ type: 'attack', damage: 5, hits: 1 }, discardOne], {
     type: 'attack',
   });
+  d.cards.discardTwo = custom('discardTwo', [{ ...discardOne, count: 2 } as Effect]);
   d.cards.vigorUp = custom('vigorUp', [{ type: 'applyPower', power: 'vigor', amount: 3 }]);
   // A Sly card that itself discards, a single-target Sly Attack and an exhausting Sly card.
   d.cards.slyDiscarder = custom('slyDiscarder', [discardOne], { keywords: ['sly'], cost: 3 });
@@ -170,7 +174,7 @@ describe('#261 Sly: discarded by a card effect, played for free', () => {
     expect(played).toBe(moved + 1);
   });
 
-  it('resolves at the moment of discard, before the rest of the discarding card', () => {
+  it('plays after the discarding card has finished (#314)', () => {
     const { r } = run(
       [
         ['discardThenBlock', 1],
@@ -181,7 +185,35 @@ describe('#261 Sly: discarded by a card effect, played for free', () => {
       () => ['discardThenBlock'],
       ['untouchable'],
     );
-    expect(blocks(r.log)).toEqual([6, 5]);
+    expect(blocks(r.log)).toEqual([5, 6]);
+    expect(plays(r.log)).toEqual(['discardThenBlock', 'untouchable']);
+  });
+
+  it('several Sly cards discarded by one card play in hand order, not in the order they were discarded (#314)', () => {
+    for (const order of [
+      ['untouchable', 'tactician'],
+      ['tactician', 'untouchable'],
+    ]) {
+      const { r, views } = run(
+        [
+          ['discardTwo', 1],
+          ['untouchable', 1],
+          ['tactician', 1],
+          ['pad', 10],
+        ],
+        ['discardTwo', 'untouchable', 'tactician'],
+        () => ['discardTwo'],
+        order,
+      );
+      const discarded = events(r.log, 'moved')
+        .filter((e) => e.from === 'hand' && e.to === 'discard')
+        .map((e) => e.cardId);
+      expect(discarded).toEqual(order);
+      const handOrder = views[0]!.state.player.hand
+        .map((c) => c.cardId)
+        .filter((id) => id === 'untouchable' || id === 'tactician');
+      expect(plays(r.log).slice(1)).toEqual(handOrder);
+    }
   });
 
   it('several Sly cards discarded at once are played in discard order (Storm of Steel)', () => {
@@ -207,7 +239,7 @@ describe('#261 Sly: discarded by a card effect, played for free', () => {
     expect(last.state.player.hand.filter((c) => c.cardId === 'shiv')).toHaveLength(discarded.length);
   });
 
-  it('a Sly play that kills the last enemy wins at once; the rest of the discarding card does not resolve', () => {
+  it('a Sly play that kills the last enemy wins like any played card (after the discarding card, #314)', () => {
     const { r } = run(
       [
         ['discardThenBlock', 1],
@@ -221,7 +253,8 @@ describe('#261 Sly: discarded by a card effect, played for free', () => {
     );
     expect(r.outcome).toBe('win');
     expect(r.turns).toBe(1);
-    expect(blocks(r.log)).toEqual([]);
+    expect(blocks(r.log)).toEqual([5]);
+    expect(plays(r.log)).toEqual(['discardThenBlock', 'flick_flack']);
   });
 
   it('a Sly card that itself discards can discard (and play) another Sly card', () => {
@@ -319,7 +352,7 @@ describe('#261 Sly: discarded by a card effect, played for free', () => {
 });
 
 describe('#261 Sly: targets and the discarding card', () => {
-  it('a single-target Sly Attack picks a random living enemy (seeded); the outer card keeps its own target', () => {
+  it('a single-target Sly Attack picks a random living enemy (seeded), after the outer card hit its target', () => {
     const hitEnemies = new Set<number>();
     for (let seed = 1; seed <= 10; seed++) {
       const c = [
@@ -343,16 +376,16 @@ describe('#261 Sly: targets and the discarding card', () => {
         if (e.t === 'damage' && e.source === 'player') hits.push([cur, e.amount]);
       }
       expect(hits).toHaveLength(2);
-      expect(hits[0]![1]).toBe(7);
-      hitEnemies.add(hits[0]![0]);
-      // The outer card's attack after the discard still hits its target, enemy 0.
-      expect(hits[1]).toEqual([0, 10]);
+      // The outer card's attack after the discard hits its target, enemy 0, before the Sly card plays.
+      expect(hits[0]).toEqual([0, 10]);
+      expect(hits[1]![1]).toBe(7);
+      hitEnemies.add(hits[1]![0]);
     }
     expect(hitEnemies).toEqual(new Set([0, 1]));
   });
 
-  it('a Sly play counts for Slow like a card from the hand; the outer card keeps its own Slow count', () => {
-    // discardThenHit is the 1st card (0 before it): the Sly Flick-Flack is the 2nd (1 before it, +10%).
+  it('every played card counts for Slow, a Sly play included (#314)', () => {
+    // discardThenHit is the 1st card (0 before it) and hits first; the Sly Flick-Flack is the 2nd (+10%).
     const { r } = run(
       [
         ['discardThenHit', 1],
@@ -364,7 +397,7 @@ describe('#261 Sly: targets and the discarding card', () => {
       ['flick_flack'],
       { enemyId: 'slowpoke' },
     );
-    expect(playerHits(r.log)).toEqual([6, 10]);
+    expect(playerHits(r.log)).toEqual([10, 6]);
     // After 3 cards, Survivor (4th) discards Flick-Flack (5th): 4 before it, +40% → floor(8.4) = 8.
     const { r: late } = run(
       [
@@ -380,7 +413,7 @@ describe('#261 Sly: targets and the discarding card', () => {
     expect(playerHits(late.log)).toEqual([8]);
   });
 
-  it('a Sly Attack played in the middle of an Attack does not reuse the Vigor that Attack claimed', () => {
+  it('Vigor goes to the first Attack played: an Attack that discards a Sly Attack uses it (#314)', () => {
     const { r, last } = run(
       [
         ['vigorUp', 1],

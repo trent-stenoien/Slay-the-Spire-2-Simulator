@@ -2,7 +2,14 @@
 import { describe, expect, it } from 'vitest';
 import { gameData } from '../data/index';
 import { simulateCombat } from './combat';
-import { blockFirstConfig, createStrategy, GREEDY_CONFIG, isAttackCard, isBlockCard } from './strategies';
+import {
+  blockFirstConfig,
+  createStrategy,
+  GREEDY_CONFIG,
+  isAttackCard,
+  isBlockCard,
+  totalBaseDamage,
+} from './strategies';
 import { makeCardInstance } from './combat';
 import { makeEnemy, makeGameData } from './testFixtures';
 import { cfg, deckOf, events, withEnemy } from './combatTestHelpers';
@@ -152,5 +159,22 @@ describe('#111 real data end to end', () => {
         expect(['win', 'loss']).toContain(r.outcome);
       }
     }
+  });
+});
+
+describe('#314 Precise Cut estimate', () => {
+  it('adds Strength before the floor at 0 (the value excludes Strength, so it can be -Strength)', () => {
+    const card = makeCardInstance(real('precise_cut'), false, 1);
+    const state = (strength: number, handSize: number) =>
+      ({ player: { strength, hand: Array.from({ length: handSize }, () => card) } }) as unknown as Parameters<
+        typeof totalBaseDamage
+      >[2];
+    // `handSize` = the hand counter the estimate reads.
+    const n = (strength: number, handSize: number) => totalBaseDamage(card, 0, state(strength, handSize)) + strength;
+    expect(n(0, 4)).toBe(13 - 2 * 4);
+    // max(0, 13 + 3 - 16) = 0 and max(0, 13 + 3 - 14) = 2.
+    expect(n(3, 8)).toBe(0);
+    expect(n(3, 7)).toBe(2);
+    expect(n(0, 9)).toBe(0);
   });
 });
