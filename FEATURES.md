@@ -198,6 +198,10 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     no Slippery; and always when the enemy's coming attack could kill you (intent total at least HP +
     Block), so it is never held while dying. Poison Potion (#303, Silent): Apply 6 Poison; used at
     once, after the Strength Potion and before the Fire Potion.
+    Slow (#303, Bygone Effigy starts with it): each Attack the player deals to that enemy takes +10% per
+    card played earlier this turn (the card itself and potions do not count; Strike 6 -> 7 after 2 cards,
+    Strike+ 9 -> 10, 8 after 4). One multiplier with Vulnerable (floored once); resets each player turn;
+    Poison and fixed HP loss are unaffected. Built-in kill checks count it. Sleep is a no-effect opener move.
 38. **Golden combats (#177, #210):** every fixture in `engine/golden/` replays through the engine
     (start HP, relics, potions at a point in the turn, `playerStart` statuses, scripted choices,
     mid-turn draws); mismatches fail unless listed in `knownDiffs` with a reason, and a listed one

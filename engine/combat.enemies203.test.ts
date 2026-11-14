@@ -228,3 +228,112 @@ describe('Bygone Effigy (#303)', () => {
     }
   });
 });
+
+describe('Slow (#303)', () => {
+  const slowData = (): GameData => {
+    const data = withEnemy(makeGameData(), { ...dummy(), startPowers: { slow: 1 } });
+    const zero = { ...cards.defend!, cost: 0, upgraded: null };
+    data.cards.filler = { ...zero, id: 'filler', code: 'Fz', effects: [{ type: 'gainBlock', amount: 1 }] };
+    data.cards.sting = { ...zero, id: 'sting', code: 'Sg', effects: [{ type: 'applyVulnerable', amount: 3 }] };
+    data.cards.zstrike = { ...cards.strike!, id: 'zstrike', code: 'Zs', cost: 0 };
+    data.cards.zstrike.upgraded = { effects: [{ type: 'attack', damage: 9, hits: 1 }] };
+    return data;
+  };
+  const deck = (upgraded = false) => [
+    { cardId: 'filler', upgraded: false, count: 4 },
+    { cardId: 'sting', upgraded: false, count: 1 },
+    { cardId: 'zstrike', upgraded, count: 5 },
+  ];
+  /** Damage dealt to the enemy by each attack card of turn 1, in play order, after `before` filler cards. */
+  const hits = (plan: string[], upgraded = false, turns = 1, customDeck = deck(upgraded)) => {
+    const r = logged(
+      slowData(),
+      scripted((t) => (t <= turns ? plan : [])),
+      {
+        enemyId: 'dummy',
+        deck: customDeck,
+      },
+    );
+    return events(r.log, 'damage')
+      .filter((d) => d.target === 'enemy')
+      .map((d) => d.amount);
+  };
+
+  it('the Strike played after 2 cards deals 7 (6 +20%), Strike+ deals 10 (9 +20%)', () => {
+    expect(hits(['filler', 'filler', 'zstrike'])).toEqual([7]);
+    expect(hits(['filler', 'filler', 'zstrike'], true)).toEqual([10]);
+  });
+
+  it('the card being played does not count: a first-card Strike deals 6, and +10% per earlier card', () => {
+    expect(hits(['zstrike'])).toEqual([6]);
+    expect(
+      hits(['zstrike', 'zstrike', 'zstrike', 'zstrike', 'zstrike'], false, 1, [
+        { cardId: 'zstrike', upgraded: false, count: 10 },
+      ]),
+    ).toEqual([6, 6, 7, 7, 8]);
+  });
+
+  it('shows 40% after 4 cards: Strike deals 8', () => {
+    expect(
+      hits(['filler', 'filler', 'filler', 'filler', 'zstrike'], false, 1, [
+        { cardId: 'filler', upgraded: false, count: 4 },
+        { cardId: 'zstrike', upgraded: false, count: 1 },
+      ]),
+    ).toEqual([8]);
+  });
+
+  it('resets at the end of the player turn', () => {
+    expect(hits(['filler', 'filler', 'zstrike'], false, 2)).toEqual([7, 7]);
+    expect(hits(['zstrike'], false, 2)).toEqual([6, 6]);
+  });
+
+  it('combines with Vulnerable as one multiplier, floored once (9 x 1.5 x 1.2 = 16)', () => {
+    expect(hits(['sting', 'filler', 'zstrike'], true)).toEqual([16]);
+  });
+
+  it('does not change Poison damage', () => {
+    const data = slowData();
+    data.cards.venom = {
+      ...cards.defend!,
+      id: 'venom',
+      cost: 0,
+      code: 'Vn',
+      effects: [{ type: 'applyPoison', amount: 5 }],
+      upgraded: null,
+    };
+    const r = logged(
+      data,
+      scripted((t) => (t === 1 ? ['filler', 'filler', 'filler', 'venom'] : [])),
+      {
+        enemyId: 'dummy',
+        deck: [
+          { cardId: 'filler', upgraded: false, count: 5 },
+          { cardId: 'venom', upgraded: false, count: 5 },
+        ],
+      },
+    );
+    expect(events(r.log, 'poisonDamage')[0]?.amount).toBe(5);
+  });
+
+  it('does not slow an enemy without the power', () => {
+    const data = withEnemy(makeGameData(), dummy());
+    data.cards.zstrike = { ...cards.strike!, id: 'zstrike', code: 'Zs', cost: 0 };
+    data.cards.filler = { ...cards.defend!, id: 'filler', code: 'Fz', cost: 0, upgraded: null };
+    const r = logged(
+      data,
+      scripted((t) => (t === 1 ? ['filler', 'filler', 'zstrike'] : [])),
+      {
+        enemyId: 'dummy',
+        deck: [
+          { cardId: 'filler', upgraded: false, count: 5 },
+          { cardId: 'zstrike', upgraded: false, count: 5 },
+        ],
+      },
+    );
+    expect(events(r.log, 'damage').find((d) => d.target === 'enemy')?.amount).toBe(6);
+  });
+
+  it('Bygone Effigy starts with Slow', () => {
+    expect(gameData.enemies.bygone_effigy?.startPowers).toEqual({ slow: 1 });
+  });
+});

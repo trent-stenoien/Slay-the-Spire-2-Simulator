@@ -850,6 +850,14 @@ function filterMatches(card: Card, f: DeepReadonly<CardFilter>): boolean {
   return true;
 }
 
+/** #303 Slow: +10% per card already played this turn when the current enemy has Slow (else 0). */
+function slowPercentOf(state: {
+  enemy: { powers?: { slow?: number } };
+  counters?: { cardsPlayedThisTurn: number };
+}): number {
+  return (state.enemy.powers?.slow ?? 0) > 0 ? (state.counters?.cardsPlayedThisTurn ?? 0) * 10 : 0;
+}
+
 /** #141 existing kill checks: Fiend Fire's (fiendFireKills), or the card's own attack damage covering HP + Block. */
 function playKillsEnemy(view: StrategyView, card: Card): boolean {
   if (isFiendFire(card)) return fiendFireKills(view, card);
@@ -869,6 +877,8 @@ function playKillsEnemy(view: StrategyView, card: Card): boolean {
       player.shrink ?? 0,
       0,
       (player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
+      1,
+      slowPercentOf(view.state),
     );
     dmg += perHit * attackHits(e, x);
   }
@@ -1114,6 +1124,8 @@ export function fiendFireKills(view: StrategyView, card: Card): boolean {
     player.shrink ?? 0,
     0,
     (player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
+    1,
+    slowPercentOf(view.state),
   );
   return perHit * hits >= enemy.hp + enemy.block;
 }

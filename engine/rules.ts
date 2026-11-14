@@ -17,6 +17,7 @@ import type {
  * deals `shrinkPercent`% less, applied after every other modifier (×0.7 for 30). #110 Colossus:
  * `reducePercent` is a further percent less on the same floor (50 → ×0.5, so Weak + Colossus = ×0.375).
  * #264 Shadow Step: `multiplier` doubles the damage (×2 with the other multipliers, floored once).
+ * #303 Slow: `slowPercent` (10 per card played earlier this turn, enemy with Slow) multiplies by (100 + percent) / 100.
  * #266 Tracking: `trackingDouble` (the target is Weak and the attacker has Tracking) doubles it (×2, so Vulnerable + Tracking = ×3).
  */
 export function attackDamage(
@@ -29,12 +30,15 @@ export function attackDamage(
   reducePercent = 0,
   trackingDouble = false,
   multiplier = 1,
+  slowPercent = 0,
 ): number {
   let dmg = (base + attackerStrength) * multiplier;
   if (attackerWeak > 0) dmg *= 0.75;
   if (targetVulnerable > 0) dmg *= 1.5 + crueltyPercent / 100;
   // #266 Tracking: a Weak target takes double (a multiplier like Vulnerable, floored once at the end).
   if (trackingDouble) dmg *= 2;
+  // #303 Slow: +10% per card played before this one this turn (a multiplier, floored once at the end).
+  if (slowPercent > 0) dmg = (dmg * (100 + slowPercent)) / 100;
   // Integer percent math (× 70 / 100) so e.g. 10 × 0.7 can't floor to 6.
   if (shrinkPercent > 0) dmg = (dmg * (100 - shrinkPercent)) / 100;
   if (reducePercent > 0) dmg = (dmg * (100 - reducePercent)) / 100;

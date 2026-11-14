@@ -245,6 +245,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 37c | Fire Potion fixed 20 through Block; Strength Potion at once | engine/combat.potions.test.ts > Fire Potion deals 20 damage that ignores Strength and goes through Block; Strength Potion is used before the first card of turn 1 and raises Strike to 8 |
 | 37d | Built-in pick rules (kill, no Block, no Slippery, lethal threat) | engine/combat.potions.test.ts > pickPotion rules (9 tests) |
 | 37e | Poison Potion applies 6 Poison, free; used at once after Strength Potion (#303) | engine/combat.potions.test.ts > Poison Potion (#303) |
+| 37f | Slow: +10% Attack damage per earlier card this turn, resets, Vulnerable combined, not Poison (#303) | engine/combat.enemies203.test.ts > Slow (#303) |
 | 38 | Golden combats replay; knownDiffs both ways | engine/golden/golden.test.ts > golden combats; golden harness (#210, synthetic fixtures) > knownDiffs listed mismatches pass, unlisted ones and stale entries fail |
 | 39a | Colorblind / Percentiles labels | app/components/interaction.test.tsx > UI polish (#254) > the chart toggles are labelled Colorblind and Percentiles | n/a |
 | 39b | Generate new seed button fills the seed | app/components/interaction.test.tsx > UI polish (#254) > the Results seed row has a Generate new seed button that fills the field with a new seed | n/a |
