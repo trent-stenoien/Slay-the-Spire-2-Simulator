@@ -30,7 +30,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    hit, blocked or 0-damage hits included), Fasten ("Defend" cards; added before Frail's ×0.75, rounded
    down once), Thrash, Tear Asunder (any HP drop; fully blocked hits don't count), Corruption (X-cost
    unchanged; Drum of Battle still gains energy), X-cost (`xTimes`/`xBonus`), energy doesn't carry
-   over, single-enemy targeting for random/ALL attacks (Omnislice = 8/11), Expect a Fight (#246: gains
+   over, single-enemy targeting for random/ALL attacks (Omnislice = 8/11; with several enemies it also deals the damage dealt to every other living enemy, #283), Expect a Fight (#246: gains
    1 Energy per Attack in hand when played; it is a Skill, so it never counts itself; strategies play it
    only when it gains more than its cost. Later version: its "cannot gain additional Energy this turn"
    clause is not modelled, as it does not come up in v1).

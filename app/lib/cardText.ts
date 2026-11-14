@@ -125,6 +125,7 @@ export function effectText(e: Effect): string {
       if (e.id === 'thrash') return 'Exhaust a random Attack in your Hand and add its damage to this card';
       if (e.id === 'expectAFight') return 'Gain 1 Energy for each Attack in your Hand';
       if (e.id === 'upMySleeve') return "Reduce this card's cost by 1";
+      if (e.id === 'omnisliceSplash') return 'Damage ALL other enemies equal to the damage dealt';
       return 'Special effect';
   }
 }
