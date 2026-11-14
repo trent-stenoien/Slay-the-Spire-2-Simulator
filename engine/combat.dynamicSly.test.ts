@@ -115,7 +115,7 @@ describe('#268 Nightmare', () => {
     expect(c.effects).toEqual([{ type: 'script', id: 'nightmare', values: [3] }]);
   });
 
-  it('adds 3 copies of the chosen card (upgrade kept) to the hand at the start of next turn, after the draw', () => {
+  it('adds 3 copies of the chosen card (upgrade kept) to the hand at the start of next turn, before the draw', () => {
     const d = world({ mark: skill('mark', 0, { keywords: ['innate', 'exhaust'] }) });
     const { r, views } = run(
       d,
@@ -130,6 +130,58 @@ describe('#268 Nightmare', () => {
     expect(hand2.every((c) => c.upgraded)).toBe(true);
     // Nightmare exhausts.
     expect(events(r.log, 'exhaust').map((e) => e.cardId)).toContain('nightmare');
+  });
+
+  it('the copies arrive before the draw, and a full hand sends the excess drawn cards to the discard pile', () => {
+    const d = world({ mark: skill('mark', 0, { keywords: ['innate', 'exhaust'] }) });
+    const { r } = run(
+      d,
+      deckOf(['nightmare', 1], ['mark', 1], ['defend', 14]),
+      (t) => (t === 1 ? ['nightmare'] : []),
+      'mark',
+    );
+    const log = r.log!;
+    const gen = log.findIndex((e) => e.t === 'generated');
+    const firstDrawAfter = log.findIndex((e, k) => e.t === 'draw' && k > gen);
+    expect(gen).toBeGreaterThan(-1);
+    expect(gen).toBeLessThan(firstDrawAfter);
+    // 3 copies + 5 draws = 8, but the hand holds 10 and turn 1 left cards in it only if retained: no overflow here.
+    expect(events(log, 'discard').filter((e) => e.reason === 'handLimit')).toHaveLength(0);
+  });
+
+  it('with a hand near the limit, drawn cards beyond 10 go to the discard pile (existing rule)', () => {
+    const d = world({
+      mark: skill('mark', 0, { keywords: ['innate', 'exhaust'] }),
+      keep: skill('keep', 0, { keywords: ['innate', 'retain'] }),
+    });
+    const { r, views } = run(
+      d,
+      deckOf(['nightmare', 1], ['mark', 1], ['keep', 4], ['defend', 14]),
+      (t) => (t === 1 ? ['nightmare'] : []),
+      'mark',
+    );
+    // Turn 2: 4 retained + 3 copies = 7 in hand before the draw of 5: the 4th draw hits the limit.
+    expect(views[1]!.state.player.hand).toHaveLength(10);
+    expect(events(r.log, 'discard').filter((e) => e.reason === 'handLimit').length).toBeGreaterThan(0);
+  });
+
+  it("the copies carry Hand Trick's temporary Sly, which expires at the end of the turn they arrive", () => {
+    const d = world({ mark: skill('mark', 3, { keywords: ['innate'] }) });
+    d.cards.nightmare = { ...d.cards.nightmare!, cost: 2 };
+    const { views } = run(
+      d,
+      deckOf(['hand_trick', 1], ['nightmare', 1], ['mark', 1], ['defend', 12]),
+      (t) => (t === 1 ? ['hand_trick', 'nightmare'] : []),
+      'mark',
+      3,
+    );
+    const slyCopies = (v: StrategyView) => v.state.player.hand.filter((c) => c.generated && c.keywords.includes('sly'));
+    expect(slyCopies(views[1]!)).toHaveLength(3);
+    // Turn 3: the copies were discarded at the end of turn 2 and carry no Sly any more (wherever they are).
+    const p3 = views[2]!.state.player;
+    const all = [...p3.hand, ...p3.drawPile, ...p3.discardPile].filter((c) => c.generated);
+    expect(all.length).toBeGreaterThan(0);
+    expect(all.some((c) => c.keywords.includes('sly'))).toBe(false);
   });
 
   it('an empty hand (only Nightmare itself): no copies', () => {

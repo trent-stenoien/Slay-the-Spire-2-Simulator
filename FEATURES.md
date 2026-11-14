@@ -375,10 +375,17 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     hand until the end of this turn (a per-card keyword; it is gone next turn even if the card is retained, and
     is not copied by Nightmare). The engine picks the Skill without Sly that costs the most, ties in hand order
     (builder's default); no such Skill, no effect. Nightmare (3 cost, 2 upgraded; Exhaust): choose a card in the
-    hand (Strategy.choose, purpose 'copy': best card first); at the start of next turn, after the draw, 3 copies
-    are added to the hand (a full hand sends them to the discard pile). The copies keep the upgrade, damage bonus,
-    Replay and combat cost the card had when chosen. An empty hand: no effect. Master Planner and The Hunt's
-    extra card reward are NOT simulated yet (they need contract changes: a PowerId and a CombatResult.rewards field).
+    hand (Strategy.choose, purpose 'copy': best card first); at the start of next turn, BEFORE the draw (Trent), 3
+    copies are added to the hand (a full hand sends them to the discard pile; cards drawn past 10 go to the discard
+    pile by the existing hand-limit rule). The copies keep the upgrade, damage bonus,
+    Replay and combat cost the card had when chosen, and every modifier on it, Hand Trick's temporary Sly included
+    (Trent): that Sly expires at the end of the turn the copies arrive. An empty hand: no effect.
+56. **Master Planner and The Hunt (#268, builder's defaults):** Master Planner (Power, cost 2, 1 upgraded): every
+    Skill played while it is in play (from the hand or by an effect) gains Sly for the rest of the combat (a card
+    played before it, Attacks and Powers do not), so it plays free when a later effect discards it. The Hunt
+    (cost 1, Exhaust; 10 damage, 15 upgraded): if the hit kills the enemy (the last one with several), the combat
+    gains one extra card reward, counted in `CombatResult.rewards.cardRewards` like Hand of Greed's gold; no kill,
+    no reward. The count is not summarised or shown in the Results view yet (StrategySummary has no field for it).
 
 ## Known failure points
 
