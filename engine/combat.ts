@@ -279,6 +279,7 @@ export const SIMULATED_COUNTERS: readonly Counter[] = [
   'playerStrength',
   'enemyVulnerable',
   'enemyUniqueDebuffs',
+  'enemyPoison',
   'handSize',
   'drawPileSize',
   'discardPileSize',
@@ -361,6 +362,12 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'toolsOfTheTrade',
   'wellLaidPlans',
   'tracking',
+  // #263 Silent Poison powers
+  'accelerant',
+  'envenom',
+  'noxiousFumes',
+  'corrosiveWave',
+  'outbreak',
   'stratagem',
   // #264 Silent temporary and next-turn powers
   'dexterityThisTurn',
@@ -405,6 +412,9 @@ export const PANACHE_CARDS = 5;
 
 /** #113 Automation: every this many cards drawn (counted while the power is on). */
 export const AUTOMATION_CARDS = 10;
+
+/** #263 Outbreak: it fires on every 3rd Poison application. */
+const OUTBREAK_APPLICATIONS = 3;
 
 /** #113 Juggling: the Attack played this many times in a turn (the 3rd) is copied into the hand. */
 export const JUGGLING_ATTACK = 3;
@@ -461,6 +471,8 @@ class Combat {
   private panacheCount = 0;
   /** #113: cards drawn while Automation was on (kept across turns). */
   private automationCount = 0;
+  /** #263 Poison applications this combat (Outbreak fires on every 3rd). */
+  private poisonApplications = 0;
   /** #265: cards drawn since the last `draw`/`drawUntil` effect began (Escape Plan's drewMatching). */
   private lastDrawn: CardInstance[] = [];
   /** #113 Unmovable: the turn's first Block gain from a card has been doubled. */
@@ -994,6 +1006,10 @@ class Combat {
           if (player.hp <= 0) return 'loss';
           if (this.won()) return 'win';
           break;
+        case 'noxiousFumes':
+          // #263: Poison ALL enemies at the start of the turn (after the draw, like the other start powers).
+          if (this.poisonAllFromPower(amount)) return 'win';
+          break;
         case 'helloWorld':
           this.addCards({
             type: 'addCards',
@@ -1467,6 +1483,7 @@ class Combat {
       'retainHand',
       'doubleBlock',
       'burst',
+      'corrosiveWave',
     ] as const) {
       if (this.power(id) > 0) this.applyPower(id, -this.power(id));
     }
@@ -1522,15 +1539,18 @@ class Combat {
       this.enemy.block = 0;
       log?.push({ t: 'blockReset', side: 'enemy' });
       // Poison: HP loss equal to stacks (ignores Block and modifiers), then -1. A kill skips the move.
-      if (this.enemy.poison > 0) {
+      // #263 Accelerant: Poison triggers 1 + [amount] times; every trigger also lowers Poison by 1.
+      const triggers = 1 + this.power('accelerant');
+      for (let k = 0; k < triggers && this.enemy.poison > 0; k++) {
         const { enemy } = this;
         const amount = this.slipperyLoss(enemy.poison);
         enemy.hp -= amount;
         enemy.poison--;
         log?.push({ t: 'poisonDamage', amount, hpAfter: Math.max(enemy.hp, 0) });
         if (this.won()) return 'win';
-        if (enemy.hp <= 0) continue;
+        if (enemy.hp <= 0) break;
       }
+      if (this.enemy.hp <= 0) continue;
       const { id: moveId, move } = this.currentMove();
       let died: Side | null = null;
       if (this.enemyStunned()) {
@@ -1712,10 +1732,10 @@ class Combat {
         case 'applyPoison':
           if (source !== 'player') throw new Error('Poison on the player is not simulated yet');
           died = this.onEnemies(e.allEnemies, () => {
-            if (e.amount > 0 && this.artifactNegates('poison')) return;
-            this.enemy.poison += e.amount;
-            log?.push({ t: 'poison', amount: e.amount, total: this.enemy.poison });
+            this.poisonCurrent(e.amount);
           });
+          // #263 Outbreak counts the whole effect (all targets) as one application.
+          if (!died && e.amount > 0 && this.poisonApplied()) died = 'enemy';
           break;
         case 'gainEnergy':
           if (source !== 'player') throw new Error('Enemies have no energy');
@@ -3053,11 +3073,48 @@ class Combat {
         t.hp -= hpLoss;
         this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount: perHit, blocked, hpLoss });
         this.lastAttackDamage += perHit;
+        // #263 Envenom (Trent: Attack cards only): unblocked damage from this hit poisons the target.
+        const envenom = this.power('envenom');
+        if (envenom > 0 && perHit - blocked > 0 && t.hp > 0) {
+          this.poisonCurrent(envenom);
+          this.poisonApplied();
+          this.focusOn(i);
+        }
         if (this.won()) return 'enemy';
       }
     }
     if (multi || (random && this.enemies.length > 1)) this.focusOn(keep);
     return null;
+  }
+
+  /** Add Poison to the current enemy (Artifact negates a positive amount). Returns true if it was applied. */
+  private poisonCurrent(amount: number): boolean {
+    if (amount > 0 && this.artifactNegates('poison')) return false;
+    this.enemy.poison += amount;
+    this.log?.push({ t: 'poison', amount, total: this.enemy.poison });
+    return true;
+  }
+
+  /**
+   * #263 Poison on ALL living enemies from a power (Noxious Fumes, Corrosive Wave); one application.
+   * Returns true if combat is won (Outbreak).
+   */
+  private poisonAllFromPower(amount: number): boolean {
+    this.onEnemies(true, () => {
+      this.poisonCurrent(amount);
+    });
+    return this.poisonApplied() || this.won();
+  }
+
+  /**
+   * #263 Outbreak: every 3rd time Poison is applied (one effect or trigger = one application, however
+   * many enemies it hits), deal its damage to ALL enemies. Returns true if every enemy is dead.
+   */
+  private poisonApplied(): boolean {
+    const outbreak = this.power('outbreak');
+    if (outbreak <= 0) return false;
+    if (++this.poisonApplications % OUTBREAK_APPLICATIONS !== 0) return false;
+    return this.powerDamage(outbreak, 'all');
   }
 
   /**
@@ -3140,6 +3197,9 @@ class Combat {
     // #266 Speedster: a card drawn during the player's turn hurts every enemy (power damage, Block absorbs it).
     const speedster = this.playerTurn ? this.power('speedster') : 0;
     if (speedster > 0) this.powerDamage(speedster, 'all');
+    // #263 Corrosive Wave: a card drawn this turn poisons ALL enemies.
+    const corrosive = this.playerTurn ? this.power('corrosiveWave') : 0;
+    if (corrosive > 0) this.poisonAllFromPower(corrosive);
     // #113 Automation: every 10th card drawn while it is on gains energy.
     const automation = this.power('automation');
     if (automation > 0 && ++this.automationCount % AUTOMATION_CARDS === 0) {

@@ -6,7 +6,7 @@ import { type Obj, isObj, Reporter, checkTwoCharCode } from './shared';
 export const POTION_RARITIES = ['common', 'uncommon', 'rare', 'event'] as const;
 
 /** Effects a simulated potion may use (resolved as if a card played them; no X, no card context). */
-export const SIMULATED_POTION_EFFECTS = new Set(['gainStrength', 'dealDamage', 'applyPoison']);
+export const SIMULATED_POTION_EFFECTS = new Set(['gainStrength', 'dealDamage', 'applyPoison', 'gainEnergy']);
 
 export function checkPotion(r: Reporter, p: Obj): void {
   checkTwoCharCode(r, p);

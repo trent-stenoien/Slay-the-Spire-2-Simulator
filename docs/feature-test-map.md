@@ -109,7 +109,7 @@ Round 1, test reviewer. Break edits were never committed.
 | 13a | "Strike" = any name with Strike, upgraded included | engine/combat.conditional.test.ts > #111 name and debuff rules > "Strike" anywhere in the name counts, case-sensitive, upgraded "+" included | caught (startsWith) |
 | 13b | Strike count across Draw, Hand, Discard, Exhaust | engine/combat.conditional.test.ts > countStrikes counts all four piles; #111 Perfected Strike > Strikes created mid-combat count | caught (Exhaust pile dropped) |
 | 13c | Rampage growth stays with its copy | engine/combat.conditional.test.ts > #111 Rampage and Maul > Rampage +5 each play, and the growth stays with that copy across reshuffles | caught (growth no longer per copy) |
-| 13d | Fisticuffs Block = damage dealt after all modifiers, overkill included, then Dex/Frail | engine/combat.conditional.test.ts > #111 Fisticuffs (5 tests) | strengthened (HP lost counted instead of damage dealt was not caught first; test with enemy Block added) |
+| 13d | Fisticuffs Block = damage dealt after all modifiers, overkill included, then Dex/Frail | engine/combat.conditional.test.ts > #111 Fisticuffs (5 tests); app/lib/url.test.ts > start HP (h, #315) (URL param) | strengthened (HP lost counted instead of damage dealt was not caught first; test with enemy Block added) |
 | 13e | Rend counts every modelled debuff | engine/combat.conditional.test.ts > uniqueDebuffs counts Vulnerable, Weak, Frail, Poison, negative Strength and temporary Strength loss once each; Rend upgraded: 18 + 8 per unique debuff; Frail counts too | caught (Frail dropped; negative Strength dropped) |
 | 13f | Entrench doubles Block, ignores Dex/Frail, works under Panic Button | engine/combat.conditional.test.ts > Entrench doubles your Block; Dexterity and Frail do not change the doubling; engine/combat.temporary.test.ts > Entrench still doubles current Block under No Block (#170) | caught (Entrench ran through Dexterity/Frail; also off-by-one) |
 | 14a | Replay never used up | engine/combat.playCards.test.ts > #114 Replay (Hidden Gem) > is never used up: every later play of the card replays twice | caught (decrement added) |
@@ -245,6 +245,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 37c | Fire Potion fixed 20 through Block; Strength Potion at once | engine/combat.potions.test.ts > Fire Potion deals 20 damage that ignores Strength and goes through Block; Strength Potion is used before the first card of turn 1 and raises Strike to 8 |
 | 37d | Built-in pick rules (kill, no Block, no Slippery, lethal threat) | engine/combat.potions.test.ts > pickPotion rules (9 tests) |
 | 37e | Poison Potion applies 6 Poison, free; used at once after Strength Potion (#303) | engine/combat.potions.test.ts > Poison Potion (#303) |
+| 37f | Energy Potion gives 2 Energy; drunk when hand cost beyond Energy is at least 2 (#211) | engine/combat.potions.test.ts > Energy Potion (#211) |
 | 37f | Slow: +10% Attack damage per earlier card this turn, resets, every played card counts, Havoc's play included (Sly: combat.sly.test.ts), Vulnerable combined, not Poison (#303) | engine/combat.enemies203.test.ts > Slow (#303) |
 | 38 | Golden combats replay; knownDiffs both ways | engine/golden/golden.test.ts > golden combats; golden harness (#210, synthetic fixtures) > knownDiffs listed mismatches pass, unlisted ones and stale entries fail |
 | 39a | Colorblind / Percentiles labels | app/components/interaction.test.tsx > UI polish (#254) > the chart toggles are labelled Colorblind and Percentiles | n/a |
@@ -262,7 +263,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 40b | Won only when every enemy is dead; HP left summed | engine/combat.multiEnemy.test.ts > #5 win condition (3 tests) | caught (won() = some enemy dead) |
 | 40c | Single-target cards hit the chosen target; dead target falls back; lost hits; targeted debuffs/Poison | engine/combat.multiEnemy.test.ts > #5 targets (4 tests) | caught (Decision.target ignored) |
 | 40c2 | #262 Shiv cards (Blade Dance, Leading Strike, Shivs) hit the strategy target | engine/combat.multiEnemy.test.ts > #5 with #262 Shiv cards | n/a |
-| 40d | ALL attacks / debuffs / Poison / fixed damage hit every living enemy; hit order; #6 damage once per enemy | engine/combat.multiEnemy.test.ts > #5 ALL-enemies effects (5 tests); data/data.mechanics.test.ts > #5 debuffs on ALL enemies | n/a |
+| 40d | ALL attacks / debuffs / Poison / fixed damage hit every living enemy; hit order; #6 damage once per enemy | engine/combat.multiEnemy.test.ts > #5 ALL-enemies effects (5 tests); app/lib/url.test.ts > start HP (h, #315) (URL param); data/data.mechanics.test.ts > #5 debuffs on ALL enemies | n/a |
 | 40e | Poison kill, Thorns kill, Feed kill and Shrink with other enemies alive | engine/combat.multiEnemy.test.ts > #5 deaths mid-fight (4 tests) | n/a |
 | 40f | Combined intent and per-enemy intents in the strategy view | engine/combat.multiEnemy.test.ts > #5 intents (3 tests) | n/a |
 | 40g | enemyIds in setup and Monte Carlo runs; single-enemy logs unchanged | engine/combat.multiEnemy.test.ts > #5 multi-enemy setup; #5 Monte Carlo; `npm run compare-main` (identical) and engine/golden | n/a |
@@ -283,6 +284,8 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 50 | Backflip, Adrenaline, Predator next-turn draw, Dodge and Roll real data; the strategy plays every card | engine/combat.silentDraw.test.ts > #259 Backflip and Adrenaline; #259 Predator; #259 Dodge and Roll; #259 strategies play the cards | n/a |
 | 51 | Sly: played for free on effect discard, logged discard then play, plays after the discarding card (#314), several in hand order (#314) / Storm of Steel, kill wins, Sly that discards, Exhaust / Power destinations, Reflex / Haze / Ricochet / Tactician, not on end-of-turn discard, Tools of the Trade at turn start, random target after the outer card's hit, every play counts for Slow, Vigor to the first Attack; the seven cards' data | engine/combat.sly.test.ts (17 tests) | n/a |
 | 52 | Sly strategy (#314): discard card weighed with the Sly effects (Survivor + Tactician first then Strike and Defend, Survivor + Reflex first, Survivor + Ricochet beats Strike, Survivor + Haze first unless Artifact, Survivor + Abrasive first, no pull to the front otherwise) | engine/strategies.sly.test.ts (7 tests) | n/a |
+| 53 | Starting HP field: default per Ascension, kept across Ascension edits, Reset, clamp 1..Max HP, dropped on character change, reaches the replayed combat | app/components/startHpField.test.tsx (5 tests); app/lib/url.test.ts > start HP (h, #315) (URL param) | n/a |
+| 54 | Accelerant extra triggers lower Poison; Envenom per unblocked Attack hit only; Noxious Fumes; Corrosive Wave this turn only; Outbreak every 3rd application; Mirage Block from Poison | engine/combat.silentPoison.test.ts | n/a |
 
 ## Known failure points
 

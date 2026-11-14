@@ -1,0 +1,320 @@
+{
+  "combat": "bygone-effigy-a10-01",
+  "source": "Played by hand in the real game; recorded on issue #302 (Combat 12). Silent, Ascension 10. Notes, screenshots and reviews on the golden-screenshots branch, combat-12/. Fishing Rod has no combat effect. Slow was 10 per card played this turn (potions excluded).",
+  "gameVersion": "v0.107.1",
+  "character": "silent",
+  "ascension": 10,
+  "deck": [
+    {
+      "card": "strike",
+      "count": 4
+    },
+    {
+      "card": "strike",
+      "count": 1,
+      "upgraded": true
+    },
+    {
+      "card": "defend",
+      "count": 5
+    },
+    {
+      "card": "neutralize",
+      "count": 1
+    },
+    {
+      "card": "survivor",
+      "count": 1
+    },
+    {
+      "card": "deadly_poison",
+      "count": 1
+    },
+    {
+      "card": "blur",
+      "count": 1
+    },
+    {
+      "card": "well_laid_plans",
+      "count": 1
+    },
+    {
+      "card": "footwork",
+      "count": 1
+    },
+    {
+      "card": "prowess",
+      "count": 1,
+      "upgraded": true
+    },
+    {
+      "card": "dodge_and_roll",
+      "count": 1
+    },
+    {
+      "card": "snakebite",
+      "count": 1
+    },
+    {
+      "card": "byrdonis_egg",
+      "count": 1
+    }
+  ],
+  "enemy": {
+    "id": "bygone_effigy",
+    "startHp": 132
+  },
+  "player": {
+    "startHp": 30,
+    "maxHp": 70
+  },
+  "relics": [
+    {
+      "id": "ring_of_the_snake"
+    },
+    {
+      "id": "fishing_rod"
+    },
+    {
+      "id": "happy_flower",
+      "choice": 0
+    }
+  ],
+  "potions": ["poison_potion", "poison_potion"],
+  "turns": [
+    {
+      "hand": ["strike", "defend", "defend", "survivor", "byrdonis_egg", "deadly_poison", "ascenders_bane"],
+      "potions": [
+        {
+          "potion": "poison_potion",
+          "beforePlay": 1
+        },
+        {
+          "potion": "poison_potion",
+          "beforePlay": 1
+        }
+      ],
+      "plays": ["deadly_poison", "defend", "strike"],
+      "atStart": {
+        "player": {
+          "hp": 30
+        },
+        "enemy": {
+          "hp": 132
+        }
+      },
+      "afterPlays": {
+        "enemy": {
+          "hp": 125,
+          "poison": 17
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 30
+        },
+        "enemy": {
+          "hp": 108,
+          "poison": 16
+        }
+      }
+    },
+    {
+      "hand": ["strike", "strike+", "defend", "defend", "well_laid_plans"],
+      "plays": ["well_laid_plans", "strike", "strike+"],
+      "choices": [
+        {
+          "pick": ["defend"]
+        }
+      ],
+      "atStart": {
+        "enemy": {
+          "hp": 108,
+          "poison": 16
+        }
+      },
+      "afterPlays": {
+        "enemy": {
+          "hp": 92,
+          "poison": 16
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 30
+        },
+        "enemy": {
+          "hp": 76,
+          "poison": 15,
+          "strength": 10
+        }
+      }
+    },
+    {
+      "hand": ["strike", "prowess+", "dodge_and_roll", "snakebite", "footwork"],
+      "plays": ["prowess+", "footwork", "dodge_and_roll", "defend"],
+      "choices": [
+        {
+          "pick": ["strike"]
+        }
+      ],
+      "atStart": {
+        "player": {
+          "hp": 30,
+          "energy": 4
+        },
+        "enemy": {
+          "hp": 76,
+          "poison": 15,
+          "strength": 10
+        }
+      },
+      "afterPlays": {
+        "player": {
+          "hp": 30,
+          "block": 17
+        },
+        "enemy": {
+          "hp": 76,
+          "poison": 15
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 22
+        },
+        "enemy": {
+          "hp": 61,
+          "poison": 14
+        }
+      }
+    },
+    {
+      "hand": ["blur", "strike", "neutralize", "defend", "survivor"],
+      "plays": ["neutralize", "survivor", "snakebite"],
+      "choices": [
+        {
+          "source": "survivor",
+          "pick": ["strike"]
+        },
+        {
+          "pick": ["blur"]
+        }
+      ],
+      "atStart": {
+        "player": {
+          "hp": 22,
+          "block": 8,
+          "energy": 3
+        },
+        "enemy": {
+          "hp": 61,
+          "poison": 14
+        }
+      },
+      "afterPlays": {
+        "player": {
+          "hp": 22,
+          "block": 20
+        },
+        "enemy": {
+          "hp": 56,
+          "poison": 21,
+          "weak": 1
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 22
+        },
+        "enemy": {
+          "hp": 35,
+          "poison": 20,
+          "weak": 0
+        }
+      }
+    },
+    {
+      "hand": ["strike", "defend", "defend", "defend", "deadly_poison"],
+      "plays": ["blur", "defend", "defend"],
+      "choices": [
+        {
+          "pick": ["defend"]
+        }
+      ],
+      "atStart": {
+        "player": {
+          "hp": 22,
+          "block": 0
+        },
+        "enemy": {
+          "hp": 35,
+          "poison": 20
+        }
+      },
+      "afterPlays": {
+        "player": {
+          "hp": 22,
+          "block": 27
+        },
+        "enemy": {
+          "hp": 35,
+          "poison": 20
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 22
+        },
+        "enemy": {
+          "hp": 15,
+          "poison": 19
+        }
+      }
+    },
+    {
+      "hand": ["strike", "strike+", "defend", "dodge_and_roll", "byrdonis_egg"],
+      "plays": [],
+      "atStart": {
+        "player": {
+          "hp": 22,
+          "block": 2,
+          "energy": 4
+        },
+        "enemy": {
+          "hp": 15,
+          "poison": 19
+        }
+      },
+      "choices": [
+        {
+          "pick": ["defend"]
+        }
+      ]
+    }
+  ],
+  "result": {
+    "outcome": "win",
+    "turns": 6,
+    "finalHp": 22,
+    "hpLost": 8
+  },
+  "knownDiffs": [
+    {
+      "diff": "turn 3 draw: hand: expected dodge_and_roll footwork prowess+ snakebite strike, engine defend dodge_and_roll footwork prowess+ snakebite strike",
+      "reason": "The harness compares the whole hand with the recorded draws, but the engine hand also holds the cards retained from the last turn (the recorded draws are correct; the retained cards are listed in the fixture's choices)."
+    },
+    {
+      "diff": "turn 4 draw: hand: expected blur defend neutralize strike survivor, engine blur defend neutralize snakebite strike strike survivor",
+      "reason": "The harness compares the whole hand with the recorded draws, but the engine hand also holds the cards retained from the last turn (the recorded draws are correct; the retained cards are listed in the fixture's choices)."
+    },
+    {
+      "diff": "turn 5 draw: hand: expected deadly_poison defend defend defend strike, engine blur deadly_poison defend defend defend strike",
+      "reason": "The harness compares the whole hand with the recorded draws, but the engine hand also holds the cards retained from the last turn (the recorded draws are correct; the retained cards are listed in the fixture's choices)."
+    },
+    {
+      "diff": "turn 6 draw: hand: expected byrdonis_egg defend dodge_and_roll strike strike+, engine byrdonis_egg defend defend dodge_and_roll strike strike+",
+      "reason": "The harness compares the whole hand with the recorded draws, but the engine hand also holds the cards retained from the last turn (the recorded draws are correct; the retained cards are listed in the fixture's choices)."
+    }
+  ]
+}

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import type { EnemyDef, GameData, RelicSetup, Zone } from '../../engine/types';
 import { isCharacterSimulated } from '../lib/deck';
 import { selectableRelics, setupRelics } from '../lib/relics';
+import { setupStartHp } from '../lib/startHp';
 import { Panel } from './Panel';
 import { MAX_ASCENSION, MAX_ENEMIES, MAX_POTIONS, type SetupState } from '../lib/url';
 
@@ -12,6 +14,8 @@ interface Props {
   /** #5: more enemies in the same fight, after the first (the picker shows only when this is set). */
   onExtraEnemies?: (enemyIds: string[]) => void;
   onAscension: (ascension: number) => void;
+  /** #315: starting HP typed by the user (clamped to 1..Max HP); undefined = back to the default. */
+  onStartHp?: (startHp: number | undefined) => void;
   /** #204: potion ids in slot order (empty slots dropped). */
   onPotions?: (potions: string[]) => void;
   /** #205: relics in play (the picker shows only when this is set). */
@@ -111,6 +115,51 @@ export function RelicPicker({
   );
 }
 
+/** #315: Starting HP field. Shows the default for the character and Ascension until the user edits it. */
+export function StartHpField({
+  data,
+  setup,
+  onStartHp,
+}: {
+  data: GameData;
+  setup: SetupState;
+  onStartHp: (startHp: number | undefined) => void;
+}) {
+  const character = data.characters[setup.characterId];
+  const maxHp = character?.maxHp ?? 1;
+  const value = setupStartHp(data, setup);
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = (text: string) => {
+    setDraft(null);
+    const n = Math.round(Number(text));
+    if (text.trim() === '' || !Number.isFinite(n)) return;
+    onStartHp(Math.min(maxHp, Math.max(1, n)));
+  };
+  return (
+    <label className="field field-narrow">
+      <span>Starting HP</span>
+      <input
+        type="number"
+        min={1}
+        max={maxHp}
+        step={1}
+        value={draft ?? value}
+        title={`1 to ${maxHp} (Max HP)`}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit(e.currentTarget.value);
+        }}
+      />
+      {setup.startHp !== undefined && (
+        <button type="button" className="btn-link" onClick={() => onStartHp(undefined)}>
+          Reset
+        </button>
+      )}
+    </label>
+  );
+}
+
 /**
  * #5: the other enemies of a multi-enemy fight, left to right after the first: each can be changed
  * or removed, and "Add enemy" adds one (any enemy, up to MAX_ENEMIES in all).
@@ -152,6 +201,7 @@ export function SetupPanel({
   onEnemy,
   onExtraEnemies,
   onAscension,
+  onStartHp,
   onPotions,
   onRelics,
 }: Props) {
@@ -196,6 +246,7 @@ export function SetupPanel({
             ))}
           </select>
         </label>
+        {onStartHp && <StartHpField data={data} setup={setup} onStartHp={onStartHp} />}
       </div>
       <div className="field-row">
         <label className="field field-narrow">

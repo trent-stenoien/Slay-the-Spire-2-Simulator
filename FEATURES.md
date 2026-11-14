@@ -197,7 +197,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     when HP + Block of the enemy is at most 20 (a kill) or when the enemy has no Block, and only with
     no Slippery; and always when the enemy's coming attack could kill you (intent total at least HP +
     Block), so it is never held while dying. Poison Potion (#303, Silent): Apply 6 Poison; used at
-    once, after the Strength Potion and before the Fire Potion.
+    once, after the Strength Potion and before the Fire Potion. Energy Potion (#211): Gain 2 Energy; drunk
+    on the first turn the playable cards in hand cost at least 2 more than the current Energy (X-cost
+    cards count 0); after the Poison Potion, before the Fire Potion.
     Slow (#303, Bygone Effigy starts with it): each Attack the player deals to that enemy takes +10% per
     card played earlier this turn (the card itself and potions do not count; every played card counts,
     cards played by other cards included, #314: Sly, Havoc, ..., also for the later hits; Strike 6 -> 7 after 2 cards,
@@ -207,7 +209,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     (start HP, relics, potions at a point in the turn, `playerStart` statuses, scripted choices,
     mid-turn draws); mismatches fail unless listed in `knownDiffs` with a reason, and a listed one
     that no longer occurs fails too. `CombatConfig.playerStart` gives the player Strength, debuffs and
-    powers before combatStart relics.
+    powers before combatStart relics. Multi-enemy fixtures (#197) list `enemies` with aliases and give
+    each play's target, per-enemy states and per-enemy forced moves.
 
 39. **UI polish (#254):** chart toggles read "Colorblind" and "Percentiles" (below the strategy filters on
     small screens); Results has a "Generate new seed" button beside the seed field; deck folders for each
@@ -327,6 +330,28 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Poison-only estimate of #46 says it pays off and Artifact does not negate it (Survivor +
     Haze), or a Power / other effect (Survivor + Abrasive); or when a Sly card draws (Reflex) and energy is
     left afterwards to play the drawn cards.
+
+## Setup UI: starting HP (#315)
+
+53. **Starting HP field (#315, builder's default):** the Setup panel has a Starting HP number field showing
+    the character's start HP at the chosen Ascension (#286). It follows Ascension changes until the user edits
+    it; an edited value is kept across Ascension changes (Reset returns to the default) and is dropped when the
+    character changes (Max HP differs). Input is rounded and clamped to 1..Max HP; empty input is ignored. A
+    set value is passed as `startHp` to the run and to replayed combats. It is stored in the URL as `h` only when edited and different from the default; out-of-range values are ignored with an error.
+
+## Silent Poison powers (#263)
+
+54. **Silent Poison powers and counters (#263, Trent):** Accelerant: Poison triggers 1 (2) extra times at the
+    start of the enemy's turn, and every extra trigger also lowers Poison by 1 (Poison 5 with one extra trigger
+    deals 5 + 4 and leaves 3); triggers stop once Poison reaches 0 or the enemy dies. Envenom: each hit of an
+    Attack card that deals unblocked damage applies 1 (2) Poison to that enemy; Thorns, power damage, fixed damage
+    (Fire Potion) and Poison itself do not. Noxious Fumes: at the start of each of your turns (after the draw)
+    apply 2 (3) Poison to ALL enemies. Corrosive Wave: for the rest of this turn, every card you draw applies
+    2 (3) Poison to ALL enemies. Outbreak (main v0.107.1, Uncommon Power): every 3rd time you apply Poison deals
+    11 damage to ALL enemies (power damage, Block absorbs). Builder's rule: one Poison effect or trigger is one
+    application however many enemies it hits, an Artifact-negated application does not count, and applications
+    are counted only while Outbreak is in play. Mirage: Block equal to the total Poison on all living enemies
+    (Dexterity and Frail apply; Exhaust).
 
 ## Known failure points
 

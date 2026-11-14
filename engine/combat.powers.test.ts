@@ -235,6 +235,12 @@ describe('#109 played Power cards', () => {
         'toolsOfTheTrade',
         'wellLaidPlans',
         'tracking',
+        // #263
+        'accelerant',
+        'envenom',
+        'noxiousFumes',
+        'corrosiveWave',
+        'outbreak',
       ].sort(),
     );
   });

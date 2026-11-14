@@ -319,3 +319,29 @@ describe('potions (#204)', () => {
     }
   });
 });
+
+describe('start HP (h, #315)', () => {
+  const base = defaultSetup(gameData);
+  it('round-trips an edited value and omits the default', () => {
+    expect(buildQuery(gameData, { ...base, startHp: 50 })).toContain('h=50');
+    expect(parseQuery(gameData, buildQuery(gameData, { ...base, startHp: 50 })).setup.startHp).toBe(50);
+    expect(buildQuery(gameData, base)).not.toContain('h=');
+    expect(buildQuery(gameData, { ...base, startHp: 80 })).not.toContain('h=');
+    expect(buildQuery(gameData, { ...base, ascension: 2, startHp: 64 })).not.toContain('h=');
+    expect(parseQuery(gameData, buildQuery(gameData, base)).setup.startHp).toBeUndefined();
+  });
+  it('ignores out-of-range or malformed values with an error', () => {
+    for (const h of ['0', '81', '-3', '5.5', 'abc', '', '007']) {
+      const r = parseQuery(gameData, `${buildQuery(gameData, base)}&h=${h}`);
+      expect(r.setup.startHp).toBeUndefined();
+      expect(r.errors.some((e) => e.includes('Start HP'))).toBe(true);
+    }
+  });
+  it('is not read when the character is invalid', () => {
+    expect(parseQuery(gameData, 'v=1&c=zz&h=50').setup.startHp).toBeUndefined();
+  });
+  it('a character change drops it (no h for the new setup)', () => {
+    const { startHp: _hp, ...rest } = { ...base, startHp: 50 };
+    expect(buildQuery(gameData, rest)).not.toContain('h=');
+  });
+});

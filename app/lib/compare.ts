@@ -56,6 +56,7 @@ export function replayCombat(
         enemyId: setup.enemyId,
         ...enemyIdsField(setup),
         ascension: setup.ascension,
+        ...(setup.startHp !== undefined ? { startHp: setup.startHp } : {}),
         ...(setup.potions && setup.potions.length > 0 ? { potions: setup.potions } : {}),
         relics: setupRelics(data, setup),
         strategy,

@@ -138,6 +138,49 @@ describe('Poison Potion (#303)', () => {
   });
 });
 
+describe('Energy Potion (#211)', () => {
+  it('data: common any-character potion, Gain 2 Energy, simulated', () => {
+    expect(gameData.potions?.energy_potion).toMatchObject({
+      code: 'EP',
+      rarity: 'common',
+      character: 'any',
+      effects: [{ type: 'gainEnergy', amount: 2 }],
+      simulated: true,
+    });
+  });
+
+  it('gives 2 Energy when used, costs none, and logs it', () => {
+    const r = logged(potionData(999), useAll, { enemyId: 'target', potions: ['energy_potion'] });
+    expect(events(r.log, 'potion')).toHaveLength(1);
+    expect(events(r.log, 'energy')[0]).toMatchObject({ amount: 2, total: 5 });
+  });
+
+  const card = (cost: number | null, extra: object = {}) => ({ cost, keywords: [], type: 'attack', ...extra });
+  const view = (energy: number, hand: object[], potions: (string | null)[] = ['energy_potion']) =>
+    ({
+      state: { turn: 1, player: { hp: 80, block: 0, energy, hand, potions }, enemy: { hp: 50, block: 5 } },
+      intent: { totalIncoming: 0 },
+    }) as unknown as StrategyView;
+
+  it('pickPotion drinks it when the hand holds at least 2 Energy beyond what is affordable', () => {
+    expect(pickPotion(view(3, [card(2), card(2), card(1)]))).toEqual({ slot: 0 }); // 5 − 3 = 2
+    expect(pickPotion(view(3, [card(2), card(2)]))).toBeNull(); // 1 short
+    expect(pickPotion(view(3, [card(1), card(1), card(1)]))).toBeNull(); // all affordable
+  });
+
+  it('unplayable cards and X-cost cards do not count', () => {
+    const unplayable = card(null, { keywords: ['unplayable'] });
+    expect(pickPotion(view(3, [card(2), card(2), unplayable, card(5, { keywords: ['unplayable'] })]))).toBeNull();
+    expect(pickPotion(view(3, [card(2), card(2), card(0, { xCost: true })]))).toBeNull();
+  });
+
+  it('goes after the Poison Potion and before the Fire Potion', () => {
+    const hand = [card(3), card(3)];
+    expect(pickPotion(view(3, hand, ['energy_potion', 'poison_potion']))).toEqual({ slot: 1 });
+    expect(pickPotion(view(3, hand, ['fire_potion', 'energy_potion']))).toEqual({ slot: 1 });
+  });
+});
+
 describe('pickPotion rules', () => {
   const view = (o: {
     potions: (string | null)[];
