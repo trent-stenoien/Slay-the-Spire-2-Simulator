@@ -430,3 +430,60 @@ describe('strategy codes (#130)', () => {
     expect(() => createStrategy(cfg('aab'))).toThrow(/Invalid strategy config/);
   });
 });
+
+describe('#12 cheapest set of block and attack cards', () => {
+  const big = (cost: number, amount: number, uid: number) =>
+    makeCardInstance({ ...cards[D]!, cost, effects: [{ type: 'gainBlock', amount }] }, false, uid);
+  const B0c: StrategyConfig = blockFirstConfig(0);
+
+  const uids = (hand: CardInstance[], incoming: number) => playTurnCards(B0c, hand, incoming, 3).map((c) => c.uid);
+
+  it('block: the cheapest set that reaches the target, not the biggest card first', () => {
+    // 10 incoming, 3 energy: the 8-Block card (2) then a Defend would cost 3; two Defends reach 10 for 2.
+    const hand = [big(2, 8, 0), makeCardInstance(cards[D]!, false, 1), makeCardInstance(cards[D]!, false, 2)];
+    expect(uids(hand, 10)).toEqual([1, 2]);
+  });
+
+  it('block: a tie in Energy goes to the set with fewer cards', () => {
+    const hand = [makeCardInstance(cards[D]!, false, 1), makeCardInstance(cards[D]!, false, 2), big(2, 10, 0)];
+    expect(uids(hand, 10).slice(0, 1)).toEqual([0]);
+  });
+
+  it('block: when no set reaches the target, the biggest block card still goes first', () => {
+    const hand = [makeCardInstance(cards[D]!, false, 0), big(2, 8, 1)];
+    expect(uids(hand, 30)).toEqual([1, 0]);
+  });
+
+  it('attack: the set with the most total damage in the Energy, free attacks always in it', () => {
+    const strike = makeCardInstance(cards[S]!, false, 0);
+    const fat = makeCardInstance(
+      { ...cards[S]!, cost: 2, effects: [{ type: 'attack', damage: 10, hits: 1 }] },
+      false,
+      1,
+    );
+    // 2 energy: the 10-damage card (5 per energy) beats one Strike (6 damage).
+    expect(pickAttack([strike, fat], 2)!.uid).toBe(1);
+    // 3 energy: Strike + the 10-damage card (16) is the best set; the bigger card goes first.
+    expect(pickAttack([strike, fat], 3)!.uid).toBe(1);
+    // 2 energy, two Strikes (12) beat the 10-damage card.
+    const strike2 = makeCardInstance(cards[S]!, false, 2);
+    expect(pickAttack([strike, strike2, fat], 2)!.uid).toBe(0);
+    const free = makeCardInstance(
+      { ...cards[S]!, cost: 0, effects: [{ type: 'attack', damage: 1, hits: 1 }] },
+      false,
+      3,
+    );
+    // The free card is in the set but the bigger card goes first.
+    expect(pickAttack([fat, free], 2)!.uid).toBe(1);
+  });
+
+  it('attack: a tie in damage goes to more damage per energy, then fewer cards', () => {
+    const two = makeCardInstance(
+      { ...cards[S]!, cost: 2, effects: [{ type: 'attack', damage: 6, hits: 1 }] },
+      false,
+      0,
+    );
+    const strike = makeCardInstance(cards[S]!, false, 1);
+    expect(pickAttack([two, strike], 2)!.uid).toBe(1);
+  });
+});
