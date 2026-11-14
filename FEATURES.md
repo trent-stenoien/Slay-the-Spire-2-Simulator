@@ -197,7 +197,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     when HP + Block of the enemy is at most 20 (a kill) or when the enemy has no Block, and only with
     no Slippery; and always when the enemy's coming attack could kill you (intent total at least HP +
     Block), so it is never held while dying. Poison Potion (#303, Silent): Apply 6 Poison; used at
-    once, after the Strength Potion and before the Fire Potion.
+    once, after the Strength Potion and before the Fire Potion. Energy Potion (#211): Gain 2 Energy; drunk
+    on the first turn the playable cards in hand cost at least 2 more than the current Energy (X-cost
+    cards count 0); after the Poison Potion, before the Fire Potion.
     Slow (#303, Bygone Effigy starts with it): each Attack the player deals to that enemy takes +10% per
     card played earlier this turn (the card itself and potions do not count; Strike 6 -> 7 after 2 cards,
     Strike+ 9 -> 10, 8 after 4). One multiplier with Vulnerable (floored once); resets each player turn;
