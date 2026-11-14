@@ -25,7 +25,13 @@ function checkEnemyOnlyEffects(r: Reporter, list: unknown, path: string): void {
     // #203: an enemy move may add a named card to a pile (Vantom's Dismember adds Wounds).
     const namedCard = e.type === 'addCards' && isObj(e.source) && e.source.kind === 'card';
     // #303: an enemy move may buff its own Strength (Bygone Effigy's Wake).
-    if (!namedCard && e.type !== 'enemyGainStrength' && isOneOf(e.type, CONTRACT_EFFECTS)) {
+    // #322: an enemy move or onDeath may summon enemies.
+    if (
+      !namedCard &&
+      e.type !== 'enemyGainStrength' &&
+      e.type !== 'spawnEnemies' &&
+      isOneOf(e.type, CONTRACT_EFFECTS)
+    ) {
       r.add(`${path}[${i}].type`, `is "${e.type}", which is not simulated on enemy moves`);
     }
     if (e.type === 'applyShrink' && typeof e.amount === 'number' && e.amount > 100) {
@@ -128,19 +134,47 @@ function checkPattern(r: Reporter, v: unknown, path: string, moveIds: Set<string
     checkAlternate(r, v, path, moveIds);
     return;
   }
-  // #322: declared in the contract, not simulated yet.
-  for (const f of v.type === 'random' ? ['weights', 'noRepeatMoves'] : ['startBySlot']) {
-    if (v[f] !== undefined) r.add(`${path}.${f}`, 'is declared (#322) but not simulated yet, so data cannot use it');
-  }
   if (v.opener !== undefined) checkMoveList(r, r.arr(v, 'opener', `${path}.opener`), `${path}.opener`, moveIds, true);
   if (v.type === 'random') {
     const moves = checkMoveList(r, r.arr(v, 'moves', `${path}.moves`), `${path}.moves`, moveIds);
+    // #322: weights (positive whole numbers by move id) and noRepeatMoves (ids from the pool).
+    if (v.weights !== undefined) {
+      const w = r.obj(v, 'weights');
+      for (const [id, n] of Object.entries(w ?? {})) {
+        if (!moveIds.has(id)) r.add(`${path}.weights.${id}`, 'is not a move of this enemy');
+        else if (moves && !moves.includes(id)) r.add(`${path}.weights.${id}`, 'is not in the pattern moves');
+        if (typeof n !== 'number' || !Number.isInteger(n) || n < 1)
+          r.add(`${path}.weights.${id}`, 'must be a whole number of at least 1');
+      }
+    }
+    if (v.noRepeatMoves !== undefined) {
+      const list = checkMoveList(
+        r,
+        r.arr(v, 'noRepeatMoves', `${path}.noRepeatMoves`),
+        `${path}.noRepeatMoves`,
+        moveIds,
+      );
+      if (list && moves)
+        for (const id of list)
+          if (!moves.includes(id)) r.add(`${path}.noRepeatMoves`, `"${id}" is not in the pattern moves`);
+      if (v.noRepeat !== true) r.add(`${path}.noRepeatMoves`, 'needs "noRepeat": true');
+    }
     if (typeof v.noRepeat !== 'boolean') r.add(`${path}.noRepeat`, 'must be true or false');
     else if (v.noRepeat && moves && moves.length === 1) r.add(`${path}.moves`, 'needs at least 2 moves with noRepeat');
     return;
   }
   r.oneOf(v, 'start', PATTERN_STARTS, `${path}.start`);
-  checkMoveList(r, r.arr(v, 'order', `${path}.order`), `${path}.order`, moveIds);
+  const order = checkMoveList(r, r.arr(v, 'order', `${path}.order`), `${path}.order`, moveIds);
+  // #322: startBySlot names two moves of the cycle.
+  if (v.startBySlot !== undefined) {
+    const sbs = r.obj(v, 'startBySlot');
+    for (const k of ['odd', 'even']) {
+      const id = sbs?.[k];
+      if (typeof id !== 'string' || !moveIds.has(id))
+        r.add(`${path}.startBySlot.${k}`, 'must name a move of this enemy');
+      else if (order && !order.includes(id)) r.add(`${path}.startBySlot.${k}`, 'is not in the pattern order');
+    }
+  }
 }
 
 export function checkEnemy(r: Reporter, e: Obj): void {
@@ -182,7 +216,14 @@ export function checkEnemy(r: Reporter, e: Obj): void {
       r.add('pattern.moves', 'needs at least one move that is not oncePerFight');
   }
   if (e.startPowers !== undefined) checkStartPowers(r, e.startPowers, 'startPowers');
-  if (e.onDeath !== undefined) r.add('onDeath', 'is declared (#322) but not simulated yet, so data cannot use it');
+  // #322: death effects are spawnEnemies only.
+  if (e.onDeath !== undefined) {
+    checkMoveEffects(r, e.onDeath, 'onDeath');
+    if (Array.isArray(e.onDeath))
+      e.onDeath.forEach((x, i) => {
+        if (isObj(x) && x.type !== 'spawnEnemies') r.add(`onDeath[${i}].type`, 'must be "spawnEnemies"');
+      });
+  }
 
   const asc = r.obj(e, 'ascension');
   if (asc) {

@@ -301,6 +301,21 @@ describe('Slimes, Phrog Parasite, Wriggler (#322)', () => {
     expect(resolveEnemy(e, 9).moves.tackle!.effects).toEqual([{ type: 'attack', damage: 5, hits: 1 }]);
   });
 
+  it('Twig Slime (M): Sticky Shot opener, then 2:1 Chomp 11 (12 at A9) / Sticky Shot (1 Slimed), no repeated Sticky Shot', () => {
+    const e = enemyByCode('TM')!;
+    expect(e.hp).toEqual({ min: 26, max: 28 });
+    expect(e.pattern).toEqual({
+      type: 'random',
+      opener: ['stickyShot'],
+      moves: ['chomp', 'stickyShot'],
+      noRepeat: true,
+      noRepeatMoves: ['stickyShot'],
+      weights: { chomp: 2, stickyShot: 1 },
+    });
+    expect(resolveEnemy(e, 8).hp).toEqual({ min: 27, max: 29 });
+    expect(resolveEnemy(e, 9).moves.chomp!.effects).toEqual([{ type: 'attack', damage: 12, hits: 1 }]);
+  });
+
   it('Leaf Slime (S): random Tackle 3 (4 at A9) or Goop (1 Slimed), never the same twice', () => {
     const e = enemyByCode('LS')!;
     expect(e.hp).toEqual({ min: 11, max: 15 });
@@ -319,6 +334,7 @@ describe('Slimes, Phrog Parasite, Wriggler (#322)', () => {
     expect(e.moves.infect!.effects).toEqual([
       { type: 'addCards', source: { kind: 'card', cardId: 'infection' }, count: 3, to: 'discard' },
     ]);
+    expect(e.onDeath).toEqual([{ type: 'spawnEnemies', enemyId: 'wriggler', count: 4, stunned: true }]);
     expect(resolveEnemy(e, 8).hp).toEqual({ min: 66, max: 68 });
     expect(resolveEnemy(e, 9).moves.lash!.effects).toEqual([{ type: 'attack', damage: 5, hits: 4 }]);
   });
@@ -326,7 +342,12 @@ describe('Slimes, Phrog Parasite, Wriggler (#322)', () => {
   it('Wriggler: Nasty Bite 6 (7 at A9) and Wriggle (1 Infection, +2 Strength); 17-21 HP (18-22 at A8)', () => {
     const e = enemyByCode('Wr')!;
     expect(e).toMatchObject({ id: 'wriggler', hp: { min: 17, max: 21 } });
-    expect(e.pattern).toEqual({ type: 'cycle', order: ['nastyBite', 'wriggle'], start: 'first' });
+    expect(e.pattern).toEqual({
+      type: 'cycle',
+      order: ['nastyBite', 'wriggle'],
+      start: 'first',
+      startBySlot: { odd: 'nastyBite', even: 'wriggle' },
+    });
     expect(e.moves.wriggle!.effects).toEqual([
       { type: 'addCards', source: { kind: 'card', cardId: 'infection' }, count: 1, to: 'discard' },
       { type: 'gainStrength', amount: 2 },

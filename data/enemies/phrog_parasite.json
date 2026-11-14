@@ -62,5 +62,13 @@
     }
   },
   "source": "slaythespire.wiki.gg",
-  "lastUpdateVersion": "v0.107.1"
+  "lastUpdateVersion": "v0.107.1",
+  "onDeath": [
+    {
+      "type": "spawnEnemies",
+      "enemyId": "wriggler",
+      "count": 4,
+      "stunned": true
+    }
+  ]
 }

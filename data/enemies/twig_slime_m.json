@@ -1,0 +1,72 @@
+{
+  "id": "twig_slime_m",
+  "code": "TM",
+  "name": "Twig Slime (M)",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "easy",
+  "hp": {
+    "min": 26,
+    "max": 28
+  },
+  "moves": {
+    "chomp": {
+      "name": "Chomp",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 11,
+          "hits": 1
+        }
+      ]
+    },
+    "stickyShot": {
+      "name": "Sticky Shot",
+      "effects": [
+        {
+          "type": "addCards",
+          "source": {
+            "kind": "card",
+            "cardId": "slimed"
+          },
+          "count": 1,
+          "to": "discard"
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "random",
+    "opener": ["stickyShot"],
+    "moves": ["chomp", "stickyShot"],
+    "noRepeat": true,
+    "noRepeatMoves": ["stickyShot"],
+    "weights": {
+      "chomp": 2,
+      "stickyShot": 1
+    }
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 27,
+        "max": 29
+      }
+    },
+    "9": {
+      "moves": {
+        "chomp": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 12,
+              "hits": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

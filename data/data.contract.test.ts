@@ -131,18 +131,42 @@ describe('#105 contract shapes', () => {
     expect(errs).toContainEqual(expect.stringMatching(new RegExp(`effects\\[0\\]\\.${field}\\b`)));
   });
 
-  it('#322: rejects the declared-only summon fields in enemy data', () => {
+  it('#322: accepts the summon fields and checks them', () => {
     const d = fixture();
-    d.enemies.nibbit.onDeath = [{ type: 'spawnEnemies', enemyId: 'nibbit', count: 1 }];
-    d.enemies.nibbit.pattern = { ...d.enemies.nibbit.pattern, startBySlot: { odd: 'hiss', even: 'hiss' } };
-    const errs = errorsOf(d);
-    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*onDeath.*not simulated yet/));
-    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*pattern\.startBySlot.*not simulated yet/));
+    d.enemies.nibbit.onDeath = [{ type: 'spawnEnemies', enemyId: 'nibbit', count: 1, stunned: true }];
+    d.enemies.nibbit.moves.hiss.effects.push({ type: 'spawnEnemies', enemyId: 'nibbit', count: 1 });
+    d.enemies.nibbit.pattern = {
+      type: 'cycle',
+      order: ['butt', 'hiss'],
+      start: 'first',
+      startBySlot: { odd: 'butt', even: 'hiss' },
+    };
+    expect(errorsOf(d)).toEqual([]);
+    d.enemies.nibbit.onDeath = [{ type: 'gainBlock', amount: 1 }];
+    expect(errorsOf(d)).toContainEqual(expect.stringMatching(/enemies\/nibbit.*onDeath\[0\]\.type.*spawnEnemies/));
+    d.enemies.nibbit.onDeath = [{ type: 'spawnEnemies', enemyId: 'nibbit', count: 0 }];
+    expect(errorsOf(d)).toContainEqual(expect.stringMatching(/onDeath\[0\]\.count/));
+    d.enemies.nibbit.pattern = {
+      type: 'cycle',
+      order: ['butt', 'hiss'],
+      start: 'first',
+      startBySlot: { odd: 'butt', even: 'zz' },
+    };
+    expect(errorsOf(d)).toContainEqual(expect.stringMatching(/pattern\.startBySlot\.even/));
     const r = fixture();
-    r.enemies.nibbit.pattern = { type: 'random', moves: ['hiss', 'hiss'], noRepeat: false, weights: { hiss: 2 } };
-    expect(errorsOf(r)).toContainEqual(expect.stringMatching(/enemies\/nibbit.*pattern\.weights.*not simulated yet/));
-    r.enemies.nibbit.pattern = { type: 'random', moves: ['hiss'], noRepeat: false, noRepeatMoves: ['hiss'] };
-    expect(errorsOf(r)).toContainEqual(expect.stringMatching(/pattern\.noRepeatMoves.*not simulated yet/));
+    r.enemies.nibbit.pattern = {
+      type: 'random',
+      moves: ['butt', 'hiss'],
+      noRepeat: true,
+      weights: { butt: 2 },
+      noRepeatMoves: ['hiss'],
+    };
+    expect(errorsOf(r)).toEqual([]);
+    r.enemies.nibbit.pattern = { type: 'random', moves: ['butt', 'hiss'], noRepeat: true, weights: { butt: 0, zz: 1 } };
+    expect(errorsOf(r)).toContainEqual(expect.stringMatching(/pattern\.weights\.butt.*at least 1/));
+    expect(errorsOf(r)).toContainEqual(expect.stringMatching(/pattern\.weights\.zz/));
+    r.enemies.nibbit.pattern = { type: 'random', moves: ['butt', 'hiss'], noRepeat: false, noRepeatMoves: ['hiss'] };
+    expect(errorsOf(r)).toContainEqual(expect.stringMatching(/pattern\.noRepeatMoves.*noRepeat/));
   });
 
   it('rejects contract effects on enemy moves', () => {

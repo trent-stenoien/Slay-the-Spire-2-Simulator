@@ -31,7 +31,8 @@ const wt = join(tmp, 'main');
 let verdict;
 try {
   git('worktree', 'add', '--detach', '--quiet', wt, ref);
-  symlinkSync(join(repo, 'node_modules'), join(wt, 'node_modules'), 'dir');
+  // main also tracks a node_modules symlink (committed by mistake); only link when the checkout has none.
+  if (!existsSync(join(wt, 'node_modules'))) symlinkSync(join(repo, 'node_modules'), join(wt, 'node_modules'), 'dir');
   const main = await simulate(wt);
   const branch = await simulate(repo);
   writeFileSync(join(outDir, 'compare-main.main.json'), JSON.stringify(main));

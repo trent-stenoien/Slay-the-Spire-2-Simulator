@@ -39,6 +39,7 @@ const SIMULATED = [
   'moveCards',
   'moveSelf',
   'upgradeCards',
+  'spawnEnemies', // #322: simulated on enemy moves and onDeath (combat.summon322.test.ts); a card throws a different error
 ];
 
 describe('#105 contract effects are not simulated yet', () => {
