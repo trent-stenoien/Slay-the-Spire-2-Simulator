@@ -131,7 +131,9 @@ Round 1, test reviewer. Break edits were never committed.
 | 18a-2 | Cloak and Dagger: 6 Block + 1 Shiv (2 upgraded); Leading Strike: 3 (6) damage + 2 Shivs | engine/combat.shivs.test.ts > #262 Cloak and Dagger; #262 Leading Strike | caught (Leading Strike Shiv count 2->1, checked by hand) |
 | 18a-3 | Storm of Steel: discards the hand (not itself), 1 Shiv per card (Shiv+ upgraded, 6 damage); empty hand adds none | engine/combat.shivs.test.ts > #262 Storm of Steel | caught (Shiv+ flag removed) |
 | 18a-4 | Up My Sleeve: 3 Shivs (4 upgraded); cost 2, then 1, then 0, never below 0 | engine/combat.shivs.test.ts > #262 Up My Sleeve | caught (reduction 1->0) |
-| 18a-5 | Strategies play Shivs; Up My Sleeve first, Storm of Steel last; Hidden Daggers unsimulated | engine/combat.shivs.test.ts > #262 strategies play Shivs; #262 Hidden Daggers stays unsimulated | caught (Blade Dance count 3->2 fails the strategy tests too) |
+| 18a-5 | Strategies play Shivs; Storm of Steel last; Hidden Daggers unsimulated | engine/combat.shivs.test.ts > #262 strategies play Shivs; #262 Hidden Daggers stays unsimulated | caught (Blade Dance count 3->2 fails the strategy tests too) |
+| 18a-5b | #284 Shiv makers compared with attacks by energy efficiency (Shivs counted); Shivs played like attacks | engine/combat.shivs.test.ts > #284 Shiv play rule (first three) | not run |
+| 18a-5c | #284 Storm of Steel after all other energy is spent | engine/combat.shivs.test.ts > #284 Shiv play rule (Storm) | not run |
 | 18a-6 | Blade of Ink: 2 Inky Shivs (3 upgraded); each Inky Shiv deals 4, applies 1 Weak, Exhausts; strategies play them | engine/combat.shivs.test.ts > #285 Blade of Ink; data/data.mechanics.test.ts > #285 Blade of Ink | not run |
 | 17a-1 | Ornamental Fan: every 3rd Attack per turn | engine/combat.relics.test.ts > #205 card-play relics > Ornamental Fan 4 Block on every 3rd Attack in one turn | caught (4th) |
 | 17a-2 | Happy Flower / Pollinous Core turns; setup start count | engine/combat.relics.test.ts > Happy Flower +1 energy on turns 3, 6…; carried counters start at the setup count | caught |

@@ -111,9 +111,12 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     2 upgraded), Leading Strike (3 damage, 6 upgraded, 2 Shivs), Up My Sleeve (3 Shivs, 4 upgraded; this copy costs
     1 less for the rest of the combat, never below 0, each copy on its own) and Storm of Steel (discard the
     hand, not itself; 1 Shiv per discarded card, Shiv+ upgraded) add Shivs to the hand (a full hand sends them to
-    the discard pile). Shivs are 0-cost Attacks (4 damage, 6 upgraded) that Exhaust. Strategies play Blade Dance and
-    Up My Sleeve first in the Attack group and Storm of Steel last, once nothing else is played and the hand still
-    holds cards. Hidden Daggers stays unsimulated until the discard choice exists (#259).
+    the discard pile). Shivs are 0-cost Attacks (4 damage, 6 upgraded) that Exhaust. Shiv play rule (#284, Trent):
+    Shivs are played like attacks (ranked by damage with the other attacks). Shiv-making cards (Blade Dance, Up My
+    Sleeve; Leading Strike counts its Shivs too) are compared with the other attacks by energy efficiency
+    (damage per energy, counting the Shivs they make: 4 each, 6 upgraded; a tie goes to the maker; Accuracy, #267,
+    would add here once simulated). Storm of Steel is played last, after all other energy is spent, and only while
+    the hand still holds cards to discard. Hidden Daggers stays unsimulated until the discard choice exists (#259).
     **Blade of Ink (#285):** adds 2 Inky Shivs to the hand (3 upgraded); the Inky enchantment is "This card
     applies 1 Weak" (Trent), so an Inky Shiv is a Shiv (4 damage, Exhaust, 0 cost) that also applies 1 Weak to the
     target. Modelled as the `inky_shiv` token; strategies treat it like a Shiv.

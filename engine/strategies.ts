@@ -154,8 +154,8 @@ const makesShiv = (e: DeepReadonly<Effect>): boolean =>
 /**
  * #262: a card that only makes Shivs (Blade Dance, Up My Sleeve, Storm of Steel): it is in no group, since
  * it deals no damage and gains no Block itself. The orchestrator's default, not a rule from Trent.
- * Blade Dance and Up My Sleeve go first in the Attack group (their 0-cost Shivs are played right after,
- * 4 damage each); Storm of Steel (Discard your Hand) waits until nothing else is left to play (pickStorm).
+ * #284: Blade Dance and Up My Sleeve are compared with the attacks by energy efficiency (pickShivMaker);
+ * Storm of Steel (Discard your Hand) waits until nothing else is left to play (pickStorm).
  */
 export function isShivMaker(card: Card): boolean {
   return (
@@ -239,12 +239,41 @@ function pickSlyDiscarder(view: StrategyView): Card | undefined {
   );
 }
 
-/** #262: a Shiv maker for the Attack group: the cheapest first (ties to the lowest uid), never Storm of Steel. */
-function pickShivMaker(view: StrategyView): Card | undefined {
-  return best(
+/** #284: a Shiv's damage (data/cards/colorless/shiv.json: 4, 6 upgraded). Buffs such as Accuracy (#267) would add here. */
+const SHIV_DAMAGE = 4;
+const SHIV_DAMAGE_UPGRADED = 6;
+
+/**
+ * #284: the damage of the Shivs a card makes (Storm of Steel excluded: its count is the hand it discards).
+ * Counted in the card's damage-per-energy so Blade Dance (3 Shivs = 12 damage for 1) is compared with attacks.
+ */
+function shivDamageMade(card: Card): number {
+  let sum = 0;
+  for (const e of card.effects) {
+    if (makesShiv(e) && e.type === 'addCards') sum += e.count * (e.upgraded ? SHIV_DAMAGE_UPGRADED : SHIV_DAMAGE);
+  }
+  return sum;
+}
+
+/** #284: damage per energy of a Shiv maker (Infinity at cost 0). */
+function makerEfficiency(card: Card): number {
+  const cost = card.cost ?? 0;
+  return cost <= 0 ? Infinity : shivDamageMade(card) / cost;
+}
+
+/**
+ * #284 (Trent): Shiv makers are compared with the costed attacks by energy efficiency (damage per energy,
+ * counting the Shivs made). The best maker is played when it is at least as efficient as the best attack
+ * (a tie goes to the maker: its Shivs are free). Shivs themselves are ordinary attacks in pickAttack.
+ */
+function pickShivMaker(view: StrategyView, atk: Card | undefined): Card | undefined {
+  const maker = best(
     view.playable.filter((c) => isShivMaker(c) && !isStorm(c)),
-    (c) => [-(c.cost ?? 0)],
+    (c) => [makerEfficiency(c), -(c.cost ?? 0)],
   );
+  if (!maker) return undefined;
+  const costed = atk && (atk.xCost || (atk.cost ?? 0) > 0) ? atk : undefined;
+  return !costed || makerEfficiency(maker) >= attackDamagePerEnergy(costed, view.state) ? maker : undefined;
 }
 
 /**
@@ -1305,7 +1334,8 @@ const notXCost = (c: Card): number => (c.xCost ? 0 : 1);
 function attackDamagePerEnergy(card: Card, state?: State): number {
   if (card.xCost) return totalBaseDamage(card, 1, state);
   const cost = card.cost ?? 0;
-  return cost <= 0 ? Infinity : totalBaseDamage(card, 0, state) / cost;
+  // #284: an attack that makes Shivs (Leading Strike) counts their damage too.
+  return cost <= 0 ? Infinity : (totalBaseDamage(card, 0, state) + shivDamageMade(card)) / cost;
 }
 
 /**
@@ -1937,9 +1967,17 @@ function pickFromGroup(
     case 'attack': {
       const first = pickPlayFirst(view);
       if (first) return first;
-      const maker = pickShivMaker(view);
-      if (maker) return maker;
       const atk = pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state);
+      const maker = pickShivMaker(
+        view,
+        pickAttack(
+          view.playable.filter((c) => c.xCost || (c.cost ?? 0) > 0),
+          energy,
+          view.state.enemy.debuffs.vulnerable,
+          view.state,
+        ),
+      );
+      if (maker) return maker;
       return planning ? atk : (pickFiendFire(view, config, atk) ?? atk);
     }
     case 'powers':
@@ -2119,11 +2157,12 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   if (planning) return END;
   const support = pickSupport(view);
   if (support) return play(support);
-  const storm = pickStorm(view);
-  if (storm) return play(storm);
   const preferBlock = config.order.indexOf('block') < config.order.indexOf('attack');
   const last = pickLast(view, preferBlock);
   if (last) return play(last);
+  // #284: Storm of Steel goes after all other energy is spent (the last play before Shadow Step).
+  const storm = pickStorm(view);
+  if (storm) return play(storm);
   // #264: Shadow Step goes last: it discards what is left in the hand for double Attacks next turn.
   const shadowStep = best(view.playable.filter(isShadowStep), () => []);
   if (shadowStep) return play(shadowStep);

@@ -223,3 +223,51 @@ describe('#262 strategies play Shivs', () => {
     expect(plays.slice(5, 8)).toEqual(['shiv', 'shiv', 'shiv']);
   });
 });
+
+describe('#284 Shiv play rule', () => {
+  const firstPlays = (d: ReturnType<typeof world>, deck: ReturnType<typeof deckOf>, n: number) => {
+    const config = GREEDY_CONFIG;
+    const r = simulateCombat(
+      d,
+      cfg({ enemyId: 'dummy', deck, strategy: { ...config, order: [...config.order] } }),
+      createStrategy({ ...config, order: [...config.order] }),
+      { log: true },
+    );
+    return events(r.log, 'play')
+      .map((e) => e.cardId)
+      .slice(0, n);
+  };
+
+  it('a Shiv maker is played before an attack that is less energy efficient (3 Shivs = 12 damage for 1 beats Strike)', () => {
+    const d = world(['blade_dance', 'strike']);
+    // The Shivs themselves are attacks ranked by damage: Strike (6) goes before them (4 each).
+    expect(firstPlays(d, deckOf(['blade_dance', 1], ['strike', 1]), 5)).toEqual([
+      'blade_dance',
+      'strike',
+      'shiv',
+      'shiv',
+      'shiv',
+    ]);
+  });
+
+  it('an attack that is more energy efficient than the Shivs it competes with is played first', () => {
+    const d = world(['blade_dance', 'strike']);
+    d.cards.strike!.effects = d.cards.strike!.effects.map((e) => (e.type === 'attack' ? { ...e, damage: 20 } : e));
+    const plays = firstPlays(d, deckOf(['blade_dance', 1], ['strike', 1]), 2);
+    expect(plays).toEqual(['strike', 'blade_dance']);
+  });
+
+  it('Shivs in hand are played like attacks: ranked by damage with the other attacks, not forced first', () => {
+    const d = world(['strike', 'blade_dance']);
+    d.cards.strike!.effects = d.cards.strike!.effects.map((e) => (e.type === 'attack' ? { ...e, damage: 20 } : e));
+    const plays = firstPlays(d, deckOf(['blade_dance', 1], ['strike', 2]), 4);
+    expect(plays.indexOf('strike')).toBeLessThan(plays.indexOf('shiv'));
+  });
+
+  it('Storm of Steel is played after all the other energy is spent', () => {
+    const d = world(['storm_of_steel', 'strike', 'defend']);
+    d.cards.defend!.cost = 5; // unaffordable: Storm of Steel turns it into a Shiv
+    const plays = firstPlays(d, deckOf(['storm_of_steel', 1], ['strike', 1], ['defend', 1]), 3);
+    expect(plays).toEqual(['strike', 'storm_of_steel', 'shiv']);
+  });
+});
