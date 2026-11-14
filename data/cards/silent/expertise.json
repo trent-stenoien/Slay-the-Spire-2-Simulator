@@ -9,11 +9,23 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "drawUntil",
+      "handSize": 6
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "drawUntil",
+        "handSize": 7
+      }
+    ]
+  },
   "description": "Draw cards until you have 6 cards in your Hand.",
   "upgradedDescription": "Draw cards until you have 7 cards in your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

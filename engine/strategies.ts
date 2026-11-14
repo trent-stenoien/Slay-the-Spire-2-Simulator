@@ -15,7 +15,7 @@ import type {
   TargetPriority,
 } from './types';
 import { attackDamage, attackHits, conditionHolds, countStrikes, perCounterValue } from './rules';
-import { chooseGenerated } from './generate';
+import { chooseGenerated, chooseRetained } from './generate';
 import { pickPotion } from './potions';
 
 type Card = DeepReadonly<CardInstance>;
@@ -86,6 +86,22 @@ function doublesBlock(card: Card): boolean {
 /** #111 (Trent): Body Slam (damage equal to your Block) is played after the other block cards. */
 function waitsForBlock(card: Card): boolean {
   return card.effects.some((e) => e.type === 'attackFrom' && e.bonusPer?.per === 'playerBlock');
+}
+
+/** #265: Finisher (damage per Attack already played this turn) waits for the other Attacks. */
+function waitsForAttacks(card: Card): boolean {
+  return card.effects.some((e) => e.type === 'attackFrom' && e.extraHitsPer?.per === 'attacksPlayedBeforeThis');
+}
+
+/**
+ * #265: Finisher is left out of `playable` while another Attack (one that doesn't wait itself) can be
+ * played, so it is played last with every earlier Attack counted. Without one it is played like any attack.
+ */
+function withoutWaitingForAttacks(view: StrategyView): StrategyView {
+  if (!view.playable.some(waitsForAttacks)) return view;
+  const { energy } = view.state.player;
+  const other = view.playable.some((c) => isAttackCard(c) && !waitsForAttacks(c) && xCostPlayable(c, energy));
+  return other ? { ...view, playable: view.playable.filter((c) => !waitsForAttacks(c)) } : view;
 }
 
 /** The effects a card would run now: with a state, a `conditional` is replaced by the branch that holds (#111). */
@@ -593,6 +609,23 @@ export function chooseExhaust(
   return { uids: picked.map((c) => c.uid) };
 }
 
+/**
+ * #266 Strategy.choose for "discard N from the hand" (Tools of the Trade; #259 Trent): the shared exhaust
+ * order, except that Sly cards go ahead of curses and statuses, but not ahead of those that hurt if kept
+ * (they lose HP or deal damage while in the hand). Always exactly the requested number.
+ */
+export function chooseDiscard(
+  view: StrategyView,
+  request: ChoiceRequest,
+  config: StrategyConfig = GREEDY_CONFIG,
+): ChoiceResponse {
+  const ordered = exhaustOrder(request.options, view, config);
+  const hurts = (c: Card) => dealsDirectHpDamage(c) || dealsBlockableDamage(c);
+  const sly = (c: Card) => c.keywords.includes('sly') && !hurts(c);
+  const ranked = [...ordered.filter(hurts), ...ordered.filter(sly), ...ordered.filter((c) => !hurts(c) && !sly(c))];
+  return { uids: ranked.slice(0, request.max).map((c) => c.uid) };
+}
+
 // ---------------------------------------------------------------------------
 // #141 Deck-health guard (Trent): exhausting must not thin the deck too far.
 // ---------------------------------------------------------------------------
@@ -834,6 +867,8 @@ function playKillsEnemy(view: StrategyView, card: Card): boolean {
       enemy.debuffs.vulnerable,
       player.powers?.cruelty ?? 0,
       player.shrink ?? 0,
+      0,
+      (player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
     );
     dmg += perHit * attackHits(e, x);
   }
@@ -1077,6 +1112,8 @@ export function fiendFireKills(view: StrategyView, card: Card): boolean {
     enemy.debuffs.vulnerable,
     cruelty,
     player.shrink ?? 0,
+    0,
+    (player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
   );
   return perHit * hits >= enemy.hp + enemy.block;
 }
@@ -1891,9 +1928,11 @@ export function blockIsLast(config: StrategyConfig): boolean {
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
-  const view = withoutWaitingForBlock(
-    withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config),
-    config,
+  const view = withoutWaitingForAttacks(
+    withoutWaitingForBlock(
+      withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config),
+      config,
+    ),
   );
   const d = decideWith(view, config, false);
   if (d.kind !== 'endTurn') return d;
@@ -2071,6 +2110,8 @@ export function createStrategy(config: StrategyConfig): Strategy {
     },
     choose: (raw, request) => {
       const { view } = aim(raw);
+      if (request.sourcePower === 'wellLaidPlans') return chooseRetained(request, view.state.player.drawPile, c.order);
+      if (request.to === 'discard' && request.from === 'hand') return chooseDiscard(view, request, withTally());
       return request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade'
         ? chooseGenerated(request, c.order)
         : chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined);
@@ -2083,7 +2124,11 @@ function isRandomTargetAttack(card: Card): boolean {
 }
 
 /** #45: damage a targeted attack card would deal to `enemy` now (Strength, Weak, Vulnerable; Block counts as HP). */
-function wouldKill(card: Card, state: State, enemy: { hp: number; block: number; debuffs: { vulnerable: number } }) {
+function wouldKill(
+  card: Card,
+  state: State,
+  enemy: { hp: number; block: number; debuffs: { vulnerable: number; weak: number } },
+) {
   const x = card.xCost ? state.player.energy : 0;
   let dmg = 0;
   for (const e of card.effects) {
@@ -2093,6 +2138,10 @@ function wouldKill(card: Card, state: State, enemy: { hp: number; block: number;
       state.player.strength,
       state.player.debuffs.weak,
       enemy.debuffs.vulnerable,
+      0,
+      0,
+      0,
+      (state.player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
     );
     dmg += per * attackHits(e, x);
   }

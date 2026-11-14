@@ -9,11 +9,33 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "attackFrom",
+      "damage": 5,
+      "hits": 0,
+      "extraHitsPer": {
+        "per": "skillsInHand",
+        "amount": 1
+      }
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "attackFrom",
+        "damage": 7,
+        "hits": 0,
+        "extraHitsPer": {
+          "per": "skillsInHand",
+          "amount": 1
+        }
+      }
+    ]
+  },
   "description": "Deal 5 damage for each Skill in your Hand.",
   "upgradedDescription": "Deal 7 damage for each Skill in your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

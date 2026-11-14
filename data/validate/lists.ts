@@ -114,6 +114,11 @@ export const SIMULATED_COUNTERS = new Set<string>([
   'cardsPlayedThisTurn',
   'cardsPlayedThisCombat',
   'attacksPlayedThisTurn',
+  'skillsPlayedThisTurn',
+  'attacksPlayedBeforeThis',
+  'cardsDiscardedThisTurn',
+  'cardsDrawnThisCombat',
+  'skillsInHand',
   'cardsExhaustedThisTurn',
   'cardsExhaustedThisCombat',
   'lastEffectCount',
@@ -200,6 +205,13 @@ export const SIMULATED_POWERS = new Set<string>([
   'stampede',
   'mayhem',
   'nostalgia',
+  // #266 Silent trigger powers
+  'afterimage',
+  'serpentForm',
+  'speedster',
+  'toolsOfTheTrade',
+  'wellLaidPlans',
+  'tracking',
   'stratagem',
   // #264 Silent temporary and next-turn powers
   'dexterityThisTurn',
@@ -225,8 +237,8 @@ export const SIMULATED_FILTER_FIELDS = new Set<string>([
 /** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS; `costLessPer`: see SIMULATED_COST_COUNTERS; `playableIf` is simulated, #111). */
 export const UNSIMULATED_CARD_FIELDS: readonly string[] = [];
 
-/** #110: the counters `costLessPer` may use on a simulated card (Stomp: Attacks played this turn). */
-export const SIMULATED_COST_COUNTERS = new Set<string>(['attacksPlayedThisTurn']);
+/** #110: the counters `costLessPer` may use on a simulated card (Stomp: Attacks played this turn; #265 Pinpoint: Skills). */
+export const SIMULATED_COST_COUNTERS = new Set<string>(['attacksPlayedThisTurn', 'skillsPlayedThisTurn']);
 
 export const PILES = ['hand', 'draw', 'discard', 'exhaust'] as const;
 
@@ -306,7 +318,14 @@ export const POWER_IDS = [
   'calamity',
   'helloWorld',
   'entropy',
-  // #264, #266: declared, not simulated
+  // #266 (simulated)
+  'afterimage',
+  'serpentForm',
+  'speedster',
+  'toolsOfTheTrade',
+  'wellLaidPlans',
+  'tracking',
+  // #264: declared, not simulated
   'dexterityThisTurn',
   'retainBlock',
   'doubleBlock',
@@ -314,12 +333,6 @@ export const POWER_IDS = [
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
-  'afterimage',
-  'serpentForm',
-  'speedster',
-  'toolsOfTheTrade',
-  'wellLaidPlans',
-  'tracking',
 ] as const;
 
 /** #215 adds artifact, strengthPerTurn, slippery: valid data, not simulated (not in SIMULATED_ENEMY_POWERS). */

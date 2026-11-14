@@ -76,16 +76,16 @@ const playerHits = (log: GameEvent[] | undefined) =>
 
 describe('#264 rules', () => {
   it('attackDamage multiplier doubles with the other modifiers and floors once', () => {
-    expect(attackDamage(6, 0, 0, 0, 0, 0, 0, 2)).toBe(12);
-    expect(attackDamage(5, 1, 1, 1, 0, 0, 0, 2)).toBe(13); // 6 × 2 × 0.75 × 1.5 = 13.5
+    expect(attackDamage(6, 0, 0, 0, 0, 0, 0, false, 2)).toBe(12);
+    expect(attackDamage(5, 1, 1, 1, 0, 0, 0, false, 2)).toBe(13); // 6 × 2 × 0.75 × 1.5 = 13.5
   });
 
   it('cardCost: a free Skill is 0, an Attack is not', () => {
     const base = { uid: 1, cardId: 'x', name: 'x', keywords: [], effects: [], xCost: false } as unknown;
     const skill = { ...(base as object), type: 'skill', cost: 2 } as unknown as CardInstance;
     const attack = { ...(base as object), type: 'attack', cost: 2 } as unknown as CardInstance;
-    expect(cardCost(skill, 0, false, true)).toBe(0);
-    expect(cardCost(attack, 0, false, true)).toBe(2);
+    expect(cardCost(skill, 0, false, 0, true)).toBe(0);
+    expect(cardCost(attack, 0, false, 0, true)).toBe(2);
     expect(cardCost(skill, 0, false)).toBe(2);
   });
 });

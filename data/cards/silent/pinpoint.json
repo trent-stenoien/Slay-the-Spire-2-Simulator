@@ -27,7 +27,11 @@
   },
   "description": "Deal 15 damage. / Costs 1 less [E] for each Skill played this turn.",
   "upgradedDescription": "Deal 19 damage. / Costs 1 less [E] for each Skill played this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
-  "lastUpdateVersion": "v0.107.1"
+  "lastUpdateVersion": "v0.107.1",
+  "costLessPer": {
+    "per": "skillsPlayedThisTurn",
+    "amount": 1
+  }
 }

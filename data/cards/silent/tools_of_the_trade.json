@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "toolsOfTheTrade",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "At the start of your turn, draw 1 card and discard 1 card.",
   "upgradedDescription": "At the start of your turn, draw 1 card and discard 1 card.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

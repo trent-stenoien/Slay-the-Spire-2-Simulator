@@ -228,6 +228,13 @@ describe('#109 played Power cards', () => {
         'freeNextSkill',
         'doubleAttackNextTurn',
         'dexterityLossPerTurn',
+        // #266
+        'afterimage',
+        'serpentForm',
+        'speedster',
+        'toolsOfTheTrade',
+        'wellLaidPlans',
+        'tracking',
       ].sort(),
     );
   });
