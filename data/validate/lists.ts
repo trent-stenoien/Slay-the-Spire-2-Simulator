@@ -338,7 +338,7 @@ export const POWER_IDS = [
   'dexterityLossPerTurn',
 ] as const;
 
-/** #215 adds artifact, strengthPerTurn, slippery; #303 adds slow: valid data, not simulated (not in SIMULATED_ENEMY_POWERS). */
+/** #215 adds artifact, strengthPerTurn, slippery; #303 adds slow (enemy start power, simulated in engine/combat.ts; not applicable by cards, so not in SIMULATED_ENEMY_POWERS). */
 export const ENEMY_POWER_IDS = [
   'strengthLossThisTurn',
   'stun',
