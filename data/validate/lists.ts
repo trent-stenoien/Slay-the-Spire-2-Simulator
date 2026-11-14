@@ -204,6 +204,13 @@ export const SIMULATED_POWERS = new Set<string>([
   'stampede',
   'mayhem',
   'nostalgia',
+  // #266 Silent trigger powers
+  'afterimage',
+  'serpentForm',
+  'speedster',
+  'toolsOfTheTrade',
+  'wellLaidPlans',
+  'tracking',
   'stratagem',
 ]);
 
@@ -302,7 +309,14 @@ export const POWER_IDS = [
   'calamity',
   'helloWorld',
   'entropy',
-  // #264, #266: declared, not simulated
+  // #266 (simulated)
+  'afterimage',
+  'serpentForm',
+  'speedster',
+  'toolsOfTheTrade',
+  'wellLaidPlans',
+  'tracking',
+  // #264: declared, not simulated
   'dexterityThisTurn',
   'retainBlock',
   'doubleBlock',
@@ -310,12 +324,6 @@ export const POWER_IDS = [
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
-  'afterimage',
-  'serpentForm',
-  'speedster',
-  'toolsOfTheTrade',
-  'wellLaidPlans',
-  'tracking',
 ] as const;
 
 /** #215 adds artifact, strengthPerTurn, slippery: valid data, not simulated (not in SIMULATED_ENEMY_POWERS). */

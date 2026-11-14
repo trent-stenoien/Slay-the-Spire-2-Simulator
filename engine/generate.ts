@@ -99,6 +99,31 @@ function groupScore(card: Card): number {
 }
 
 /**
+ * #266 Well-Laid Plans (Trent): retain the card the strategy needs next turn for its top priority (the
+ * first group of its order that has a card among the options; a Block-first strategy keeps a Block
+ * card), best card of the group first, unless more than half of the draw pile is cards of that group,
+ * in which case other cards come first. Curses and statuses are never kept. Up to `max` cards; any
+ * left-over slot takes the demoted cards.
+ */
+export function chooseRetained(
+  request: ChoiceRequest,
+  drawPile: readonly Card[],
+  order: readonly StrategyGroup[] = DEFAULT_ORDER,
+): ChoiceResponse {
+  const junk = order.length + 1;
+  const ranked = request.options
+    .map((c, i) => ({ c, i, rank: groupRank(c, order), score: groupScore(c) }))
+    .filter((x) => x.rank < junk);
+  if (ranked.length === 0) return { uids: [] };
+  const top = Math.min(...ranked.map((x) => x.rank));
+  const inTop = drawPile.filter((c) => groupRank(c, order) === top).length;
+  const crowded = top < order.length && drawPile.length > 0 && inTop * 2 > drawPile.length;
+  const demoted = (x: { rank: number }) => (crowded && x.rank === top ? 1 : 0);
+  ranked.sort((a, b) => demoted(a) - demoted(b) || a.rank - b.rank || b.score - a.score || a.i - b.i);
+  return { uids: ranked.slice(0, request.max).map((x) => x.c.uid) };
+}
+
+/**
  * #116/#112: answer a "pick cards by the strategy's priorities" request (Discovery, Abundance,
  * Headbutt, Armaments, Seeker Strike...). Cards are ranked by the first group of the strategy's
  * order they belong to (Attack: most damage; Block: most Block; Powers: equal), then the other

@@ -1,5 +1,5 @@
 import { createRng } from './rng';
-import { cardPool, chooseGenerated } from './generate';
+import { cardPool, chooseGenerated, chooseRetained } from './generate';
 import { defaultStartHp, patternMoveIds, patternPool, resolveEnemy } from './enemy';
 import {
   COLOSSUS_REDUCTION,
@@ -32,7 +32,7 @@ import {
   scriptMods,
   turnMatches,
 } from './relics';
-import { chooseExhaust, createStrategy } from './strategies';
+import { chooseDiscard, chooseExhaust, createStrategy } from './strategies';
 import {
   HAND_LIMIT,
   TURN_CAP,
@@ -354,6 +354,13 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'stampede',
   'mayhem',
   'nostalgia',
+  // #266 Silent trigger powers
+  'afterimage',
+  'serpentForm',
+  'speedster',
+  'toolsOfTheTrade',
+  'wellLaidPlans',
+  'tracking',
   'stratagem',
 ];
 
@@ -700,6 +707,57 @@ class Combat {
   }
 
   /**
+   * #266 Tools of the Trade: discard `count` cards from the hand (all of it when smaller), picked by
+   * Strategy.choose (the shared discard order when it has none; see chooseDiscard).
+   */
+  private discardFromHand(count: number, sourcePower: PowerId): void {
+    const { player, log } = this;
+    const n = Math.min(count, player.hand.length);
+    if (n <= 0) return;
+    const options = [...player.hand];
+    const request: ChoiceRequest = {
+      purpose: 'move',
+      sourcePower,
+      from: 'hand',
+      to: 'discard',
+      options,
+      min: n,
+      max: n,
+    };
+    for (const c of options.length === n ? options : this.choose(request, options)) {
+      player.hand.splice(player.hand.indexOf(c), 1);
+      player.discardPile.push(c);
+      log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: 'hand', to: 'discard' });
+      this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
+    }
+  }
+
+  /**
+   * #266 Well-Laid Plans: the cards kept in hand at the end of the turn, up to the power's amount, picked by
+   * Strategy.choose. Cards that are kept anyway (Retain) or leave (Ethereal) are not offered.
+   */
+  private wellLaidPlansRetained(): Set<CardInstance> {
+    const { player } = this;
+    const max = this.power('wellLaidPlans');
+    const ghostSeed = scriptMods(this.relics, 'ghostSeed').length > 0;
+    const options = player.hand.filter(
+      (c) =>
+        !c.keywords.includes('ethereal') && !c.keywords.includes('retain') && !(ghostSeed && isBasicStrikeOrDefend(c)),
+    );
+    if (max <= 0 || options.length === 0) return new Set();
+    const request: ChoiceRequest = {
+      purpose: 'move',
+      sourcePower: 'wellLaidPlans',
+      from: 'hand',
+      to: 'hand',
+      options,
+      min: 0,
+      max: Math.min(max, options.length),
+    };
+    return new Set(this.choose(request, options));
+  }
+
+  /**
    * #110: run the scheduled effects due on this turn at `at`, in the order they were scheduled.
    * Block they gain is not changed by Dexterity or Frail. Returns the outcome if one ended combat.
    */
@@ -794,6 +852,12 @@ class Combat {
           if (player.hp <= 0) return 'loss';
           break;
         }
+        case 'toolsOfTheTrade':
+          this.drawCards(amount);
+          if (player.hp <= 0) return 'loss';
+          if (this.won()) return 'win';
+          this.discardFromHand(amount, 'toolsOfTheTrade');
+          break;
         case 'helloWorld':
           this.addCards({
             type: 'addCards',
@@ -1006,6 +1070,9 @@ class Combat {
     if (card.type === 'skill') counters.skillsPlayedThisTurn++;
     // #113 Panache counts only cards played after it was on (not the Panache card itself).
     const panacheOn = this.power('panache') > 0;
+    // #266 Afterimage and Serpent Form react to cards played after they were on (not their own card).
+    const afterimage = this.power('afterimage');
+    const serpentForm = this.power('serpentForm');
     // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
     const vigor = card.type === 'attack' ? this.power('vigor') : 0;
     this.activeVigor = vigor;
@@ -1058,9 +1125,20 @@ class Combat {
     } else {
       player.discardPile.push(card);
     }
+    if (!died && !this.won() && (afterimage > 0 || serpentForm > 0)) died = this.playTriggers(afterimage, serpentForm);
     if (!died && !this.won()) died = this.afterPlay(card, panacheOn);
     if (!died && !this.won() && player.hp > 0) died = this.relicCardPlayed(card);
     return died ?? (this.won() ? 'enemy' : null);
+  }
+
+  /**
+   * #266 Afterimage: Block from the power (no Dexterity or Frail). Serpent Form: damage from the power to a
+   * random living enemy (#45; one Rng draw only while 2+ live). Once per play, a Replay does not repeat them.
+   */
+  private playTriggers(afterimage: number, serpentForm: number): Side | null {
+    if (afterimage > 0) this.gainPowerBlock(afterimage);
+    if (serpentForm > 0 && this.powerDamage(serpentForm, 'any')) return 'enemy';
+    return this.won() ? 'enemy' : null;
   }
 
   /**
@@ -1168,6 +1246,8 @@ class Combat {
     const retainHand = this.power('retainHand') > 0 || modifiersOf(this.relics, 'keepHand').length > 0;
     const ghostSeed = scriptMods(this.relics, 'ghostSeed').length > 0;
     const retained: CardInstance[] = [];
+    // #266 Well-Laid Plans: chosen before anything leaves the hand.
+    const planned = retainHand ? new Set<CardInstance>() : this.wellLaidPlansRetained();
     // #113: cards drawn while exhausting (Dark Embrace) join the new hand and stay in it.
     const handNow = player.hand;
     player.hand = retained;
@@ -1175,7 +1255,7 @@ class Combat {
       if (card.keywords.includes('ethereal') || (ghostSeed && isBasicStrikeOrDefend(card))) {
         const died = this.exhaustCard(card, 'ethereal');
         if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
-      } else if (card.keywords.includes('retain') || retainHand) {
+      } else if (card.keywords.includes('retain') || retainHand || planned.has(card)) {
         retained.push(card);
       } else {
         player.discardPile.push(card);
@@ -1782,7 +1862,14 @@ class Combat {
   private choose(request: ChoiceRequest, options: readonly CardInstance[]): CardInstance[] {
     const view = this.view();
     const byPriority = request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade';
-    const fallback = () => (byPriority ? chooseGenerated(request) : chooseExhaust(view, request));
+    const fallback = () =>
+      request.sourcePower === 'wellLaidPlans'
+        ? chooseRetained(request, view.state.player.drawPile)
+        : request.to === 'discard' && request.from === 'hand'
+          ? chooseDiscard(view, request)
+          : byPriority
+            ? chooseGenerated(request)
+            : chooseExhaust(view, request);
     const { uids } = this.strategy.choose ? this.strategy.choose(view, request) : fallback();
     const picked = uids.map((uid) => options.find((c) => c.uid === uid));
     if (
@@ -2690,6 +2777,7 @@ class Combat {
     this.clearDeadShrink();
     const base = damage + this.activeVigor;
     const cruelty = this.power('cruelty');
+    const tracking = this.power('tracking') > 0;
     const shrink = player.shrink ?? 0;
     this.lastAttackDamage = 0;
     const multi = all && this.enemies.length > 1;
@@ -2712,6 +2800,7 @@ class Combat {
           cruelty,
           shrink,
           0,
+          tracking && t.debuffs.weak > 0,
         );
         const blocked = Math.min(t.block, perHit);
         t.block -= blocked;
@@ -2804,6 +2893,9 @@ class Combat {
     this.counters.cardsDrawnThisTurn++;
     this.counters.cardsDrawnThisCombat++;
     this.lastDrawn.push(card);
+    // #266 Speedster: a card drawn during the player's turn hurts every enemy (power damage, Block absorbs it).
+    const speedster = this.playerTurn ? this.power('speedster') : 0;
+    if (speedster > 0) this.powerDamage(speedster, 'all');
     // #113 Automation: every 10th card drawn while it is on gains energy.
     const automation = this.power('automation');
     if (automation > 0 && ++this.automationCount % AUTOMATION_CARDS === 0) {

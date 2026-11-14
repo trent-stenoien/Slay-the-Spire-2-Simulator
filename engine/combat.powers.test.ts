@@ -220,6 +220,13 @@ describe('#109 played Power cards', () => {
         'mayhem',
         'nostalgia',
         'stratagem',
+        // #266
+        'afterimage',
+        'serpentForm',
+        'speedster',
+        'toolsOfTheTrade',
+        'wellLaidPlans',
+        'tracking',
       ].sort(),
     );
   });

@@ -9,7 +9,13 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "speedster",
+      "amount": 2
+    }
+  ],
   "upgraded": {
     "keywords": [
       "innate"
@@ -17,7 +23,7 @@
   },
   "description": "Whenever you draw a card during your turn, deal 2 damage to ALL enemies.",
   "upgradedDescription": "Innate. / Whenever you draw a card during your turn, deal 2 damage to ALL enemies.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

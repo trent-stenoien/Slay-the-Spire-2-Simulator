@@ -9,7 +9,13 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "afterimage",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "keywords": [
       "innate"
@@ -17,7 +23,7 @@
   },
   "description": "Whenever you play a card, gain 1 Block.",
   "upgradedDescription": "Innate. / Whenever you play a card, gain 1 Block.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
