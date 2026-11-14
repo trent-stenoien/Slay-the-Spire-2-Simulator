@@ -240,13 +240,13 @@ describe('#284 Shiv play rule', () => {
 
   it('a Shiv maker is played before an attack that is less energy efficient (3 Shivs = 12 damage for 1 beats Strike)', () => {
     const d = world(['blade_dance', 'strike']);
-    // The Shivs themselves are attacks ranked by damage: Strike (6) goes before them (4 each).
+    // #267 (Trent, Nov 14): Shivs in hand are always played, so they follow the maker before Strike.
     expect(firstPlays(d, deckOf(['blade_dance', 1], ['strike', 1]), 5)).toEqual([
       'blade_dance',
+      'shiv',
+      'shiv',
+      'shiv',
       'strike',
-      'shiv',
-      'shiv',
-      'shiv',
     ]);
   });
 
@@ -257,7 +257,7 @@ describe('#284 Shiv play rule', () => {
     expect(plays).toEqual(['strike', 'blade_dance']);
   });
 
-  it('Shivs in hand are played like attacks: ranked by damage with the other attacks, not forced first', () => {
+  it('Shiv makers are ranked by damage per energy with the other attacks (a Strike for 20 goes before Blade Dance)', () => {
     const d = world(['strike', 'blade_dance']);
     d.cards.strike!.effects = d.cards.strike!.effects.map((e) => (e.type === 'attack' ? { ...e, damage: 20 } : e));
     const plays = firstPlays(d, deckOf(['blade_dance', 1], ['strike', 2]), 4);

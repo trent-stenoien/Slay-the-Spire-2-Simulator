@@ -9,11 +9,43 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "fanOfKnives",
+      "amount": 1
+    },
+    {
+      "type": "addCards",
+      "source": {
+        "kind": "card",
+        "cardId": "shiv"
+      },
+      "count": 4,
+      "to": "hand"
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "fanOfKnives",
+        "amount": 1
+      },
+      {
+        "type": "addCards",
+        "source": {
+          "kind": "card",
+          "cardId": "shiv"
+        },
+        "count": 5,
+        "to": "hand"
+      }
+    ]
+  },
   "description": "Shivs now hit ALL enemies. / Add 4 Shivs into your Hand.",
   "upgradedDescription": "Shivs now hit ALL enemies. / Add 5 Shivs into your Hand.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

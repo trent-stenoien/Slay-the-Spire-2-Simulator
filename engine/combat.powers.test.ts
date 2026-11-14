@@ -228,6 +228,11 @@ describe('#109 played Power cards', () => {
         'freeNextSkill',
         'doubleAttackNextTurn',
         'dexterityLossPerTurn',
+        // #267
+        'accuracy',
+        'infiniteBlades',
+        'phantomBlades',
+        'fanOfKnives',
         // #270
         'disintegration',
         'mindRot',

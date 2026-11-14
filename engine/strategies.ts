@@ -239,26 +239,44 @@ function pickSlyDiscarder(view: StrategyView): Card | undefined {
   );
 }
 
-/** #284: a Shiv's damage (data/cards/colorless/shiv.json: 4, 6 upgraded). Buffs such as Accuracy (#267) would add here. */
+/** #284: a Shiv's damage (data/cards/colorless/shiv.json: 4, 6 upgraded). #267 adds Accuracy, Phantom Blades and Fan of Knives (shivDamageMade). */
 const SHIV_DAMAGE = 4;
 const SHIV_DAMAGE_UPGRADED = 6;
 
+/** #267: the Shiv cards (Shiv, Inky Shiv). */
+export const isShivCard = (card: Pick<Card, 'cardId'>): boolean =>
+  card.cardId === 'shiv' || card.cardId === 'inky_shiv';
+
 /**
- * #284: the damage of the Shivs a card makes (Storm of Steel excluded: its count is the hand it discards).
+ * #284/#267: the damage of the Shivs a card makes (Storm of Steel excluded: its count is the hand it discards).
  * Counted in the card's damage-per-energy so Blade Dance (3 Shivs = 12 damage for 1) is compared with attacks.
+ * With a `state` it adds Accuracy to every Shiv, Phantom Blades' bonus to the first Shiv of the turn (once) and,
+ * with Fan of Knives, counts every living enemy hit.
  */
-function shivDamageMade(card: Card): number {
+function shivDamageMade(card: Card, state?: State): number {
+  let count = 0;
   let sum = 0;
   for (const e of card.effects) {
-    if (makesShiv(e) && e.type === 'addCards') sum += e.count * (e.upgraded ? SHIV_DAMAGE_UPGRADED : SHIV_DAMAGE);
+    if (makesShiv(e) && e.type === 'addCards') {
+      count += e.count;
+      sum += e.count * (e.upgraded ? SHIV_DAMAGE_UPGRADED : SHIV_DAMAGE);
+    }
+  }
+  if (!state || count === 0) return sum;
+  const powers = state.player.powers;
+  sum += count * (powers?.accuracy ?? 0);
+  if ((state.player.counters?.shivsPlayedThisTurn ?? 0) === 0) sum += powers?.phantomBlades ?? 0;
+  if ((powers?.fanOfKnives ?? 0) > 0) {
+    const alive = state.enemies ? state.enemies.filter((en) => en.hp > 0).length : 1;
+    sum *= Math.max(1, alive);
   }
   return sum;
 }
 
 /** #284: damage per energy of a Shiv maker (Infinity at cost 0). */
-function makerEfficiency(card: Card): number {
+function makerEfficiency(card: Card, state?: State): number {
   const cost = card.cost ?? 0;
-  return cost <= 0 ? Infinity : shivDamageMade(card) / cost;
+  return cost <= 0 ? Infinity : shivDamageMade(card, state) / cost;
 }
 
 /**
@@ -269,11 +287,11 @@ function makerEfficiency(card: Card): number {
 function pickShivMaker(view: StrategyView, atk: Card | undefined): Card | undefined {
   const maker = best(
     view.playable.filter((c) => isShivMaker(c) && !isStorm(c)),
-    (c) => [makerEfficiency(c), -(c.cost ?? 0)],
+    (c) => [makerEfficiency(c, view.state), -(c.cost ?? 0)],
   );
   if (!maker) return undefined;
   const costed = atk && (atk.xCost || (atk.cost ?? 0) > 0) ? atk : undefined;
-  return !costed || makerEfficiency(maker) >= attackDamagePerEnergy(costed, view.state) ? maker : undefined;
+  return !costed || makerEfficiency(maker, view.state) >= attackDamagePerEnergy(costed, view.state) ? maker : undefined;
 }
 
 /**
@@ -1335,7 +1353,7 @@ function attackDamagePerEnergy(card: Card, state?: State): number {
   if (card.xCost) return totalBaseDamage(card, 1, state);
   const cost = card.cost ?? 0;
   // #284: an attack that makes Shivs (Leading Strike) counts their damage too.
-  return cost <= 0 ? Infinity : (totalBaseDamage(card, 0, state) + shivDamageMade(card)) / cost;
+  return cost <= 0 ? Infinity : (totalBaseDamage(card, 0, state) + shivDamageMade(card, state)) / cost;
 }
 
 /**
@@ -1356,7 +1374,7 @@ function vulnerableFirst(card: Card, attacks: readonly Card[], energy: number, e
  * re-planned. Only the first 10 paid attacks are searched. Undefined when no attack is affordable.
  */
 function pickAttackFromBestSet(attacks: readonly Card[], energy: number, state?: State): Card | undefined {
-  const value = (c: Card) => totalBaseDamage(c, energy, state) + shivDamageMade(c);
+  const value = (c: Card) => totalBaseDamage(c, energy, state) + shivDamageMade(c, state);
   const byUid = [...attacks].sort((a, b) => a.uid - b.uid);
   const free = byUid.filter((c) => (c.cost ?? 0) <= 0);
   const paid = byUid.filter((c) => (c.cost ?? 0) > 0 && (c.cost ?? 0) <= energy).slice(0, 10);
@@ -2150,11 +2168,42 @@ function decide(raw: StrategyView, config: StrategyConfig): Decision {
     ),
     config,
   );
+  // #267 (Trent, Nov 14): Shivs in hand are always played, unless that would kill the player.
+  const shiv = pickShivPlay(raw);
+  if (shiv) return play(shiv);
   const d = decideWith(view, config, false);
   if (d.kind !== 'endTurn') return d;
   // #110: Panic Button is the last resort, once nothing else is left to play.
   const panic = pickPanic(raw);
   return panic ? play(panic) : d;
+}
+
+/** #267: the Powers that make every Shiv hit harder or wider (Accuracy, Phantom Blades, Fan of Knives). */
+const SHIV_BOOSTERS: readonly string[] = ['accuracy', 'phantomBlades', 'fanOfKnives'];
+
+const isShivBooster = (c: Card): boolean =>
+  c.type === 'power' && c.effects.some((e) => e.type === 'applyPower' && SHIV_BOOSTERS.includes(e.power));
+
+/**
+ * #267 (Trent, Nov 14): Shivs in hand are always played, unless playing one would kill the player (a Shiv
+ * costs the player no HP, so only a self-damage check, as for every card, #106). First the Shiv Powers that
+ * are affordable now (Accuracy, Phantom Blades, Fan of Knives), so the Shivs get their bonus; then a Shiv,
+ * lowest uid first. Looks at the unfiltered view: held-back and waiting rules do not stop a Shiv.
+ */
+function pickShivPlay(view: StrategyView): Card | undefined {
+  const hp = view.state.player.hp;
+  const powers = view.state.player.powers;
+  // Fan of Knives does not stack: a second copy adds nothing.
+  const alreadyOn = (c: Card) =>
+    (powers?.fanOfKnives ?? 0) > 0 && c.effects.every((e) => e.type !== 'applyPower' || e.power === 'fanOfKnives');
+  const shivs = view.playable.filter((c) => isShivCard(c) && selfDamage(c) < hp);
+  if (shivs.length === 0) return undefined;
+  return (
+    best(
+      view.playable.filter((c) => isShivBooster(c) && !alreadyOn(c)),
+      (c) => [-(c.cost ?? 0)],
+    ) ?? best(shivs, () => [])
+  );
 }
 
 function decideWith(view: StrategyView, config: StrategyConfig, planning: boolean): Decision {
@@ -2373,7 +2422,7 @@ function playInModel(card: Card, state: StrategyView['state'], m: KillModel): vo
   for (const e of card.effects) {
     if (e.type === 'attack' && !e.allEnemies) {
       const per = attackDamage(
-        e.damage + (card.damageBonus ?? 0) + vigor,
+        e.damage + (card.damageBonus ?? 0) + vigor + (isShivCard(card) ? (state.player.powers?.accuracy ?? 0) : 0),
         m.strength,
         state.player.debuffs.weak,
         m.vulnerable,

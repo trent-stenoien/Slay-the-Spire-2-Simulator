@@ -133,7 +133,8 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
   }
   if (name === 'moveSelf') return e.when === 'nextTurnStart' ? undefined : 'moveSelf.now';
   if (name === 'playCards' || name === 'addReplay') {
-    if (e.from === 'exhaust') return `${name}.from.exhaust`;
+    // #267 Knife Trap: `all` plays every matching card of the Exhaust pile.
+    if (e.from === 'exhaust' && !(name === 'playCards' && e.all === true)) return `${name}.from.exhaust`;
     return unsimulatedFilter(e.filter, `${name}.filter`);
   }
   if (UNSIMULATED_EFFECTS.has(name)) return name;

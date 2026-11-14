@@ -252,6 +252,8 @@ const CONTRACT_CHECKS: Record<ContractEffect, EffectCheck> = {
     checkXBonus(r, e, p);
     optFilter(r, e, 'filter', p);
     optBool(r, e, 'exhaust', p);
+    optBool(r, e, 'all', p);
+    optBool(r, e, 'upgradeFirst', p);
   },
   addReplay: (r, e, p) => {
     r.int(e, 'amount', 1, `${p}.amount`);

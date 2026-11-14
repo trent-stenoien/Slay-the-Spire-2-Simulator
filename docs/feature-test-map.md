@@ -296,6 +296,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 56 | Master Planner: Skills played after it gain Sly (not earlier ones, not Attacks); The Hunt: card reward only on a kill, 15 damage upgraded, none otherwise | engine/combat.masterPlannerHunt.test.ts (5 tests) | n/a |
 | 57 | Boss player debuffs: enemy-move applyPower on the player (stacks add, validator accepts it), Disintegration end-of-turn damage (Block, Intangible, can kill), Mind Rot smaller draw, Waste Away smaller refill, Sloth hand-play cap (effect plays not counted) | engine/combat.bossDebuffs.test.ts (8 tests); data/data.contract.test.ts > #270: accepts applyPower on an enemy move | n/a |
 | 58 | Echoing Slash repeat per kill, chained kills, no repeat without a kill or with one enemy; Piercing Wail on ALL (Artifact per enemy); Bouncing Flask random per application, seeded, Artifact per application; Haze / Mirage / Serpent Form on several enemies; the three cards' data | engine/combat.silentMultiEnemy.test.ts | n/a |
+| 59 | Accuracy on every Shiv (base, upgraded, stacks, not on Strike); Phantom Blades first Shiv each turn, upgraded, Retain across turns, Accuracy plus Phantom; Infinite Blades each turn; Fan of Knives adds 4 / 5 Shivs and hits ALL (only Shivs); Knife Trap plays every exhausted Shiv, upgraded, re-exhausts, none, Inky Shiv; strategy plays Accuracy then Shivs, Shivs even when Block ranks first | engine/combat.shivPowers.test.ts (24 tests) | n/a |
 
 ## Known failure points
 

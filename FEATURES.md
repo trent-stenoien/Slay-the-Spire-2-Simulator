@@ -112,10 +112,10 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     1 less for the rest of the combat, never below 0, each copy on its own) and Storm of Steel (discard the
     hand, not itself; 1 Shiv per discarded card, Shiv+ upgraded) add Shivs to the hand (a full hand sends them to
     the discard pile). Shivs are 0-cost Attacks (4 damage, 6 upgraded) that Exhaust. Shiv play rule (#284, Trent):
-    Shivs are played like attacks (ranked by damage with the other attacks). Shiv-making cards (Blade Dance, Up My
+    Shivs in hand are always played (Trent, Nov 14, #267; before that they were ranked by damage with the other attacks). Shiv-making cards (Blade Dance, Up My
     Sleeve; Leading Strike counts its Shivs too) are compared with the other attacks by energy efficiency
-    (damage per energy, counting the Shivs they make: 4 each, 6 upgraded; a tie goes to the maker; Accuracy, #267,
-    would add here once simulated). Storm of Steel is played last, after all other energy is spent, and only while
+    (damage per energy, counting the Shivs they make: 4 each, 6 upgraded; a tie goes to the maker; Accuracy, Phantom Blades
+    and Fan of Knives (#267) add here, see item 59). Storm of Steel is played last, after all other energy is spent, and only while
     the hand still holds cards to discard. Hidden Daggers stays unsimulated until the discard choice exists (#259).
     **Blade of Ink (#285):** adds 2 Inky Shivs to the hand (3 upgraded); the Inky enchantment is "This card
     applies 1 Weak" (Trent), so an Inky Shiv is a Shiv (4 damage, Exhaust, 0 cost) that also applies 1 Weak to the
@@ -409,6 +409,21 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     random living enemy (one seeded Rng draw per application, only while 2+ enemies live); Artifact and Outbreak
     count each application. Haze (ALL), Mirage (total Poison of living enemies) and Serpent Form (random living
     enemy per card) need no change.
+
+## Silent Shiv powers and Knife Trap (#267)
+
+59. **Accuracy, Infinite Blades, Phantom Blades, Fan of Knives, Knife Trap (#267):** Accuracy: every Shiv (and Inky
+    Shiv) deals [4, 6 upgraded] more per hit, added like Strength (before Vulnerable); stacks; other Attacks are
+    unchanged. Infinite Blades: at the start of each turn after the draw, add 1 Shiv to the hand (upgraded: Innate);
+    not on the turn it is played. Phantom Blades: Shivs gain Retain; the first Shiv played each turn deals 9 (12
+    upgraded) more, a Replay of it does not count as a second Shiv; stacks add. Fan of Knives: Shivs hit ALL enemies
+    (each hit lands on every living enemy) and the card adds 4 Shivs (5 upgraded); the Inky Shiv's Weak still goes to
+    the target only. Knife Trap (2 energy): plays every Shiv in the Exhaust pile on the current target, in pile order,
+    for free; upgraded, upgrades each one first. Each played Shiv Exhausts again (once each; Dark Embrace and Feel No
+    Pain react). Strategy (Trent, Nov 14): Shivs in hand are always played, unless that would kill the player (a Shiv
+    costs no HP, so nothing stops it today); before them the strategy plays an affordable Accuracy, Phantom Blades or
+    Fan of Knives (not a second Fan). A Shiv maker's damage per energy counts Accuracy per Shiv, Phantom Blades once
+    (while no Shiv was played this turn) and, with Fan of Knives, × living enemies.
 
 ## Known failure points
 
