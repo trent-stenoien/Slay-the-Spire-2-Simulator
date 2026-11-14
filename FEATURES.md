@@ -367,7 +367,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     when a Sly card costing at least the discard card has a free effect no group weighs: Poison when the
     Poison-only estimate of #46 says it pays off and Artifact does not negate it (Survivor +
     Haze), or a Power / other effect (Survivor + Abrasive); or when a Sly card draws (Reflex) and energy is
-    left afterwards to play the drawn cards.
+    left afterwards to play the drawn cards. #323: with Accelerant or Outbreak in play the Poison only has to
+    outlive one turn of the Attacks (not two), and with Envenom a free Sly Attack (Flick-Flack, Ricochet) counts
+    as a poisoning effect, played before the groups unless the enemy has Artifact.
 
 ## Setup UI: starting HP (#315)
 
