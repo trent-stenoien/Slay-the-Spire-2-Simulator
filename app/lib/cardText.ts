@@ -128,6 +128,9 @@ export function effectText(e: Effect): string {
       if (e.id === 'thrash') return 'Exhaust a random Attack in your Hand and add its damage to this card';
       if (e.id === 'expectAFight') return 'Gain 1 Energy for each Attack in your Hand';
       if (e.id === 'upMySleeve') return "Reduce this card's cost by 1";
+      if (e.id === 'handTrick') return 'Add Sly to a Skill in your Hand this turn';
+      if (e.id === 'nightmare')
+        return `Choose a card. Next turn, add ${e.values?.[0] ?? 3} copies of it into your Hand`;
       if (e.id === 'omnisliceSplash') return 'Damage ALL other enemies equal to the damage dealt';
       return 'Special effect';
   }

@@ -290,6 +290,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 52 | Sly strategy (#314): discard card weighed with the Sly effects (Survivor + Tactician first then Strike and Defend, Survivor + Reflex first, Survivor + Ricochet beats Strike, Survivor + Haze first unless Artifact, Survivor + Abrasive first, no pull to the front otherwise) | engine/strategies.sly.test.ts (7 tests) | n/a |
 | 53 | Starting HP field: default per Ascension, kept across Ascension edits, Reset, clamp 1..Max HP, dropped on character change, reaches the replayed combat | app/components/startHpField.test.tsx (5 tests); app/lib/url.test.ts > start HP (h, #315) (URL param) | n/a |
 | 54 | Accelerant extra triggers lower Poison; Envenom per unblocked Attack hit only; Noxious Fumes; Corrosive Wave this turn only; Outbreak every 3rd application; Mirage Block from Poison | engine/combat.silentPoison.test.ts | n/a |
+| 55 | Hand Trick: Sly to the costliest Skill this turn only (Survivor then plays it free), not copied, no Skill no effect; Nightmare: 3 copies next turn after the draw, upgrade kept, Exhaust, empty hand | engine/combat.dynamicSly.test.ts (7 tests) | n/a |
 
 ## Known failure points
 

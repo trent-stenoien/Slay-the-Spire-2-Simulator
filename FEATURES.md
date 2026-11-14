@@ -369,6 +369,17 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     application does not count, and applications are counted only while Outbreak is in play. Mirage: Block equal to the total Poison on all living enemies
     (Dexterity and Frail apply; Exhaust).
 
+## Dynamic Sly and Nightmare (#268)
+
+55. **Hand Trick and Nightmare (#268):** Hand Trick (1 cost; Block 7, 10 upgraded) gives Sly to one Skill in the
+    hand until the end of this turn (a per-card keyword; it is gone next turn even if the card is retained, and
+    is not copied by Nightmare). The engine picks the Skill without Sly that costs the most, ties in hand order
+    (builder's default); no such Skill, no effect. Nightmare (3 cost, 2 upgraded; Exhaust): choose a card in the
+    hand (Strategy.choose, purpose 'copy': best card first); at the start of next turn, after the draw, 3 copies
+    are added to the hand (a full hand sends them to the discard pile). The copies keep the upgrade, damage bonus,
+    Replay and combat cost the card had when chosen. An empty hand: no effect. Master Planner and The Hunt's
+    extra card reward are NOT simulated yet (they need contract changes: a PowerId and a CombatResult.rewards field).
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at
