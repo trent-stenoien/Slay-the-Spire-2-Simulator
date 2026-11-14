@@ -415,6 +415,9 @@ export const ENEMY_POWER_IDS = [
   'intangible',
   // #276 Torch Head Amalgam: declared, not simulated
   'minion',
+  // #339 attack factors: declared, not simulated
+  'thorns',
+  'personalHive',
 ] as const;
 
 /** #273/#274: `xFromMoveUses` and `extraHitsPerUse` read an enemy's move uses, so a simulated card may not use it. */
