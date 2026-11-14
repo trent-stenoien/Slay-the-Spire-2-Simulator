@@ -14,6 +14,17 @@
       "type": "attack",
       "damage": 9,
       "hits": 1
+    },
+    {
+      "type": "draw",
+      "amount": 1
+    },
+    {
+      "type": "moveCards",
+      "from": "hand",
+      "to": "discard",
+      "count": 1,
+      "mode": "choose"
     }
   ],
   "upgraded": {
@@ -22,12 +33,23 @@
         "type": "attack",
         "damage": 12,
         "hits": 1
+      },
+      {
+        "type": "draw",
+        "amount": 1
+      },
+      {
+        "type": "moveCards",
+        "from": "hand",
+        "to": "discard",
+        "count": 1,
+        "mode": "choose"
       }
     ]
   },
   "description": "Deal 9 damage. / Draw 1 card. / Discard 1 card.",
   "upgradedDescription": "Deal 12 damage. / Draw 1 card. / Discard 1 card.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

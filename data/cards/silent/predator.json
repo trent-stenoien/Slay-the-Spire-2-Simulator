@@ -14,6 +14,16 @@
       "type": "attack",
       "damage": 15,
       "hits": 1
+    },
+    {
+      "type": "schedule",
+      "delay": 1,
+      "effects": [
+        {
+          "type": "draw",
+          "amount": 2
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -22,12 +32,22 @@
         "type": "attack",
         "damage": 20,
         "hits": 1
+      },
+      {
+        "type": "schedule",
+        "delay": 1,
+        "effects": [
+          {
+            "type": "draw",
+            "amount": 2
+          }
+        ]
       }
     ]
   },
   "description": "Deal 15 damage. / Next turn, draw 2 cards.",
   "upgradedDescription": "Deal 20 damage. / Next turn, draw 2 cards.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -150,8 +150,11 @@ describe('deck builder grouping and search', () => {
 
   it('leaves unsimulated starters out of the starting deck', () => {
     expect(startingDeckFor(gameData, 'ironclad')).toEqual(gameData.characters.ironclad!.startingDeck);
-    expect(startingDeckFor(gameData, 'silent').map((e) => e.cardId)).toEqual(['strike', 'defend', 'neutralize']);
-    expect(unsimulatedStarters(gameData, 'silent')).toEqual(['Survivor']);
+    // #259: Survivor is simulated, so the Silent's starting deck is complete; the Defect's is not.
+    expect(startingDeckFor(gameData, 'silent')).toEqual(gameData.characters.silent!.startingDeck);
+    expect(unsimulatedStarters(gameData, 'silent')).toEqual([]);
+    expect(startingDeckFor(gameData, 'defect').map((e) => e.cardId)).toEqual(['strike', 'defend']);
+    expect(unsimulatedStarters(gameData, 'defect')).toEqual(['Zap', 'Dualcast']);
   });
 });
 

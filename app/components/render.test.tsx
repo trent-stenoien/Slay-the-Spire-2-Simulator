@@ -536,7 +536,9 @@ describe('views render', () => {
     const html = renderSetupPanel(defaultSetup(gameData));
     const option = (id: string) => html.match(new RegExp(`<option value="${id}"[^>]*>([^<]*)</option>`))?.[1];
     expect(option('ironclad')).toBe(gameData.characters.ironclad!.name);
-    expect(option('silent')).toBe(`${gameData.characters.silent!.name} (work in progress)`);
+    // #259: the Silent's starters are all simulated now; the Defect's are not.
+    expect(option('silent')).toBe(gameData.characters.silent!.name);
+    expect(option('defect')).toBe(`${gameData.characters.defect!.name} (work in progress)`);
   });
 
   it('tints deck rows with the same key as the cost circle', () => {

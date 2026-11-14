@@ -288,6 +288,19 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Strangle: the enemy loses 2 (3) HP for every card played after it this turn. Piercing Wail hits one enemy.
     Bubble Bubble adds Poison only to an enemy that already has Poison.
 
+## Silent draw, discard and energy cards (#259)
+
+49. **Discard from the hand (#259, Trent):** "Discard N" (Survivor, Acrobatics, Prepared, Dagger Throw) is a
+    `moveCards` hand → discard pick of exactly N (fewer only when the hand is smaller), resolved after the card's
+    other effects in text order. Every card discarded from the hand by an effect (these, Storm
+    of Steel, Tools of the Trade) goes through one shared discard step that counts it as discarded this turn
+    (Memento Mori); the end-of-turn hand discard and a full-hand draw do not. The strategy discards in the shared
+    order of item 46 (curses/statuses that hurt while kept, then Sly cards, then the exhaust order).
+50. **Silent draw and energy cards (#259):** Backflip gains Block, then draws 2; Adrenaline gains 1 (2) energy
+    and draws 2 (Exhaust); Predator deals 15 (20) and draws 2 more at the start of the next turn (after the
+    normal draw). Dodge and Roll's next-turn Block gets Dexterity and Frail (#264, tested in
+    combat.silentTemp.test.ts). Calculated Gamble is not simulated yet (#311).
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

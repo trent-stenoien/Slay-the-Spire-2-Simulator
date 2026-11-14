@@ -13,6 +13,13 @@
     {
       "type": "gainBlock",
       "amount": 8
+    },
+    {
+      "type": "moveCards",
+      "from": "hand",
+      "to": "discard",
+      "count": 1,
+      "mode": "choose"
     }
   ],
   "upgraded": {
@@ -20,12 +27,19 @@
       {
         "type": "gainBlock",
         "amount": 11
+      },
+      {
+        "type": "moveCards",
+        "from": "hand",
+        "to": "discard",
+        "count": 1,
+        "mode": "choose"
       }
     ]
   },
   "description": "Gain 8 Block. / Discard 1 card.",
   "upgradedDescription": "Gain 11 Block. / Discard 1 card.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
