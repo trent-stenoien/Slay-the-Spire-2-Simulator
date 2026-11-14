@@ -56,6 +56,8 @@
  *                     helloWorld, entropy.
  * #169 Enemy Strength — Effect `enemyGainStrength` (Fight Me!); reuses EnemyState.strength.
  * #45 Random target — Effect `attack.randomTarget` (each hit picks a random living enemy).
+ * #269 Silent multi-enemy cards — Effect `attack.repeatPerKill` (Echoing Slash), `applyPoison.randomTarget`
+ *                     + `hits` (Bouncing Flask), `applyEnemyPower.allEnemies` (Piercing Wail).
  * #286 Ascension HP — CharacterDef.ascension (CharacterAscensionOverride.startHp; cumulative,
  *                     lowers STARTING HP only, Max HP unchanged).
  * #287 Inklet       — MovePattern `alternate` (AlternatePattern: fixed move, then a weighted
@@ -161,6 +163,11 @@ export type Effect =
       xTimes?: boolean;
       xBonus?: number;
       randomTarget?: boolean;
+      /**
+       * #269 (Echoing Slash): the attack repeats once per enemy it killed. Whether kills made by a
+       * repeat chain into further repeats is decided by the engine card, not by this field.
+       */
+      repeatPerKill?: boolean;
     }
   | { type: 'gainBlock'; amount: number }
   | { type: 'gainStrength'; amount: number }
@@ -173,7 +180,8 @@ export type Effect =
    * At the start of the enemy's turn, after its Block is removed, it loses HP equal
    * to its Poison (ignores Block, Strength, Weak, Vulnerable), then Poison goes down by 1.
    */
-  | { type: 'applyPoison'; amount: number; allEnemies?: boolean }
+  /** #269: `randomTarget` + `hits`: apply `amount` Poison `hits` times, each to a random living enemy (Bouncing Flask). */
+  | { type: 'applyPoison'; amount: number; allEnemies?: boolean; randomTarget?: boolean; hits?: number }
   /**
    * Gain `amount` energy now (cards only). Spendable this turn; it does not carry
    * over, since energy is set to energyPerTurn at the start of the next turn.
@@ -209,7 +217,8 @@ export type Effect =
   /** #109/#113: give the player `amount` of a power (stacks add). Meaning per PowerId below. */
   | { type: 'applyPower'; power: PowerId; amount: number }
   /** #110/#115: give the enemy `amount` of an enemy power (temporary Strength loss, Stun). */
-  | { type: 'applyEnemyPower'; power: EnemyPowerId; amount: number }
+  /** #269: `allEnemies` applies it to every living enemy (Piercing Wail). */
+  | { type: 'applyEnemyPower'; power: EnemyPowerId; amount: number; allEnemies?: boolean }
   /**
    * #110: run `effects` later. `delay` = player turns from now (1 = next turn);
    * `at` = 'turnStart' (default, after draw) or 'turnEnd' (The Bomb). Values are
