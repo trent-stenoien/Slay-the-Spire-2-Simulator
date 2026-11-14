@@ -49,6 +49,12 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
     harness-side like `enemyMove`: each enemy gets its own copy of its definition (id `<id>__<alias>`) with a cycle
     of the recorded moves. Rejected when a move is not in the enemy's pattern, or when an `alternate`
     pattern (Inklet) does not take its fixed and random halves in turns.
+  - `randomPicks` (optional): the values the engine's `rng.int(0, n - 1)` returns during this turn's plays, in order
+    (#322). For Sword Boomerang: one per hit, the index of the target among the LIVING enemies, left to right (an index
+    shifts when an earlier enemy has died; no pick is drawn while only one enemy lives). Mismatches: `random picks: scripted
+    random pick N is outside the engine's range`, `... no scripted randomPicks are left`, `unused randomPicks`.
+    Other forced Rng calls: the first `int` calls are the enemy HP rolls (combat.ts constructor; a cycle with
+    `start: "random"` also calls `int` there and would shift them), `shuffle` is forced to the recorded draws.
   - `enemyHpAfterEachPlay`: enemy HP after each play (and before any potion used before the next play).
     Multi-enemy: the HP of the enemy that play targeted (the last targeted one for an untargeted play).
   - State is `{ "player"?: {…}, "enemy"?: {…}, "enemies"?: { alias: {…} } }`. `enemies` is for multi-enemy

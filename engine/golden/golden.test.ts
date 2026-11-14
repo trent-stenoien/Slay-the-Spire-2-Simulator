@@ -25,6 +25,14 @@ const control = vi.hoisted(() => ({
   /** Card refs ("id" or "id+" for upgraded) still to be drawn, in draw order. */
   demand: [] as string[],
   error: null as string | null,
+  /**
+   * Scripted random picks (#322): while `armed` (the player's plays of a turn), each `rng.int(0, n)` with n >= 1 returns the
+   * next entry instead of a random number. Sword Boomerang's random target is such a call: one per hit, an index into the
+   * living enemies, left to right, drawn only while 2+ enemies live (combat.ts attack()).
+   */
+  picks: [] as number[],
+  pickError: null as string | null,
+  armed: false,
 }));
 
 vi.mock('../rng', async (importOriginal) => {
@@ -38,6 +46,14 @@ vi.mock('../rng', async (importOriginal) => {
         // The engine's first Rng calls are the enemy HP rolls, one per enemy (see the constructor in combat.ts).
         int: (min: number, max: number) => {
           if (control.enemyHps.length > 0) return control.enemyHps.shift()!;
+          if (control.armed && max >= min + 1) {
+            const pick = control.picks.shift();
+            if (pick === undefined) {
+              control.pickError ??= `engine drew a random number in ${min}..${max} but no scripted randomPicks are left`;
+            } else if (pick < min || pick > max) {
+              control.pickError ??= `scripted random pick ${pick} is outside the engine's range ${min}..${max}`;
+            } else return pick;
+          }
           return rng.int(min, max);
         },
         // Order the pile so that popping from the end follows the recorded draws.
@@ -104,6 +120,12 @@ interface Turn {
   afterEnemy?: State;
   /** Enemy HP after each play. Multi-enemy: the HP of the enemy that play (or potion) targeted. */
   enemyHpAfterEachPlay?: number[];
+  /**
+   * Scripted random picks during this turn's plays, in order (#322): each is the value the engine's `rng.int(0, n - 1)` returns,
+   * for Sword Boomerang one per hit = the index of the target among the LIVING enemies, left to right (the index shifts when an
+   * earlier enemy has died). Checked: a pick outside the engine's range, a missing pick and a leftover pick are all mismatches.
+   */
+  randomPicks?: number[];
   /** The move the enemy makes after this turn's plays (single enemy; all turns or none). */
   enemyMove?: string;
   /** Multi-enemy: each living enemy's move after this turn's plays, by alias (turn 1 = the opener). Give turn 1 for every enemy. */
@@ -379,6 +401,8 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
       pending = false;
       queue.splice(0, queue.length, ...plan.plays);
       choices = [...(plan.choices ?? [])];
+      control.picks = [...(plan.randomPicks ?? [])];
+      control.armed = plan.randomPicks !== undefined;
       startHands[t] = new Set(view.state.player.hand.map((c) => c.uid));
       const hand = view.state.player.hand.map(refOf).sort();
       const want = [...plan.hand].sort();
@@ -410,6 +434,11 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
       if (!plan) return { kind: 'endTurn' };
       const want = queue.shift();
       if (want === undefined) {
+        control.armed = false;
+        if (control.picks.length > 0) {
+          miss(turn, 'after plays', 'unused randomPicks', 0, control.picks.length);
+          control.picks = [];
+        }
         compare(turn, 'after plays', plan.afterPlays, snapshot(view, aliases));
         return { kind: 'endTurn' };
       }
@@ -465,11 +494,18 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
 
   control.enemyHps = enemies.map((e) => e.startHp);
   control.error = null;
+  control.picks = [];
+  control.pickError = null;
+  control.armed = false;
   control.demand = fx.turns.flatMap((t) => [...t.hand, ...(t.drawn ?? []), ...(t.playedFromDraw ?? [])]);
 
   const result = simulateCombat(data, config, strategy, { log: true });
   const log = result.log ?? [];
+  control.armed = false;
+  // The combat ended during the plays (a win): picks the engine never asked for are left over.
+  if (control.picks.length > 0) miss(result.turns, 'after plays', 'unused randomPicks', 0, control.picks.length);
   if (control.error) mismatches.push(`draw order: ${control.error}`);
+  if (control.pickError) mismatches.push(`random picks: ${control.pickError}`);
   if (aborted) mismatches.push(`replay stopped: ${aborted}`);
 
   // Cards drawn after each turn's first decision (mid-turn draws).
@@ -728,6 +764,52 @@ describe('golden harness (#210, synthetic fixtures)', () => {
     expect(replay(fx, testData())).toContain(
       'turn 1: wound added to drawRandom (card); the shuffle mock cannot force later draws (state it in knownDiffs or skip)',
     );
+  });
+
+  describe('randomPicks (scripted random targets, #322)', () => {
+    const boomerang = (randomPicks: number[] | undefined, hps = [3, 3, 3]) =>
+      base({
+        deck: [
+          { card: 'sword_boomerang', count: 5 },
+          { card: 'defend', count: 5 },
+        ],
+        enemies: hps.map((startHp, i) => ({ id: 'golden_wait', startHp, alias: 'ABC'[i]! })),
+        turns: [
+          {
+            hand: ['sword_boomerang', 'defend', 'defend', 'defend', 'defend'],
+            plays: ['sword_boomerang'],
+            ...(randomPicks ? { randomPicks } : {}),
+            afterPlays: { enemies: { A: { hp: 0 }, B: { hp: 0 }, C: { hp: 0 } } },
+          },
+        ],
+        result: { outcome: 'win', turns: 1, finalHp: 80, hpLost: 0 },
+      });
+
+    it('forces each hit onto the scripted living enemy; indices shift when an enemy dies', () => {
+      // Hit 1: living [A,B,C] pick 0 = A (dies). Hit 2: living [B,C] pick 0 = B (dies). Hit 3: only C lives, no Rng call.
+      expect(replay(boomerang([0, 0]), testData())).toEqual([]);
+      // Hit 1 pick 2 = C (dies), hit 2: living [A,B] pick 1 = B (dies), hit 3: only A lives.
+      expect(replay(boomerang([2, 1]), testData())).toEqual([]);
+    });
+
+    it('a different pick shows up in the enemy HP', () => {
+      // A dies on hit 1; hits 2 and 3 both pick index 0 of [B,C] = B (6 -> 3 -> 0), so C keeps its 3 HP.
+      expect(replay(boomerang([0, 0, 0], [3, 6, 3]), testData())).toContain(
+        'turn 1 after plays: enemy C.hp: expected 0, engine 3',
+      );
+    });
+
+    it('fails precisely on a pick out of range, a missing pick and an unused pick', () => {
+      expect(replay(boomerang([3, 0]), testData())[0]).toBe(
+        "random picks: scripted random pick 3 is outside the engine's range 0..2",
+      );
+      expect(replay(boomerang([0]), testData())).toContain(
+        'random picks: engine drew a random number in 0..1 but no scripted randomPicks are left',
+      );
+      expect(replay(boomerang([0, 0, 0, 0]), testData())).toContain(
+        'turn 1 after plays: unused randomPicks: expected 0, engine 2',
+      );
+    });
   });
 
   describe('enemyMove (forced random move order)', () => {

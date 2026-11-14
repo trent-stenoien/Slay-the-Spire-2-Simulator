@@ -292,6 +292,50 @@ describe('Inklet (#287)', () => {
   });
 });
 
+describe('Slimes, Phrog Parasite, Wriggler (#322)', () => {
+  it('Twig Slime (S): Tackle 4 (5 at A9) every turn, 7-11 HP (8-12 at A8)', () => {
+    const e = enemyByCode('TS')!;
+    expect(e).toMatchObject({ id: 'twig_slime_s', act: 1, zone: 'overgrowth', hp: { min: 7, max: 11 } });
+    expect(e.pattern).toEqual({ type: 'cycle', order: ['tackle'], start: 'first' });
+    expect(resolveEnemy(e, 8).hp).toEqual({ min: 8, max: 12 });
+    expect(resolveEnemy(e, 9).moves.tackle!.effects).toEqual([{ type: 'attack', damage: 5, hits: 1 }]);
+  });
+
+  it('Leaf Slime (S): random Tackle 3 (4 at A9) or Goop (1 Slimed), never the same twice', () => {
+    const e = enemyByCode('LS')!;
+    expect(e.hp).toEqual({ min: 11, max: 15 });
+    expect(e.pattern).toEqual({ type: 'random', moves: ['tackle', 'goop'], noRepeat: true });
+    expect(e.moves.goop!.effects).toEqual([
+      { type: 'addCards', source: { kind: 'card', cardId: 'slimed' }, count: 1, to: 'discard' },
+    ]);
+    expect(resolveEnemy(e, 8).hp).toEqual({ min: 12, max: 16 });
+    expect(resolveEnemy(e, 9).moves.tackle!.effects).toEqual([{ type: 'attack', damage: 4, hits: 1 }]);
+  });
+
+  it('Phrog Parasite: Act 1 elite, Infect (3 Infection) then Lash 4x4 (5x4 at A9); 61-64 HP (66-68 at A8)', () => {
+    const e = enemyByCode('PP')!;
+    expect(e).toMatchObject({ id: 'phrog_parasite', difficulty: 'elite', hp: { min: 61, max: 64 } });
+    expect(e.pattern).toEqual({ type: 'cycle', order: ['infect', 'lash'], start: 'first' });
+    expect(e.moves.infect!.effects).toEqual([
+      { type: 'addCards', source: { kind: 'card', cardId: 'infection' }, count: 3, to: 'discard' },
+    ]);
+    expect(resolveEnemy(e, 8).hp).toEqual({ min: 66, max: 68 });
+    expect(resolveEnemy(e, 9).moves.lash!.effects).toEqual([{ type: 'attack', damage: 5, hits: 4 }]);
+  });
+
+  it('Wriggler: Nasty Bite 6 (7 at A9) and Wriggle (1 Infection, +2 Strength); 17-21 HP (18-22 at A8)', () => {
+    const e = enemyByCode('Wr')!;
+    expect(e).toMatchObject({ id: 'wriggler', hp: { min: 17, max: 21 } });
+    expect(e.pattern).toEqual({ type: 'cycle', order: ['nastyBite', 'wriggle'], start: 'first' });
+    expect(e.moves.wriggle!.effects).toEqual([
+      { type: 'addCards', source: { kind: 'card', cardId: 'infection' }, count: 1, to: 'discard' },
+      { type: 'gainStrength', amount: 2 },
+    ]);
+    expect(resolveEnemy(e, 8).hp).toEqual({ min: 18, max: 22 });
+    expect(resolveEnemy(e, 9).moves.nastyBite!.effects).toEqual([{ type: 'attack', damage: 7, hits: 1 }]);
+  });
+});
+
 describe('Bygone Effigy, Fishing Rod (#303)', () => {
   it('Bygone Effigy: Act 1 Overgrowth elite, Sleep then Wake (+10 Strength) then Slashes forever', () => {
     const e = enemyByCode('BE')!;

@@ -1,0 +1,70 @@
+{
+  "id": "wriggler",
+  "code": "Wr",
+  "name": "Wriggler",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "minion",
+  "hp": {
+    "min": 17,
+    "max": 21
+  },
+  "moves": {
+    "nastyBite": {
+      "name": "Nasty Bite",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 6,
+          "hits": 1
+        }
+      ]
+    },
+    "wriggle": {
+      "name": "Wriggle",
+      "effects": [
+        {
+          "type": "addCards",
+          "source": {
+            "kind": "card",
+            "cardId": "infection"
+          },
+          "count": 1,
+          "to": "discard"
+        },
+        {
+          "type": "gainStrength",
+          "amount": 2
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["nastyBite", "wriggle"],
+    "start": "first"
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 18,
+        "max": 22
+      }
+    },
+    "9": {
+      "moves": {
+        "nastyBite": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 7,
+              "hits": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}
