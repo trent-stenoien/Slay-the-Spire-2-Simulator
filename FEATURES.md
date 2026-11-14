@@ -49,7 +49,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     fixed one is a random pick and the move after a pick is the fixed one. Inklet: outer opens Jab, middle opens
     Whirlwind, then Jab alternates with a 50/50 Piercing Gaze or Whirlwind.
 9d. **Summons and pattern extras (#322):** `spawnEnemies` (enemy moves and `EnemyDef.onDeath`) appends `count` enemies
-    to the right, HP rolled with the seeded Rng; `stunned` ones skip their first move (the pattern still advances).
+    to the right, HP rolled with the seeded Rng; `stunned` ones skip their first move, and that arrival Stun does not advance the pattern (#329: Wrigglers still open
+    Bite, Wriggle, Bite, Wriggle by slot; an ordinary Stun still advances it, #148).
     `onDeath` runs once when the enemy dies, whoever or whatever kills it (attack, Poison, effect); the combat is
     won only when every enemy including spawned ones is dead, and the rest of a card (all-enemy and random-target
     hits) reaches the new enemies. An enemy phase already under way is not extended: enemies spawned in it act from

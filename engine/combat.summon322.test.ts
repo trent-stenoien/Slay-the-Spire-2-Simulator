@@ -247,8 +247,12 @@ describe('CyclePattern startBySlot (#322)', () => {
       scripted((t) => (t === 1 ? ['zap'] : [])),
       { enemyId: 'mother', deck: deckOf(['zap', 10]) },
     );
-    // The Stun skips each first move (a, b, a for slots 1, 2, 3) but the pattern advances: round 2 makes b, a, b.
-    const round2 = enemyRounds(r.log!)[1]!.filter((e) => e.t === 'enemyMove');
-    expect(round2.map((e) => (e as Extract<GameEvent, { t: 'enemyMove' }>).moveId)).toEqual(['b', 'a', 'b']);
+    // #329: the arrival Stun skips the turn but does not use up the opener: round 2 opens a, b, a (slots 1, 2, 3).
+    const moves = (round: number) =>
+      enemyRounds(r.log!)
+        [round]!.filter((e) => e.t === 'enemyMove')
+        .map((e) => (e as Extract<GameEvent, { t: 'enemyMove' }>).moveId);
+    expect(moves(1)).toEqual(['a', 'b', 'a']);
+    expect(moves(2)).toEqual(['b', 'a', 'b']);
   });
 });

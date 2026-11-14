@@ -491,6 +491,8 @@ class Combat {
   private deathHooks: boolean;
   /** #322: indexes of enemies whose death effects already ran. */
   private readonly deathDone = new Set<number>();
+  /** #329: enemies spawned Stunned whose arrival Stun has not been used up yet (it does not advance their pattern). */
+  private readonly arrivalStun = new Set<number>();
 
   constructor(
     private readonly data: GameData,
@@ -653,7 +655,10 @@ class Combat {
       for (const [power, amount] of Object.entries(def.startPowers ?? {}) as [EnemyPowerId, number][]) {
         if (amount > 0) this.applyEnemyPower(power, amount);
       }
-      if (e.stunned) this.applyEnemyPower('stun', 1);
+      if (e.stunned) {
+        this.applyEnemyPower('stun', 1);
+        this.arrivalStun.add(i);
+      }
     }
     this.focusOn(keep);
   }
@@ -1610,15 +1615,17 @@ class Combat {
       if (this.enemy.hp <= 0) continue;
       const { id: moveId, move } = this.currentMove();
       let died: Side | null = null;
-      if (this.enemyStunned()) {
-        // #115 Stun: the move is skipped (no damage) but the pattern still advances (#148 confirms).
+      const stunSkipped = this.enemyStunned();
+      if (stunSkipped) {
+        // #115 Stun: the move is skipped (no damage) but the pattern still advances (#148 confirms), except for the arrival Stun of a spawned enemy (#329).
         log?.push({ t: 'enemySkip', reason: 'stun' });
         this.applyEnemyPower('stun', -1);
       } else {
         log?.push({ t: 'enemyMove', moveId, name: move.name });
         died = this.resolveEffects('enemy', move.effects);
       }
-      this.advancePattern(moveId);
+      // #329: the arrival Stun of a spawned enemy does not use up its opener (the pattern stays put).
+      if (!(stunSkipped && this.arrivalStun.delete(i))) this.advancePattern(moveId);
       if (died === 'player' || player.hp <= 0) return 'loss';
       if (died === 'enemy' || this.won()) return 'win';
       if (i === last) endPlayerPowers();
