@@ -99,6 +99,7 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
       enemyId: setup.enemyId,
       ...enemyIdsField(setup),
       ascension: setup.ascension,
+      ...(setup.startHp !== undefined ? { startHp: setup.startHp } : {}),
       ...(setup.potions && setup.potions.length > 0 ? { potions: setup.potions } : {}),
       relics: setupRelics(data, setup),
       strategies: strategiesForRun,
@@ -141,7 +142,7 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
             data={data}
             setup={setup}
             onCharacter={(id) => {
-              const { relics: _relics, ...rest } = setup;
+              const { relics: _relics, startHp: _hp, ...rest } = setup;
               setSetup({ ...rest, characterId: id, deck: startingDeckFor(data, id) });
             }}
             onEnemy={(id) => setSetup({ ...setup, enemyId: id })}
@@ -150,6 +151,10 @@ function Simulator({ setup, setSetup }: { setup: SetupState; setSetup: (s: Setup
               setSetup(ids.length > 0 ? { ...rest, extraEnemyIds: ids } : rest);
             }}
             onAscension={(a) => setSetup({ ...setup, ascension: a })}
+            onStartHp={(startHp) => {
+              const { startHp: _hp, ...rest } = setup;
+              setSetup(startHp === undefined ? rest : { ...rest, startHp });
+            }}
             onPotions={(potions) => setSetup({ ...setup, potions })}
             onRelics={(relics) => setSetup({ ...setup, relics })}
           />

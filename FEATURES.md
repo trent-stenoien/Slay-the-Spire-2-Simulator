@@ -316,6 +316,14 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 52. **Sly strategy (#261, orchestrator's default):** while a Sly card that does not hurt is in the hand, the
     cheapest playable "Discard N" card (Survivor, Acrobatics, Prepared, Dagger Throw) is played first.
 
+## Setup UI: starting HP (#315)
+
+53. **Starting HP field (#315, builder's default):** the Setup panel has a Starting HP number field showing
+    the character's start HP at the chosen Ascension (#286). It follows Ascension changes until the user edits
+    it; an edited value is kept across Ascension changes (Reset returns to the default) and is dropped when the
+    character changes (Max HP differs). Input is rounded and clamped to 1..Max HP; empty input is ignored. A
+    set value is passed as `startHp` to the run and to replayed combats. It is not stored in the URL.
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

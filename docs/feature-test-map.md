@@ -283,6 +283,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 50 | Backflip, Adrenaline, Predator next-turn draw, Dodge and Roll real data; the strategy plays every card | engine/combat.silentDraw.test.ts > #259 Backflip and Adrenaline; #259 Predator; #259 Dodge and Roll; #259 strategies play the cards | n/a |
 | 51 | Sly: played for free on effect discard, logged discard then play, resolves mid-card, several in discard order (Storm of Steel), kill wins, Sly that discards, Exhaust / Power destinations, Reflex / Haze / Ricochet / Tactician, not on end-of-turn discard, Tools of the Trade at turn start, random target + outer target kept, Slow count, Vigor; the seven cards' data | engine/combat.sly.test.ts (15 tests) | n/a |
 | 52 | Strategy plays a Discard card first while a Sly card is in hand (not without one) | engine/strategies.sly.test.ts (2 tests) | n/a |
+| 53 | Starting HP field: default per Ascension, kept across Ascension edits, Reset, clamp 1..Max HP, dropped on character change, reaches the replayed combat | app/components/startHpField.test.tsx (5 tests) | n/a |
 
 ## Known failure points
 

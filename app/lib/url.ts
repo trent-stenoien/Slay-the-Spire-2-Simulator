@@ -65,6 +65,8 @@ export interface SetupState {
   potions?: string[];
   /** #205: relics in play; absent = the character's starting relic (Burning Blood for the Ironclad). */
   relics?: RelicSetup[];
+  /** #315: starting HP the user typed (1..Max HP); absent = the character's default at this Ascension (#286). */
+  startHp?: number;
 }
 
 export interface LogTarget {
