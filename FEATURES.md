@@ -267,7 +267,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Juggernaut's damage also picks a random living enemy. Strategies, with 2+ enemies alive, play random-target
     attacks first and re-plan the rest of the turn on the new board, except (#304) that targeted attacks that
     together (combined, within the Energy left) kill a living enemy go first, the cheapest set in Energy, aimed
-    at the leftmost enemy they kill. With one enemy there is no special order (energy-to-damage ratio).
+    at the leftmost enemy they kill (#344: counted under the engine's rules: Vulnerable or Weak and Strength from a card in
+    the set count for the later cards, enemy Block and Artifact are respected, and the set is played in the order that
+    kills, so a debuff card such as Bash can go first). With one enemy there is no special order (energy-to-damage ratio).
 44. **Poison-only cards (#46, Trent):** a card whose only effect is applying Poison (Deadly Poison, Bouncing
     Flask) is played before the Attacks when the enemy will live at least two more turns. Estimate: the Attacks in
     hand deal D a turn (Strength and Vulnerable counted, energy after the Poison card); the enemy lives 2+ turns

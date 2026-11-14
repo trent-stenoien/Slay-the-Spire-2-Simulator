@@ -2275,31 +2275,108 @@ function isRandomTargetAttack(card: Card): boolean {
   return card.effects.some((e) => e.type === 'attack' && e.randomTarget === true);
 }
 
-/** #45: damage a targeted attack card would deal to `enemy` now (Strength, Weak, Vulnerable). */
-function targetedDamage(card: Card, state: State, enemy: { debuffs: { vulnerable: number; weak: number } }): number {
+type KillModel = {
+  strength: number;
+  vulnerable: number;
+  weak: number;
+  artifact: number;
+  dealt: number;
+  direct: number;
+  vigor: number;
+  played: number;
+  slow: boolean;
+};
+
+/** #344: does the card change later damage (Strength for the player, Vulnerable or Weak on the enemy)? */
+function changesDamage(card: Card): boolean {
+  return card.effects.some(
+    (e) => (e.type === 'gainStrength' || e.type === 'applyVulnerable' || e.type === 'applyWeak') && e.amount > 0,
+  );
+}
+
+/**
+ * #344: play `card` against the model in the engine's order: each effect in turn, damage from `attackDamage`
+ * with the Strength, Vulnerable and Weak the earlier effects left (Bash hits, then applies Vulnerable). Artifact
+ * negates a Vulnerable or Weak application, one stack each. Block-blockable damage adds to `dealt`; HP-direct
+ * loss adds to `direct`. Effects the check cannot predict (area attacks, conditionals, Poison) count for nothing.
+ */
+function playInModel(card: Card, state: StrategyView['state'], m: KillModel): void {
   const x = card.xCost ? state.player.energy : 0;
-  let dmg = 0;
+  // Vigor goes to the first attack card played only; Slow grows 10% per card already played this turn.
+  const vigor = card.type === 'attack' ? m.vigor : 0;
+  const slowPercent = m.slow ? m.played * 10 : 0;
   for (const e of card.effects) {
-    if (e.type !== 'attack' || e.allEnemies) continue;
-    const per = attackDamage(
-      e.damage + (card.damageBonus ?? 0),
-      state.player.strength,
-      state.player.debuffs.weak,
-      enemy.debuffs.vulnerable,
-      0,
-      0,
-      0,
-      (state.player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
-    );
-    dmg += per * attackHits(e, x);
+    if (e.type === 'attack' && !e.allEnemies) {
+      const per = attackDamage(
+        e.damage + (card.damageBonus ?? 0) + vigor,
+        m.strength,
+        state.player.debuffs.weak,
+        m.vulnerable,
+        state.player.powers?.cruelty ?? 0,
+        state.player.shrink ?? 0,
+        0,
+        (state.player.powers?.tracking ?? 0) > 0 && m.weak > 0,
+        1,
+        slowPercent,
+      );
+      m.dealt += per * attackHits(e, x);
+    } else if (e.type === 'gainStrength') m.strength += e.amount;
+    else if (e.type === 'dealDamage') m.dealt += e.amount;
+    else if (e.type === 'enemyLoseHp') m.direct += e.amount;
+    else if (e.type === 'applyVulnerable' || e.type === 'applyWeak') {
+      if (e.amount <= 0) continue;
+      if (m.artifact > 0) m.artifact--;
+      else if (e.type === 'applyVulnerable') m.vulnerable += e.amount;
+      else m.weak += e.amount;
+    }
   }
-  return dmg;
+  if (card.type === 'attack') m.vigor = 0;
+  m.played++;
+}
+
+/** #344: every ordering of `items` (callers keep it small). */
+function permutations<T>(items: readonly T[]): T[][] {
+  if (items.length <= 1) return [[...items]];
+  return items.flatMap((it, i) =>
+    permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [it, ...rest]),
+  );
+}
+
+/**
+ * #344 (Trent): an order to play `set` in that kills `enemy`, or undefined. Cards that change later damage
+ * (Bash's Vulnerable, a Strength gain) go first, in whichever order among them kills; the rest follow, their
+ * order not mattering (Block is chewed through first, so only the total counts).
+ */
+function killingOrder(set: readonly Card[], state: StrategyView['state'], enemy: State['enemy']): Card[] | undefined {
+  const shapers = set.filter(changesDamage);
+  const plain = set.filter((c) => !changesDamage(c));
+  const orders = shapers.length > 6 ? [shapers] : permutations(shapers);
+  for (const order of orders) {
+    const m: KillModel = {
+      strength: state.player.strength,
+      vulnerable: enemy.debuffs.vulnerable,
+      weak: enemy.debuffs.weak,
+      artifact: enemy.powers?.artifact ?? 0,
+      dealt: 0,
+      direct: 0,
+      vigor: state.player.powers?.vigor ?? 0,
+      played: (state as { counters?: { cardsPlayedThisTurn: number } }).counters?.cardsPlayedThisTurn ?? 0,
+      slow: (enemy.powers?.slow ?? 0) > 0,
+    };
+    const all = [...order, ...plain];
+    for (const c of all) playInModel(c, state, m);
+    if (m.dealt >= Math.max(0, enemy.hp - m.direct) + enemy.block) return all;
+  }
+  return undefined;
 }
 
 /**
  * #304 (Trent): the targeted attacks in hand that together kill one living enemy within the Energy left:
  * the cheapest set in Energy (then fewest cards), the leftmost enemy first. Its first card goes first, the
  * rest follow as the turn is re-planned. An X-cost attack only counts alone (it spends all Energy).
+ * #344: the set is judged under the engine's rules (see playInModel, killingOrder), so Vulnerable or Weak
+ * and Strength from a card in the set count for the later cards, and the first card is the one the killing
+ * order starts with (Bash before Strike).
  */
 function targetedKill(view: StrategyView): { uid: number; target: number } | undefined {
   const { state } = view;
@@ -2309,22 +2386,17 @@ function targetedKill(view: StrategyView): { uid: number; target: number } | und
   for (let t = 0; t < enemies.length; t++) {
     const enemy = enemies[t]!;
     if (enemy.hp <= 0) continue;
-    let bestSet: { cards: Card[]; cost: number } | undefined;
+    let best: { order: Card[]; cost: number } | undefined;
     for (let mask = 1; mask < 1 << cards.length; mask++) {
       const set = cards.filter((_, i) => mask & (1 << i));
       if (set.length > 1 && set.some((c) => c.xCost)) continue;
       const cost = set.some((c) => c.xCost) ? energy : set.reduce((n, c) => n + (c.cost as number), 0);
       if (cost > energy) continue;
-      if (set.reduce((n, c) => n + targetedDamage(c, state, enemy), 0) < enemy.hp + enemy.block) continue;
-      if (!bestSet || cost < bestSet.cost || (cost === bestSet.cost && set.length < bestSet.cards.length))
-        bestSet = { cards: set, cost };
+      if (best && (cost > best.cost || (cost === best.cost && set.length >= best.order.length))) continue;
+      const order = killingOrder(set, state, enemy);
+      if (order) best = { order, cost };
     }
-    if (bestSet) {
-      const first = [...bestSet.cards].sort(
-        (a, b) => targetedDamage(b, state, enemy) - targetedDamage(a, state, enemy),
-      )[0]!;
-      return { uid: first.uid, target: t };
-    }
+    if (best) return { uid: best.order[0]!.uid, target: t };
   }
   return undefined;
 }
