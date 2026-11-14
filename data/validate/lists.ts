@@ -359,6 +359,11 @@ export const POWER_IDS = [
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
+  // #270 boss player debuffs: declared, not simulated
+  'disintegration',
+  'mindRot',
+  'sloth',
+  'wasteAway',
 ] as const;
 
 /** #215 adds artifact, strengthPerTurn, slippery; #303 adds slow (enemy start power, simulated in engine/combat.ts; not applicable by cards, so not in SIMULATED_ENEMY_POWERS). */
