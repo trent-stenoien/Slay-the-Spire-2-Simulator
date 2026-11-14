@@ -1,0 +1,11 @@
+{
+  "id": "fishing_rod",
+  "code": "FR",
+  "name": "Fishing Rod",
+  "rarity": "ancient",
+  "character": "any",
+  "hooks": [],
+  "description": "Every 3 normal combats, Upgrade a random card in your Deck.",
+  "simulated": true,
+  "lastUpdateVersion": "v0.107.1"
+}

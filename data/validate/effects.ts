@@ -65,13 +65,16 @@ function optFilter(r: Reporter, o: Obj, field: string, p: string): void {
   if (has(o, field)) checkFilter(r, o[field], `${p}.${field}`);
 }
 
-export function checkPer(r: Reporter, v: unknown, p: string): void {
+/** `min` is the lowest allowed amount; attackFrom allows negative (#260 Precise Cut: 2 less per card in hand). */
+export function checkPer(r: Reporter, v: unknown, p: string, min = 0): void {
   if (!isObj(v)) {
     r.add(p, 'must be an object with "per" and "amount"');
     return;
   }
   r.oneOf(v, 'per', COUNTERS, `${p}.per`);
-  r.int(v, 'amount', 0, `${p}.amount`);
+  if (min >= 0) r.int(v, 'amount', min, `${p}.amount`);
+  else if (typeof v.amount !== 'number' || !Number.isInteger(v.amount) || v.amount < min)
+    r.add(`${p}.amount`, `must be an integer >= ${min}`);
 }
 
 export function checkCondition(r: Reporter, v: unknown, p: string): void {
@@ -205,7 +208,7 @@ const CONTRACT_CHECKS: Record<ContractEffect, EffectCheck> = {
     r.int(e, 'damage', 0, `${p}.damage`);
     r.int(e, 'hits', 0, `${p}.hits`);
     optBool(r, e, 'allEnemies', p);
-    if (has(e, 'bonusPer')) checkPer(r, e.bonusPer, `${p}.bonusPer`);
+    if (has(e, 'bonusPer')) checkPer(r, e.bonusPer, `${p}.bonusPer`, -100);
     if (has(e, 'extraHitsPer')) checkPer(r, e.extraHitsPer, `${p}.extraHitsPer`);
     if (!has(e, 'bonusPer') && !has(e, 'extraHitsPer'))
       r.add(p, 'needs "bonusPer" or "extraHitsPer" (use "attack" otherwise)');

@@ -251,7 +251,7 @@ function totalBaseDamage(card: Card, energy: number, state?: State): number {
     if (e.type === 'attack') sum += (e.damage + (card.damageBonus ?? 0)) * attackHits(e, x);
     // #111: scaling attacks count what they would deal now (the base alone without a state).
     else if (e.type === 'attackFrom') {
-      const per = e.damage + (card.damageBonus ?? 0) + (state ? perCounterValue(e.bonusPer, state) : 0);
+      const per = Math.max(0, e.damage + (card.damageBonus ?? 0) + (state ? perCounterValue(e.bonusPer, state) : 0));
       sum += per * (e.hits + (state ? perCounterValue(e.extraHitsPer, state) : 0));
     } else if (e.type === 'script' && e.id === 'perfectedStrike') {
       const [base = 0, per = 0] = e.values ?? [];

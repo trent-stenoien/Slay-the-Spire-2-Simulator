@@ -196,7 +196,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     strategies share one rule set: Strength Potion at once (turn 1, before any card); Fire Potion
     when HP + Block of the enemy is at most 20 (a kill) or when the enemy has no Block, and only with
     no Slippery; and always when the enemy's coming attack could kill you (intent total at least HP +
-    Block), so it is never held while dying.
+    Block), so it is never held while dying. Poison Potion (#303, Silent): Apply 6 Poison; used at
+    once, after the Strength Potion and before the Fire Potion.
 38. **Golden combats (#177, #210):** every fixture in `engine/golden/` replays through the engine
     (start HP, relics, potions at a point in the turn, `playerStart` statuses, scripted choices,
     mid-turn draws); mismatches fail unless listed in `knownDiffs` with a reason, and a listed one
@@ -274,16 +275,24 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     needs next turn for its top priority (the first group of its order with a card in hand; a Block-first strategy
     keeps a Block card, the best of the group first), unless more than half of the draw pile is cards of that
     group, in which case it keeps other cards first (leftover slots take the demoted ones).
+48. **Silent damage, Block and debuff cards (#260, Trent):** X-cost cards (Skewer, Malaise) spend all the Energy
+    left, so two X-cost cards in one hand play only one unless Energy is gained in between. Bullet Time makes only the
+    cards in hand at that moment free this turn (X-cost cards still spend their X) and blocks all later draws this turn.
+    Precise Cut deals 2 less per other card in hand, floored at 0 before Strength. Grand Finale is playable only with
+    an empty draw pile. Expose removes the enemy's Block and Artifact before it applies Vulnerable. Malaise takes X
+    (X+1 upgraded) Strength from the enemy for good, then applies that much Weak; Artifact negates each separately.
+    Strangle: the enemy loses 2 (3) HP for every card played after it this turn. Piercing Wail hits one enemy.
+    Bubble Bubble adds Poison only to an enemy that already has Poison.
 
 ## Silent draw, discard and energy cards (#259)
 
-48. **Discard from the hand (#259, Trent):** "Discard N" (Survivor, Acrobatics, Prepared, Dagger Throw) is a
+49. **Discard from the hand (#259, Trent):** "Discard N" (Survivor, Acrobatics, Prepared, Dagger Throw) is a
     `moveCards` hand → discard pick of exactly N (fewer only when the hand is smaller), resolved after the card's
     other effects in text order. Every card discarded from the hand by an effect (these, Calculated Gamble, Storm
     of Steel, Tools of the Trade) goes through one shared discard step that counts it as discarded this turn
     (Memento Mori); the end-of-turn hand discard and a full-hand draw do not. The strategy discards in the shared
     order of item 46 (curses/statuses that hurt while kept, then Sly cards, then the exhaust order).
-49. **Silent draw and energy cards (#259):** Backflip gains Block, then draws 2; Adrenaline gains 1 (2) energy
+50. **Silent draw and energy cards (#259):** Backflip gains Block, then draws 2; Adrenaline gains 1 (2) energy
     and draws 2 (Exhaust); Predator deals 15 (20) and draws 2 more at the start of the next turn (after the
     normal draw); Calculated Gamble discards the whole hand, then draws that many (Exhaust; upgraded: Retain).
     Dodge and Roll's next-turn Block gets Dexterity and Frail (#264, tested in combat.silentTemp.test.ts).

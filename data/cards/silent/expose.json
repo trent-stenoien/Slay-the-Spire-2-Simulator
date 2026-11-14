@@ -13,12 +13,20 @@
   ],
   "effects": [
     {
+      "type": "script",
+      "id": "expose"
+    },
+    {
       "type": "applyVulnerable",
       "amount": 2
     }
   ],
   "upgraded": {
     "effects": [
+      {
+        "type": "script",
+        "id": "expose"
+      },
       {
         "type": "applyVulnerable",
         "amount": 3
@@ -27,7 +35,7 @@
   },
   "description": "Remove all Artifact and Block from the enemy. / Apply 2 Vulnerable. / Exhaust.",
   "upgradedDescription": "Remove all Artifact and Block from the enemy. / Apply 3 Vulnerable. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

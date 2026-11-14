@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "dexterity",
+      "amount": 2
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "dexterity",
+        "amount": 3
+      }
+    ]
+  },
   "description": "Gain 2 Dexterity.",
   "upgradedDescription": "Gain 3 Dexterity.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

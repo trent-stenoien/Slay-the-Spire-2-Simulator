@@ -11,11 +11,25 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyEnemyPower",
+      "power": "strengthLossThisTurn",
+      "amount": 6
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyEnemyPower",
+        "power": "strengthLossThisTurn",
+        "amount": 8
+      }
+    ]
+  },
   "description": "ALL enemies lose 6 Strength this turn. / Exhaust.",
   "upgradedDescription": "ALL enemies lose 8 Strength this turn. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

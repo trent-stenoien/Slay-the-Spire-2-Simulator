@@ -1,0 +1,21 @@
+{
+  "id": "bygone_effigy",
+  "code": "BE",
+  "name": "Bygone Effigy",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "elite",
+  "hp": { "min": 127, "max": 127 },
+  "moves": {
+    "sleep": { "name": "Sleep", "effects": [] },
+    "wake": { "name": "Wake", "effects": [{ "type": "enemyGainStrength", "amount": 10 }] },
+    "slashes": { "name": "Slashes", "effects": [{ "type": "attack", "damage": 13, "hits": 1 }] }
+  },
+  "pattern": { "type": "cycle", "opener": ["sleep", "wake"], "order": ["slashes"], "start": "first" },
+  "ascension": {
+    "8": { "hp": { "min": 132, "max": 132 } },
+    "9": { "moves": { "slashes": { "effects": [{ "type": "attack", "damage": 15, "hits": 1 }] } } }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

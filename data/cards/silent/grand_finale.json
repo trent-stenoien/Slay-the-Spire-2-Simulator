@@ -29,7 +29,12 @@
   },
   "description": "Can only be played if there are no cards in your Draw Pile. Deal 60 damage to ALL enemies.",
   "upgradedDescription": "Can only be played if there are no cards in your Draw Pile. Deal 75 damage to ALL enemies.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
-  "lastUpdateVersion": "v0.107.1"
+  "lastUpdateVersion": "v0.107.1",
+  "playableIf": {
+    "kind": "counter",
+    "counter": "drawPileSize",
+    "max": 0
+  }
 }
