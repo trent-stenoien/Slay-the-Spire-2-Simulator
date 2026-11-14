@@ -13,6 +13,9 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
 - Card references everywhere else (hands, plays, draws, choices) are ids, with `+` appended for an
   upgraded card (`"strike+"`). `"strike"` means a Strike that is not upgraded.
 - `enemy`: `{ "id", "startHp" }`. The engine is made to roll exactly `startHp`.
+- `enemies` (instead of `enemy`, multi-enemy fights): `[{ "id", "startHp", "alias" }]`, left to right. The
+  alias (`"A"`, `"B"`, ...) names the enemy in `targets`, `enemies` states and `enemyMoves`. Each
+  enemy's HP is forced like a single enemy's.
 - `player`: `{ "startHp", "maxHp" }`. The engine starts at `startHp` (`CombatConfig.startHp`), so
   player HP is compared directly.
 - `relics` (optional): `[{ "id", "choice"? }]` in pick order. `choice` is the relic's setup value
@@ -26,7 +29,9 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
   - `playedFromDraw` (optional): cards that left the draw pile without being drawn, in order (the card Havoc
     plays from the top). Only used to build the forced draw order, after `hand` and `drawn`; not checked.
   - `plays`: cards in play order (use the listed order when the game order was not recorded).
-  - `potions` (optional): `[{ "potion": id, "beforePlay": n }]`: used before play `n` (1-based;
+  - `targets` (optional, multi-enemy): one alias per play (same length as `plays`; `null` for a card with
+    no target). A play without a target lets the engine pick. A mismatch reads `enemy C.hp: ...`.
+  - `potions` (optional): `[{ "potion": id, "beforePlay": n, "target"?: alias }]`: used before play `n` (1-based;
     `plays.length + 1` = after the last play, before ending the turn).
   - `choices` (optional): `[{ "source"?: cardId, "pick": [cards] }]`, one per "choose a card"
     prompt this turn, in order (Armaments: which card to upgrade). `source` is checked when given.
@@ -39,8 +44,15 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
     Give it on every turn or none. The harness forces that order and rejects an illegal one (not in
     the pool, a second once-per-fight move, a no-repeat violation, a broken opener) with
     `enemy moves: turn N: …`. Turn 1's move is the opener when there is one.
+  - `enemyMoves` (optional, multi-enemy): `{ "A": moveId, ... }`, each living enemy's move after this turn's
+    plays (turn 1 = the opener); give every enemy on turn 1, leave out dead ones later. Forced
+    harness-side like `enemyMove`: each enemy gets its own copy of its definition (id `<id>__<alias>`) with a cycle
+    of the recorded moves. Rejected when a move is not in the enemy's pattern, or when an `alternate`
+    pattern (Inklet) does not take its fixed and random halves in turns.
   - `enemyHpAfterEachPlay`: enemy HP after each play (and before any potion used before the next play).
-  - State is `{ "player"?: {…}, "enemy"?: {…} }`. Fields: `hp`, `block`, `strength`, `shrink`,
+    Multi-enemy: the HP of the enemy that play targeted (the last targeted one for an untargeted play).
+  - State is `{ "player"?: {…}, "enemy"?: {…}, "enemies"?: { alias: {…} } }`. `enemies` is for multi-enemy
+    fights (a dead enemy reads hp 0). Fields: `hp`, `block`, `strength`, `shrink`,
     `energy`, `poison`, `vulnerable`, `weak`, `frail`, and any simulated power by id (player:
     `plating`, `flameBarrier`, …; enemy: `artifact`, `slippery`, `strengthPerTurn`, …; absent = 0).
     Every field is optional; an unknown field fails the consistency test.
@@ -63,6 +75,7 @@ consistent with the piles; cards in a shuffle beyond the last recorded draw are 
 Limits: a card put into, or taken from, the draw pile between shuffles (an `addCards` to the draw
 pile, Headbutt, Stratagem) cannot be forced; the harness reports it as
 `turn N: <card> added to drawRandom (…); the shuffle mock cannot force later draws`. Record it under
-`knownDiffs` or `skip`. Other random effects (random targets or picks) are not scripted, and only one enemy is supported.
+`knownDiffs` or `skip`. Other random effects (random targets such as Sword Boomerang's, or picks) are not scripted; only enemy
+moves are (`enemyMove`, `enemyMoves`).
 A fixture's `enemyMove` order is forced harness-side by giving the enemy a cycle pattern in a copy of the data
 (the engine's own random pick is not exercised).

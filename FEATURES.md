@@ -208,7 +208,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     (start HP, relics, potions at a point in the turn, `playerStart` statuses, scripted choices,
     mid-turn draws); mismatches fail unless listed in `knownDiffs` with a reason, and a listed one
     that no longer occurs fails too. `CombatConfig.playerStart` gives the player Strength, debuffs and
-    powers before combatStart relics.
+    powers before combatStart relics. Multi-enemy fixtures (#197) list `enemies` with aliases and give
+    each play's target, per-enemy states and per-enemy forced moves.
 
 39. **UI polish (#254):** chart toggles read "Colorblind" and "Percentiles" (below the strategy filters on
     small screens); Results has a "Generate new seed" button beside the seed field; deck folders for each
