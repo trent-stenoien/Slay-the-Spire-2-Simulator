@@ -220,12 +220,17 @@ describe('#260 Precise Cut', () => {
     expect(hits(r)[0]!.amount).toBe(0);
   });
 
-  it('floors the card at 0 before Strength is added', () => {
+  it('adds Strength before the floor at 0: max(0, 13 + Strength - 2 x other cards) (#314)', () => {
     const d = world(['precise_cut'], dummy(), { flex: helper('flex', [{ type: 'gainStrength', amount: 3 }]) });
     d.characters.ironclad!.drawPerTurn = 10;
+    // 8 other cards left in hand: 13 + 3 - 16 = 0.
     const { r } = run(d, ['flex', 'precise_cut'], deckOf(['precise_cut', 1], ['flex', 1], ['defend', 11]));
-    // 8 other cards left in hand: 13 - 16 < 0 -> 0, then +3 Strength.
-    expect(hits(r)[0]!.amount).toBe(3);
+    expect(hits(r)[0]!.amount).toBe(0);
+    // 7 other cards: 13 + 3 - 14 = 2 (the old floor-before-Strength gave 3).
+    const seven = world(['precise_cut'], dummy(), { flex: helper('flex', [{ type: 'gainStrength', amount: 3 }]) });
+    seven.characters.ironclad!.drawPerTurn = 9;
+    const { r: r7 } = run(seven, ['flex', 'precise_cut'], deckOf(['precise_cut', 1], ['flex', 1], ['defend', 11]));
+    expect(hits(r7)[0]!.amount).toBe(2);
   });
 });
 

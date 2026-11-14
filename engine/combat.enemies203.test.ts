@@ -315,6 +315,35 @@ describe('Slow (#303)', () => {
     expect(events(r.log, 'poisonDamage')[0]?.amount).toBe(5);
   });
 
+  it('counts cards played by other cards for later hits (#314): Havoc playing the top Strike', () => {
+    const data = slowData();
+    data.cards.zhavoc = {
+      ...cards.defend!,
+      id: 'zhavoc',
+      code: 'Zh',
+      cost: 0,
+      keywords: ['innate'],
+      effects: [{ type: 'playCards', from: 'draw', mode: 'top', count: 1, exhaust: true }],
+      upgraded: null,
+    };
+    const r = logged(
+      data,
+      scripted((t) => (t === 1 ? ['zhavoc', 'zstrike'] : [])),
+      {
+        enemyId: 'dummy',
+        deck: [
+          { cardId: 'zhavoc', upgraded: false, count: 1 },
+          { cardId: 'zstrike', upgraded: false, count: 10 },
+        ],
+      },
+    );
+    const dealt = events(r.log, 'damage')
+      .filter((d) => d.target === 'enemy')
+      .map((d) => d.amount);
+    // Havoc (0 before), its Strike (1 before: 6.6 -> 6), the hand Strike (2 before: 7.2 -> 7).
+    expect(dealt).toEqual([6, 7]);
+  });
+
   it('does not slow an enemy without the power', () => {
     const data = withEnemy(makeGameData(), dummy());
     data.cards.zstrike = { ...cards.strike!, id: 'zstrike', code: 'Zs', cost: 0 };
