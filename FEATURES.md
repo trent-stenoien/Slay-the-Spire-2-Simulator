@@ -485,6 +485,18 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     release; raw v0.107.1 numbers win). Act 3 becomes selectable in the Setup picker. Builder calls pending
     Trent: +3 per Wither level, X starts at 0, "upgrade all" raises to at least +X, Ebb 22 (raw).
 
+64. **Queen and Torch Head Amalgam (#276, Trent):** Act 3, Glory boss fight of two enemies. Queen: boss, 400 HP
+    (A8 419); Puppet Strings (3 Chains of Binding), You're Mine (99 Frail, 99 Weak, 99 Vulnerable on the player),
+    then Burn Bright for Me (Amalgam +1 Strength, Queen 20 Block) each turn while the Amalgam lives; once it dies,
+    cycle Off with Your Head 3x5 (A9 4x5), Execution 15 (18), Enrage +2 Strength. Torch Head Amalgam: Minion,
+    199 HP (A8 211); cycle Tackle 18 (A9 22), Tackle, Beam 8x3, Weak Tackle 14 (16), Weak Tackle. Minion rule: the
+    fight is won once every non-Minion enemy is dead (the Amalgam abandons combat when the Queen dies); a fight of
+    Minions only is won when they are all dead. Chains of Binding: the first [amount] cards drawn each turn are
+    Bound; only 1 Bound card can be played per turn; Bound comes off at the end of the player's turn. Interim until
+    the contract lands: Puppet Strings does nothing, Burn Bright for Me gives only the 20 Block, the Queen never
+    switches to her attack cycle, and the Amalgam must be killed too (no Minion rule yet; Wriggler has
+    difficulty `minion` but no Minion power, so the rule needs an enemy power, not the difficulty). Numbers from raw v0.107.1 (Tackle A9 22, Weak Tackle A9 16).
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

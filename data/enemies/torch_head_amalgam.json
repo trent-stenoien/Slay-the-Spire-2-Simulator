@@ -1,0 +1,30 @@
+{
+  "id": "torch_head_amalgam",
+  "code": "TH",
+  "name": "Torch Head Amalgam",
+  "act": 3,
+  "zone": "glory",
+  "difficulty": "minion",
+  "hp": { "min": 199, "max": 199 },
+  "moves": {
+    "tackle": { "name": "Tackle", "effects": [{ "type": "attack", "damage": 18, "hits": 1 }] },
+    "beam": { "name": "Beam", "effects": [{ "type": "attack", "damage": 8, "hits": 3 }] },
+    "weakTackle": { "name": "Weak Tackle", "effects": [{ "type": "attack", "damage": 14, "hits": 1 }] }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["tackle", "tackle", "beam", "weakTackle", "weakTackle"],
+    "start": "first"
+  },
+  "ascension": {
+    "8": { "hp": { "min": 211, "max": 211 } },
+    "9": {
+      "moves": {
+        "tackle": { "effects": [{ "type": "attack", "damage": 22, "hits": 1 }] },
+        "weakTackle": { "effects": [{ "type": "attack", "damage": 16, "hits": 1 }] }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}
