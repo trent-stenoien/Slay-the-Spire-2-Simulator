@@ -117,6 +117,8 @@ export function effectText(e: Effect): string {
       return `Gain ${e.amount} Gold`;
     case 'gainPotion':
       return 'Gain a Random Potion';
+    case 'gainCardReward':
+      return 'Gain an extra card reward';
     case 'loseEnergy':
       return `Lose ${e.amount} Energy`;
     case 'spawnEnemies':

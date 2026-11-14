@@ -160,6 +160,7 @@ const CONTRACT_CHECKS: Record<ContractEffect, EffectCheck> = {
   loseMaxHp: amountOnly,
   gainGold: amountOnly,
   gainPotion: () => {},
+  gainCardReward: () => {},
   loseEnergy: amountOnly,
   spawnEnemies: (r, e, p) => {
     r.str(e, 'enemyId', `${p}.enemyId`);

@@ -81,6 +81,9 @@
  *                     `outbreak`; Counter `enemyPoison` (Mirage: total Poison on living enemies).
  * #104 Rewards       — Effect `gainGold`, `gainPotion`; CombatResult.rewards;
  *                     StrategySummary.avgGold / potionRate (Hand of Greed, Alchemize).
+ * #268 Silent Sly / The Hunt — PowerId `masterPlanner` (Master Planner: a Skill the player plays
+ *                     gains Sly); Effect `gainCardReward` (The Hunt, inside a `fatal` conditional;
+ *                     reward only); CombatResult.rewards.cardRewards.
  *
  * Contract map (#215): v1 relics, potions, enemy powers, Void, golden scripting.
  * Same rule: declared, not simulated; validators list the new ids as valid but unsimulated.
@@ -331,6 +334,8 @@ export type Effect =
   | { type: 'gainGold'; amount: number }
   /** #104: the player gains one Random Potion (Alchemize). Reward only; the potion has no combat effect. */
   | { type: 'gainPotion' }
+  /** #268: the player gains one extra card reward (The Hunt, inside a `fatal` conditional). Reward only; no combat effect. */
+  | { type: 'gainCardReward' }
   /**
    * #322: summon `count` enemies of `enemyId`, appended to the right of the living line-up. With
    * `stunned` they arrive Stunned and skip their first move (Wrigglers from Phrog Parasite). Enemy
@@ -607,6 +612,9 @@ export type PowerId =
   | 'wellLaidPlans'
   /** Weak enemies take double damage from Attacks (Tracking). Main release; the beta changed it to +50%. */
   | 'tracking'
+  // #268 (not simulated yet)
+  /** Whenever you play a Skill, it gains Sly (Master Planner). */
+  | 'masterPlanner'
   // #263 Silent Poison powers
   /** Poison is triggered [amount] additional time(s); each extra trigger also lowers Poison by 1 (Accelerant). */
   | 'accelerant'
@@ -1385,8 +1393,8 @@ export interface CombatResult {
   healed?: number;
   /** Enemy HP at the end (0 on a win); useful for turn-cap analysis. #5: summed over all enemies. */
   enemyHpRemaining: number;
-  /** #104: gold and potions gained during the combat; omitted when nothing was gained. */
-  rewards?: { gold: number; potions: number };
+  /** #104/#268: gold, potions and extra card rewards gained during the combat; omitted when nothing was gained. */
+  rewards?: { gold: number; potions: number; cardRewards: number };
   /** Present only when requested (log viewer); omitted in bulk runs. */
   log?: GameEvent[];
 }

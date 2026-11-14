@@ -54,6 +54,7 @@ export const CONTRACT_EFFECTS = [
   'loseMaxHp',
   'gainGold',
   'gainPotion',
+  'gainCardReward',
   'loseEnergy',
   'spawnEnemies',
   'script',
@@ -340,6 +341,8 @@ export const POWER_IDS = [
   'toolsOfTheTrade',
   'wellLaidPlans',
   'tracking',
+  // #268 (not simulated yet)
+  'masterPlanner',
   // #263 Silent Poison powers
   'accelerant',
   'envenom',

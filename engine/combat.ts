@@ -463,6 +463,7 @@ class Combat {
   /** #104: gold and potions gained so far this combat (rewards only; no combat effect). */
   private gold = 0;
   private potions = 0;
+  private cardRewards = 0;
   /** #111: damage the last attack hit dealt to Block and HP together, overkill included (Fisticuffs). */
   private lastAttackDamage = 0;
   /** #113 Inferno copies played; each loses 1 HP a turn (the sum of their damage is in powers). */
@@ -3572,7 +3573,8 @@ class Combat {
       enemyHpRemaining: this.enemies.reduce((n, e) => n + Math.max(e.hp, 0), 0),
     };
     if (this.healedTotal > 0) result.healed = this.healedTotal;
-    if (this.gold > 0 || this.potions > 0) result.rewards = { gold: this.gold, potions: this.potions };
+    if (this.gold > 0 || this.potions > 0 || this.cardRewards > 0)
+      result.rewards = { gold: this.gold, potions: this.potions, cardRewards: this.cardRewards };
     if (log) {
       log.push({ t: 'combatEnd', outcome, turns: this.state.turn, hpLost });
       result.log = log;
