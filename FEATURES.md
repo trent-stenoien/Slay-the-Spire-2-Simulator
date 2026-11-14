@@ -117,6 +117,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     (damage per energy, counting the Shivs they make: 4 each, 6 upgraded; a tie goes to the maker; Accuracy, Phantom Blades
     and Fan of Knives (#267) add here, see item 59). Storm of Steel is played last, after all other energy is spent, and only while
     the hand still holds cards to discard.
+    **Attack factors (#339 part 2, Trent):** every attack's value (and the Shivs it makes) gains the player's Strength per hit.
+    Enemy Thorns, Personal Hive and the relics Ornamental Fan, Shuriken, Kunai, Kusarigama are not yet visible to strategies.
     **Shiv makers (#339, Trent):** Storm of Steel is an attack worth the damage of the Shivs it makes (hand cards it
     would discard, Accuracy, Phantom Blades and Fan of Knives included). When it is the best attack, every other card is
     played before it, but only those that leave 1 Energy for it. With Energy for only one of Storm of Steel and Shadow
