@@ -27,7 +27,7 @@
   },
   "description": "Sly. / Gain 6 Block.",
   "upgradedDescription": "Sly. / Gain 9 Block.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

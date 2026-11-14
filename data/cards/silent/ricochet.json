@@ -31,7 +31,7 @@
   },
   "description": "Sly. / Deal 3 damage to a random enemy 4 times.",
   "upgradedDescription": "Sly. / Deal 3 damage to a random enemy 5 times.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

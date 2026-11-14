@@ -11,11 +11,35 @@
   "keywords": [
     "sly"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "dexterity",
+      "amount": 1
+    },
+    {
+      "type": "applyPower",
+      "power": "thorns",
+      "amount": 4
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "dexterity",
+        "amount": 1
+      },
+      {
+        "type": "applyPower",
+        "power": "thorns",
+        "amount": 6
+      }
+    ]
+  },
   "description": "Sly. / Gain 1 Dexterity. / Gain 4 Thorns.",
   "upgradedDescription": "Sly. / Gain 1 Dexterity. / Gain 6 Thorns.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

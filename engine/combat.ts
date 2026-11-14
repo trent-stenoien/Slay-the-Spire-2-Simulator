@@ -381,6 +381,16 @@ const ENTROPY_POOL: CardPool = { character: 'own' };
 /** #116 Calamity: each Attack played adds a random Attack of the player's character. */
 const CALAMITY_POOL: CardPool = { character: 'own', types: ['attack'] };
 
+/** #261: an Attack with a single-target hit (not ALL enemies, not random), so a Sly play picks a random target. */
+function targetsOneEnemy(card: CardInstance): boolean {
+  return (
+    card.type === 'attack' &&
+    card.effects.some(
+      (e) => (e.type === 'attack' && !e.allEnemies && !e.randomTarget) || (e.type === 'attackFrom' && !e.allEnemies),
+    )
+  );
+}
+
 /** #109 Rolling Boulder: its damage grows by this much after each hit ("increase this damage by 5"). */
 export const ROLLING_BOULDER_GROWTH = 5;
 
@@ -768,8 +778,11 @@ class Combat {
       max: n,
     };
     for (const c of options.length === n ? options : this.choose(request, options)) {
-      player.hand.splice(player.hand.indexOf(c), 1);
-      this.discardCard(c);
+      const at = player.hand.indexOf(c);
+      if (at < 0) continue;
+      player.hand.splice(at, 1);
+      // #261: a Sly card played on discard may end combat; the rest of the discard stops there.
+      if (this.discardCard(c)) return;
     }
   }
 
@@ -777,12 +790,49 @@ class Combat {
    * #259: the one shared hook for a card discarded from the hand by an effect ("Discard N" on Survivor,
    * Acrobatics, Prepared, Dagger Throw; Storm of Steel's whole hand; Tools of the Trade). The caller has already taken `c` out of the hand. It goes to the discard pile, is logged
    * as moved hand → discard and counts as discarded this turn (Memento Mori). The end-of-turn hand
-   * discard and the full-hand discard of a draw do NOT come here. Sly (#261) attaches here.
+   * discard and the full-hand discard of a draw do NOT come here. #261 Sly: a Sly card discarded here during
+   * the player's turn is played for free right away (see slyPlay) instead of staying in the discard pile.
+   * Returns the side that died when that play ended combat.
    */
-  private discardCard(c: CardInstance): void {
-    this.player.discardPile.push(c);
+  private discardCard(c: CardInstance): Side | null {
     this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: 'hand', to: 'discard' });
     this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
+    if (this.playerTurn && c.keywords.includes('sly') && this.canPlayFree(c)) return this.slyPlay(c);
+    this.player.discardPile.push(c);
+    return null;
+  }
+
+  /**
+   * #261 Sly (Trent): the discarded Sly card is played at once, before the rest of the effect that discarded
+   * it (the wiki does not say; resolved immediately), exactly like a card played from the hand (all effects,
+   * on-play triggers and counters, Slow included) but for free (X = the energy left, not spent). A
+   * single-target Attack hits a random living enemy (seeded Rng, one draw only while 2+ live, as #45).
+   * Afterwards it goes where a played card goes (discard pile, Exhaust, or out of play for a Power). The
+   * outer card's target, Vigor, Slow count and last attack damage are restored for its remaining effects.
+   */
+  private slyPlay(card: CardInstance): Side | null {
+    const { player } = this;
+    const keep = {
+      focus: this.focus,
+      vigor: this.activeVigor,
+      slow: this.slowCards,
+      damage: this.lastAttackDamage,
+      drawn: this.lastDrawn,
+    };
+    if (targetsOneEnemy(card)) {
+      const alive = this.living();
+      if (alive.length > 1) this.focusOn(alive[this.rng.int(0, alive.length - 1)]!);
+    }
+    let died = this.playCard(card, card.xCost ? player.energy : 0, 'effect');
+    if (!died && player.hp > 0 && !this.won()) this.calamity(card);
+    this.activeVigor = keep.vigor;
+    this.slowCards = keep.slow;
+    this.lastAttackDamage = keep.damage;
+    this.lastDrawn = keep.drawn;
+    if ((this.enemies[keep.focus]?.hp ?? 0) > 0) this.focusOn(keep.focus);
+    else this.retarget();
+    died ??= player.hp <= 0 ? 'player' : this.won() ? 'enemy' : null;
+    return died;
   }
 
   /**
@@ -915,6 +965,8 @@ class Combat {
           if (player.hp <= 0) return 'loss';
           if (this.won()) return 'win';
           this.discardFromHand(amount, 'toolsOfTheTrade');
+          if (player.hp <= 0) return 'loss';
+          if (this.won()) return 'win';
           break;
         case 'helloWorld':
           this.addCards({
@@ -1082,18 +1134,22 @@ class Combat {
       const died = this.playCard(card, x);
       if (died === 'player' || player.hp <= 0) return 'loss';
       if (died === 'enemy' || this.won()) return 'win';
-      // #116 Calamity: after an Attack is played, add random Attack(s) to the hand.
-      const calamity = card.type === 'attack' ? this.power('calamity') : 0;
-      if (calamity > 0) {
-        this.addCards({
-          type: 'addCards',
-          source: { kind: 'random', pool: CALAMITY_POOL },
-          count: calamity,
-          to: 'hand',
-        });
-      }
+      this.calamity(card);
     }
     return null;
+  }
+
+  /** #116 Calamity: after an Attack is played from the hand (or by Sly, #261), add random Attack(s) to the hand. */
+  private calamity(card: CardInstance): void {
+    const calamity = card.type === 'attack' ? this.power('calamity') : 0;
+    if (calamity > 0) {
+      this.addCards({
+        type: 'addCards',
+        source: { kind: 'random', pool: CALAMITY_POOL },
+        count: calamity,
+        to: 'hand',
+      });
+    }
   }
 
   /**
@@ -1139,7 +1195,8 @@ class Combat {
     const afterimage = this.power('afterimage');
     const serpentForm = this.power('serpentForm');
     // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
-    const vigor = card.type === 'attack' ? this.power('vigor') : 0;
+    // #261: a card played in the middle of an Attack (Sly) does not get the Vigor that Attack already claimed.
+    const vigor = card.type === 'attack' ? Math.max(0, this.power('vigor') - this.activeVigor) : 0;
     this.activeVigor = vigor;
     // #110 powers that react to this play, read before its own effects can add to them.
     const choking = this.power('choking');
@@ -2151,7 +2208,8 @@ class Combat {
       count++;
       // #259: a card moved from the hand to the discard pile is discarded (the shared discard hook).
       if (e.from === 'hand' && e.to === 'discard') {
-        this.discardCard(c);
+        // #261: a Sly play that ends combat stops the discard (resolveEffects then sees the outcome).
+        if (this.discardCard(c)) break;
         continue;
       }
       const to = this.placeCard(c, e.to);

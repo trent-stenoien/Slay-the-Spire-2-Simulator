@@ -19,7 +19,7 @@ export const CARD_RARITIES = [
 export const CARD_KEYWORDS = ['unplayable', 'ethereal', 'eternal', 'exhaust', 'retain', 'innate', 'sly'] as const;
 
 /** Keywords and effects the engine implements; a `simulated` card may use only these. */
-export const SIMULATED_KEYWORDS = new Set(['unplayable', 'ethereal', 'eternal', 'exhaust', 'innate', 'retain']);
+export const SIMULATED_KEYWORDS = new Set(['unplayable', 'ethereal', 'eternal', 'exhaust', 'innate', 'retain', 'sly']);
 
 /**
  * #105 contract effects: valid data. Each mechanic card (#106–#116) moves its effects into
