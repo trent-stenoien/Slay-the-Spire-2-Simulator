@@ -10,6 +10,7 @@
     { "cardId": "defend", "upgraded": false, "count": 4 },
     { "cardId": "bash", "upgraded": false, "count": 1 }
   ],
+  "ascension": { "2": { "startHp": 64 } },
   "startingRelic": "Burning Blood",
   "lastUpdateVersion": "v0.107.1"
 }

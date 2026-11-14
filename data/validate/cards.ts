@@ -74,6 +74,7 @@ function unsimulatedCondition(cond: unknown): string | undefined {
   if (!isObj(cond)) return undefined;
   if (cond.kind === 'handAll' || cond.kind === 'handHasNone')
     return unsimulatedFilter(cond.filter, 'conditional.filter');
+  if (cond.kind === 'drewMatching') return unsimulatedFilter(cond.filter, 'conditional.filter');
   if (cond.kind !== 'counter') return undefined;
   return SIMULATED_COUNTERS.has(String(cond.counter)) ? undefined : `conditional.${String(cond.counter)}`;
 }

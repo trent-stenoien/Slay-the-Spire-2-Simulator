@@ -11,9 +11,13 @@
   "keywords": [],
   "effects": [
     {
-      "type": "attack",
+      "type": "attackFrom",
       "damage": 1,
-      "hits": 1
+      "hits": 1,
+      "bonusPer": {
+        "per": "cardsDrawnThisCombat",
+        "amount": 1
+      }
     }
   ],
   "upgraded": {
@@ -21,7 +25,7 @@
   },
   "description": "Deal 1 damage. / Deals 1 additional damage for each card drawn this combat.",
   "upgradedDescription": "Deal 1 damage. / Deals 1 additional damage for each card drawn this combat.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

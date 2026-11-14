@@ -1,0 +1,43 @@
+{
+  "id": "inky_shiv",
+  "code": "Ix",
+  "name": "Inky Shiv",
+  "type": "attack",
+  "rarity": "token",
+  "character": "colorless",
+  "cost": 0,
+  "xCost": false,
+  "starCost": null,
+  "keywords": [
+    "exhaust"
+  ],
+  "effects": [
+    {
+      "type": "attack",
+      "damage": 4,
+      "hits": 1
+    },
+    {
+      "type": "applyWeak",
+      "amount": 1
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "attack",
+        "damage": 6,
+        "hits": 1
+      },
+      {
+        "type": "applyWeak",
+        "amount": 1
+      }
+    ]
+  },
+  "description": "Deal 4 damage. / Apply 1 Weak. / Exhaust.",
+  "upgradedDescription": "Deal 6 damage. / Apply 1 Weak. / Exhaust.",
+  "simulated": true,
+  "multiplayerOnly": false,
+  "lastUpdateVersion": "v0.107.1"
+}

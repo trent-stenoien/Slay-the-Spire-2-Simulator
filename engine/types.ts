@@ -55,6 +55,28 @@
  *                     GameEvent `generated`, `transformed`; PowerId calamity,
  *                     helloWorld, entropy.
  * #169 Enemy Strength — Effect `enemyGainStrength` (Fight Me!); reuses EnemyState.strength.
+ * #45 Random target — Effect `attack.randomTarget` (each hit picks a random living enemy).
+ * #286 Ascension HP — CharacterDef.ascension (CharacterAscensionOverride.startHp; cumulative,
+ *                     lowers STARTING HP only, Max HP unchanged).
+ * #287 Inklet       — MovePattern `alternate` (AlternatePattern: fixed move, then a weighted
+ *                     random pick, repeating; `openerBySlot` picks the opener by position).
+ * #264 Silent temporary powers — PowerId `dexterityThisTurn` (Anticipate), `retainBlock` (Blur),
+ *                     `doubleBlock` (Shadowmeld), `burst` (Burst), `freeNextSkill` (Pounce),
+ *                     `doubleAttackNextTurn` (Shadow Step), `dexterityLossPerTurn` (Wraith Form).
+ * #265 Silent counters — Counter `skillsPlayedThisTurn` (Pinpoint: costLessPer), `cardsDiscardedThisTurn`
+ *                     (Memento Mori; CombatCounters.cardsDiscardedThisTurn), `cardsDrawnThisCombat`
+ *                     (Murder), `skillsInHand` (Flechettes), `attacksPlayedBeforeThis` (Finisher: Attacks
+ *                     played earlier this turn, not counting the card itself, so 0 when none);
+ *                     Condition `drewMatching` (Escape Plan: a card drawn by the previous `draw` effect
+ *                     matches the filter); Effect `drawUntil.handSize` (Expertise: draw until N cards in hand).
+ *                     Wiki (main v0.107.1): Expertise = "Draw cards until you have 6 (7) cards in your Hand";
+ *                     the raw "Draw 2, Retain" text is beta V0.109/V0.113, so the types above fit.
+ * #266 Silent trigger powers — PowerId `afterimage` (Afterimage), `serpentForm` (Serpent Form),
+ *                     `speedster` (Speedster), `toolsOfTheTrade` (Tools of the Trade), `wellLaidPlans`
+ *                     (retain up to [amount] cards at end of turn, picked via Strategy.choose),
+ *                     `tracking` (Tracking: Weak enemies take double Attack damage; the 50% text is beta V0.108).
+ *                     Wiki (main): Well-Laid Plans = Uncommon, "Retain up to 1 (2) card(s)"; the raw
+ *                     "no longer discard your Hand" is beta V0.109/V0.110.
  * #104 Rewards       — Effect `gainGold`, `gainPotion`; CombatResult.rewards;
  *                     StrategySummary.avgGold / potionRate (Hand of Greed, Alchemize).
  *
@@ -119,7 +141,16 @@ export type Effect =
    * `hits` × (X + `xBonus`), where X is the energy spent on the card and
    * `xBonus` (default 0) covers "X+1 times" upgrades. X = 0 deals no hits.
    */
-  | { type: 'attack'; damage: number; hits: number; allEnemies?: boolean; xTimes?: boolean; xBonus?: number }
+  /** #45: `randomTarget`: each hit lands on a random living enemy (seeded Rng), picked per hit. */
+  | {
+      type: 'attack';
+      damage: number;
+      hits: number;
+      allEnemies?: boolean;
+      xTimes?: boolean;
+      xBonus?: number;
+      randomTarget?: boolean;
+    }
   | { type: 'gainBlock'; amount: number }
   | { type: 'gainStrength'; amount: number }
   /** #5: `allEnemies` applies it to every living enemy (Thunderclap, Shockwave, Bag of Marbles). */
@@ -154,9 +185,10 @@ export type Effect =
   /**
    * #107: draw one card at a time until a stop rule holds. `handFull` (Scrawl):
    * stop when the hand reaches HAND_LIMIT. `stopOn` (Pillage): stop after drawing
-   * a card that matches the filter. Also stops when nothing is left to draw.
+   * a card that matches the filter. #265 `handSize` (Expertise): stop when the hand holds that many
+   * cards (an already larger hand draws nothing). Also stops when nothing is left to draw.
    */
-  | { type: 'drawUntil'; handFull?: boolean; stopOn?: CardFilter }
+  | { type: 'drawUntil'; handFull?: boolean; stopOn?: CardFilter; handSize?: number }
   /**
    * #108: exhaust cards from `from` (default 'hand'). `count` cards (omit with
    * mode 'all'), picked by `mode`; `upTo` lets the chooser pick fewer (Purity).
@@ -350,6 +382,16 @@ export type Counter =
   | 'cardsPlayedThisTurn'
   | 'cardsPlayedThisCombat'
   | 'attacksPlayedThisTurn'
+  /** #265: Skills played this turn (Pinpoint costLessPer). */
+  | 'skillsPlayedThisTurn'
+  /** #265: Attacks played earlier this turn, not counting the card being played (Finisher). */
+  | 'attacksPlayedBeforeThis'
+  /** #265: cards discarded this turn, by any effect or end-of-turn discard excluded (Memento Mori). */
+  | 'cardsDiscardedThisTurn'
+  /** #265: cards drawn this combat (Murder). */
+  | 'cardsDrawnThisCombat'
+  /** #265: Skills currently in hand (Flechettes). */
+  | 'skillsInHand'
   | 'cardsExhaustedThisTurn'
   | 'cardsExhaustedThisCombat'
   /** Cards moved, exhausted, created or upgraded by the previous effect of the same card (Second Wind, Stoke). */
@@ -376,7 +418,9 @@ export type Condition =
   /** Every card in hand other than this one matches (Clash). */
   | { kind: 'handAll'; filter: CardFilter }
   /** The previous attack effect of this card killed the enemy (Feed). */
-  | { kind: 'fatal' };
+  | { kind: 'fatal' }
+  /** #265: a card drawn by the previous `draw` effect of this card matches `filter` (Escape Plan: a Skill). */
+  | { kind: 'drewMatching'; filter: CardFilter };
 
 /** Which cards a random-generation effect draws from. Only simulated cards of the player's own character, no Colorless (#116). */
 export interface CardPool {
@@ -518,7 +562,35 @@ export type PowerId =
   /** Start of turn: add a random Common card into your hand (Hello World). */
   | 'helloWorld'
   /** Start of turn: transform [amount] card(s) in your hand (Entropy). */
-  | 'entropy';
+  | 'entropy'
+  // #264 Silent temporary and next-turn powers (not simulated yet)
+  /** Gain [amount] Dexterity this turn; removed at end of turn like `strengthThisTurn` (Anticipate). */
+  | 'dexterityThisTurn'
+  /** Block is not removed at the start of your next turn; one turn only (Blur). */
+  | 'retainBlock'
+  /** This turn, Block gained from cards is doubled (Shadowmeld). */
+  | 'doubleBlock'
+  /** This turn, the next [amount] Skills are played an extra time (Burst). */
+  | 'burst'
+  /** The next [amount] Skill(s) played cost 0 (Pounce). */
+  | 'freeNextSkill'
+  /** Next turn, Attacks deal double damage (Shadow Step). */
+  | 'doubleAttackNextTurn'
+  /** Start of turn: lose [amount] Dexterity; Dexterity may go negative (Wraith Form). */
+  | 'dexterityLossPerTurn'
+  // #266 Silent trigger powers (not simulated yet)
+  /** Whenever you play a card, gain [amount] Block (Afterimage). */
+  | 'afterimage'
+  /** Whenever you play a card, deal [amount] damage to a random enemy (Serpent Form). */
+  | 'serpentForm'
+  /** Whenever you draw a card during your turn, deal [amount] damage to ALL enemies (Speedster). */
+  | 'speedster'
+  /** Start of turn: draw [amount] card(s), then discard [amount] (Tools of the Trade). */
+  | 'toolsOfTheTrade'
+  /** End of turn: Retain up to [amount] card(s); Strategy.choose picks them (Well-Laid Plans). */
+  | 'wellLaidPlans'
+  /** Weak enemies take double damage from Attacks (Tracking). Main release; the beta changed it to +50%. */
+  | 'tracking';
 
 /** Enemy powers, stored in EnemyState.powers. */
 export type EnemyPowerId =
@@ -565,6 +637,8 @@ export interface CombatCounters {
   cardsExhaustedThisCombat: number;
   cardsDrawnThisTurn: number;
   cardsDrawnThisCombat: number;
+  /** #265: cards discarded this turn (optional until the engine tracks it). */
+  cardsDiscardedThisTurn?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -779,7 +853,14 @@ export interface CharacterDef {
   startingDeck: Deck;
   /** Relic name (e.g. "Burning Blood"). Informational until #205 matches it to a RelicDef. */
   startingRelic: string;
+  /** #286: keyed by Ascension level as a string ("2"). Cumulative, like enemy overrides. */
+  ascension?: Record<string, CharacterAscensionOverride>;
   lastUpdateVersion: GameVersion;
+}
+
+/** #286: A2+ lowers starting HP (Ironclad 64, Silent 56); Max HP is unchanged. */
+export interface CharacterAscensionOverride {
+  startHp?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -822,7 +903,24 @@ export interface RandomPattern {
   opener?: string[];
 }
 
-export type MovePattern = CyclePattern | RandomPattern;
+/**
+ * #287: alternates a fixed move with a weighted random pick (Inklet: Jab, then 50/50 Piercing
+ * Gaze or Whirlwind, then Jab ...). `startWith` says which half opens when there is no slot opener.
+ * `openerBySlot` overrides the first move by the enemy's position in the encounter: the first and
+ * last enemies are "outer", any other is "middle" (outer Inklets open with Jab, the middle one
+ * with Whirlwind). After the opener the alternation continues with the other half.
+ */
+export interface AlternatePattern {
+  type: 'alternate';
+  /** Move id played on every fixed turn. */
+  fixed: string;
+  /** Weighted pool for the random turns (seeded Rng). */
+  random: { move: string; weight: number }[];
+  startWith?: 'fixed' | 'random';
+  openerBySlot?: { outer?: string; middle?: string };
+}
+
+export type MovePattern = CyclePattern | RandomPattern | AlternatePattern;
 
 /**
  * Overrides for one Ascension level. Levels are cumulative: at A9 the engine

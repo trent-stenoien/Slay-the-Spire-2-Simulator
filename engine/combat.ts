@@ -1,6 +1,6 @@
 import { createRng } from './rng';
-import { cardPool, chooseGenerated } from './generate';
-import { patternMoveIds, patternPool, resolveEnemy } from './enemy';
+import { cardPool, chooseGenerated, chooseRetained } from './generate';
+import { defaultStartHp, patternMoveIds, patternPool, resolveEnemy } from './enemy';
 import {
   COLOSSUS_REDUCTION,
   attackDamage,
@@ -32,7 +32,7 @@ import {
   scriptMods,
   turnMatches,
 } from './relics';
-import { chooseExhaust, createStrategy } from './strategies';
+import { chooseDiscard, chooseExhaust, createStrategy } from './strategies';
 import {
   HAND_LIMIT,
   TURN_CAP,
@@ -240,6 +240,7 @@ function emptyCounters(): CombatCounters {
     cardsExhaustedThisCombat: 0,
     cardsDrawnThisTurn: 0,
     cardsDrawnThisCombat: 0,
+    cardsDiscardedThisTurn: 0,
   };
 }
 
@@ -286,6 +287,11 @@ export const SIMULATED_COUNTERS: readonly Counter[] = [
   'cardsPlayedThisTurn',
   'cardsPlayedThisCombat',
   'attacksPlayedThisTurn',
+  'skillsPlayedThisTurn',
+  'attacksPlayedBeforeThis',
+  'cardsDiscardedThisTurn',
+  'cardsDrawnThisCombat',
+  'skillsInHand',
   'cardsExhaustedThisTurn',
   'cardsExhaustedThisCombat',
   'lastEffectCount',
@@ -348,7 +354,22 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'stampede',
   'mayhem',
   'nostalgia',
+  // #266 Silent trigger powers
+  'afterimage',
+  'serpentForm',
+  'speedster',
+  'toolsOfTheTrade',
+  'wellLaidPlans',
+  'tracking',
   'stratagem',
+  // #264 Silent temporary and next-turn powers
+  'dexterityThisTurn',
+  'retainBlock',
+  'doubleBlock',
+  'burst',
+  'freeNextSkill',
+  'doubleAttackNextTurn',
+  'dexterityLossPerTurn',
 ];
 
 /** #116 Hello World: a random Common card from the player's character. */
@@ -397,6 +418,8 @@ class Combat {
   private mantleCopies = 0;
   /** #110: true while scheduled effects run: Block they gain is not changed by Dexterity or Frail. */
   private unpowered = false;
+  /** #264 Shadow Step: the player turn it was last played on (its double damage is for the turn after). */
+  private shadowStepTurn = 0;
   /** #116: uid for the next created card (the deck uses 0..n-1). */
   private nextUid: number;
   /** #116: pools already computed, keyed by pool + upgraded. */
@@ -405,7 +428,7 @@ class Combat {
   private returning: { uid: number; to: CardDestination }[] = [];
   /** #116: cost a card had before it became free this turn (restored at the end of the turn). */
   private readonly freeBackup = new Map<number, number | null>();
-  /** #205: HP at the start of combat (config.startHp, or Max HP); `hpLost` is measured against it. */
+  /** #205: HP at the start of combat (config.startHp, or the character's start HP at that Ascension, #286); `hpLost` is measured against it. */
   private readonly startHp: number;
   /** #205: relics in play, in pick order. */
   private readonly relics: ActiveRelic[];
@@ -428,6 +451,8 @@ class Combat {
   private panacheCount = 0;
   /** #113: cards drawn while Automation was on (kept across turns). */
   private automationCount = 0;
+  /** #265: cards drawn since the last `draw`/`drawUntil` effect began (Escape Plan's drewMatching). */
+  private lastDrawn: CardInstance[] = [];
   /** #113 Unmovable: the turn's first Block gain from a card has been doubled. */
   private unmovableUsed = false;
   /** #113 Rupture, Inferno: true from the start of the player's turn to the start of the enemy's. */
@@ -453,7 +478,7 @@ class Combat {
     this.log = logging ? [] : null;
     this.nextUid = deck.length;
     this.relics = activeRelics(data, config);
-    const startHp = config.startHp ?? character.maxHp;
+    const startHp = config.startHp ?? defaultStartHp(character, config.ascension);
     if (!Number.isInteger(startHp) || startHp < 1 || startHp > character.maxHp) {
       throw new Error(`startHp ${startHp} must be an integer from 1 to Max HP ${character.maxHp}`);
     }
@@ -467,7 +492,8 @@ class Combat {
       const { pattern } = enemyDef;
       const startIndex =
         pattern.type === 'cycle' && pattern.start === 'random' ? this.rng.int(0, pattern.order.length - 1) : 0;
-      const firstMove = pattern.opener?.[0] ?? this.poolMove(i, startIndex, null);
+      const firstMove =
+        (pattern.type === 'alternate' ? undefined : pattern.opener?.[0]) ?? this.poolMove(i, startIndex, null);
       return {
         enemyId: enemyDef.id,
         name: enemyDef.name,
@@ -615,9 +641,10 @@ class Combat {
   }
 
   /**
-   * #283 Omnislice: every other living enemy takes the damage the attack just dealt to its target
-   * (the per-hit damage after Strength, Weak and Vulnerable, before Block). Like `dealDamage`, the splash
-   * ignores modifiers and the other enemy's Block absorbs it. Does nothing in a single-enemy fight.
+   * #283 Omnislice: every other living enemy takes the damage the attack just dealt to its target: the
+   * primary hit's final damage (Strength, Weak, Vulnerable, Tracking, doubling), counting what Block
+   * absorbed (Trent). The splash is fixed damage, not Attack damage: no modifiers; Block on the others absorbs it.
+   * Does nothing in a single-enemy fight.
    */
   private omnisliceSplash(): Side | null {
     const amount = this.lastAttackDamage;
@@ -687,9 +714,14 @@ class Combat {
     counters.cardsPlayedThisTurn = 0;
     counters.attacksPlayedThisTurn = 0;
     counters.skillsPlayedThisTurn = 0;
+    counters.cardsDiscardedThisTurn = 0;
+    this.lastDrawn = [];
     this.panacheCount = 0;
     this.unmovableUsed = false;
-    if (!this.power('barricade')) {
+    if (this.power('retainBlock') > 0) {
+      // #264 Blur: this turn's Block is not removed, and the power is used up.
+      this.applyPower('retainBlock', -this.power('retainBlock'));
+    } else if (!this.power('barricade')) {
       player.block = 0;
       log?.push({ t: 'blockReset', side: 'player' });
     }
@@ -714,6 +746,57 @@ class Combat {
   }
 
   /**
+   * #266 Tools of the Trade: discard `count` cards from the hand (all of it when smaller), picked by
+   * Strategy.choose (the shared discard order when it has none; see chooseDiscard).
+   */
+  private discardFromHand(count: number, sourcePower: PowerId): void {
+    const { player, log } = this;
+    const n = Math.min(count, player.hand.length);
+    if (n <= 0) return;
+    const options = [...player.hand];
+    const request: ChoiceRequest = {
+      purpose: 'move',
+      sourcePower,
+      from: 'hand',
+      to: 'discard',
+      options,
+      min: n,
+      max: n,
+    };
+    for (const c of options.length === n ? options : this.choose(request, options)) {
+      player.hand.splice(player.hand.indexOf(c), 1);
+      player.discardPile.push(c);
+      log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: 'hand', to: 'discard' });
+      this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
+    }
+  }
+
+  /**
+   * #266 Well-Laid Plans: the cards kept in hand at the end of the turn, up to the power's amount, picked by
+   * Strategy.choose. Cards that are kept anyway (Retain) or leave (Ethereal) are not offered.
+   */
+  private wellLaidPlansRetained(): Set<CardInstance> {
+    const { player } = this;
+    const max = this.power('wellLaidPlans');
+    const ghostSeed = scriptMods(this.relics, 'ghostSeed').length > 0;
+    const options = player.hand.filter(
+      (c) =>
+        !c.keywords.includes('ethereal') && !c.keywords.includes('retain') && !(ghostSeed && isBasicStrikeOrDefend(c)),
+    );
+    if (max <= 0 || options.length === 0) return new Set();
+    const request: ChoiceRequest = {
+      purpose: 'move',
+      sourcePower: 'wellLaidPlans',
+      from: 'hand',
+      to: 'hand',
+      options,
+      min: 0,
+      max: Math.min(max, options.length),
+    };
+    return new Set(this.choose(request, options));
+  }
+
+  /**
    * #110: run the scheduled effects due on this turn at `at`, in the order they were scheduled.
    * Block they gain is not changed by Dexterity or Frail. Returns the outcome if one ended combat.
    */
@@ -734,7 +817,13 @@ class Combat {
 
   /** #110: what a card costs right now (Enlightenment, Stomp, Unrelenting); null if unplayable. */
   private costOf(card: CardInstance): number | null {
-    return cardCost(card, this.counters.attacksPlayedThisTurn, this.power('freeAttack') > 0);
+    return cardCost(
+      card,
+      this.counters.attacksPlayedThisTurn,
+      this.power('freeAttack') > 0,
+      this.counters.skillsPlayedThisTurn,
+      this.power('freeNextSkill') > 0,
+    );
   }
 
   /** #109: the current amount of a player power (0 when off). */
@@ -771,6 +860,10 @@ class Combat {
         case 'vigorPerTurn':
           this.applyPower('vigor', amount);
           break;
+        case 'dexterityLossPerTurn':
+          // #264 Wraith Form: Dexterity may go below 0.
+          this.applyPower('dexterity', -amount);
+          break;
         case 'crimsonMantle':
           if (this.loseHp(CRIMSON_MANTLE_HP_LOSS * this.mantleCopies)) return 'loss';
           this.gainPowerBlock(amount);
@@ -803,6 +896,12 @@ class Combat {
           if (player.hp <= 0) return 'loss';
           break;
         }
+        case 'toolsOfTheTrade':
+          this.drawCards(amount);
+          if (player.hp <= 0) return 'loss';
+          if (this.won()) return 'win';
+          this.discardFromHand(amount, 'toolsOfTheTrade');
+          break;
         case 'helloWorld':
           this.addCards({
             type: 'addCards',
@@ -866,11 +965,16 @@ class Combat {
    * #109: damage to the enemy from a power (Rolling Boulder, Thorns): not an Attack, so Strength,
    * Weak, Vigor, Vulnerable and Cruelty don't change it; the enemy's Block absorbs it.
    * #5: 'target' = the current enemy (skipped if dead); 'all' = every living enemy (Rolling Boulder,
-   * Panache, Inferno, The Bomb); 'any' = the current enemy, or the leftmost living one if it is dead
-   * (Juggernaut's random enemy, #45). Returns true if every enemy is dead.
+   * Panache, Inferno, The Bomb); 'any' = a random living enemy (Juggernaut, #45; the current one when only it lives). Returns true if every enemy is dead.
    */
   private powerDamage(amount: number, to: 'target' | 'all' | 'any' = 'target'): boolean {
-    if (to === 'any') this.retarget();
+    // #45 Juggernaut: a random living enemy (one Rng draw, only while 2+ live); focus returns after.
+    const keep = this.focus;
+    if (to === 'any') {
+      const alive = this.living();
+      if (alive.length > 1) this.focusOn(alive[this.rng.int(0, alive.length - 1)]!);
+      else this.retarget();
+    }
     const died = this.onEnemies(to === 'all', () => {
       const { enemy } = this;
       const blocked = Math.min(enemy.block, amount);
@@ -879,6 +983,7 @@ class Combat {
       enemy.hp -= hpLoss;
       this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
     });
+    if (to === 'any') this.focusOn(keep);
     return died === 'enemy' || this.won();
   }
 
@@ -896,7 +1001,9 @@ class Combat {
     const double = raw > 0 && this.power('unmovable') > 0 && !this.unmovableUsed;
     if (double) this.unmovableUsed = true;
     const frail = this.player.debuffs.frail > 0 ? 0.75 : 1;
-    return Math.max(0, Math.floor(raw * frail * (double ? 2 : 1)));
+    // #264 Shadowmeld: all Block from cards is doubled this turn (one doubling, however many are played).
+    const shadowmeld = this.power('doubleBlock') > 0 ? 2 : 1;
+    return Math.max(0, Math.floor(raw * frail * (double ? 2 : 1) * shadowmeld));
   }
 
   /**
@@ -951,9 +1058,12 @@ class Combat {
       // #110 Unrelenting: the next Attack played costs 0 (an X-cost Attack still gets X = all the energy, free).
       const free = card.type === 'attack' && this.power('freeAttack') > 0;
       if (free) this.applyPower('freeAttack', -1);
+      // #264 Pounce: the next Skill played costs 0 (an X-cost Skill still gets X = all the energy, free).
+      const freeSkill = !free && card.type === 'skill' && this.power('freeNextSkill') > 0;
+      if (freeSkill) this.applyPower('freeNextSkill', -1);
       // X-cost: X is all the energy available, and the card spends all of it.
       const x = card.xCost ? player.energy : 0;
-      player.energy -= free ? 0 : card.xCost ? x : (cost as number);
+      player.energy -= free || freeSkill ? 0 : card.xCost ? x : (cost as number);
       this.retarget(decision.target);
       const died = this.playCard(card, x);
       if (died === 'player' || player.hp <= 0) return 'loss';
@@ -1009,6 +1119,9 @@ class Combat {
     if (card.type === 'skill') counters.skillsPlayedThisTurn++;
     // #113 Panache counts only cards played after it was on (not the Panache card itself).
     const panacheOn = this.power('panache') > 0;
+    // #266 Afterimage and Serpent Form react to cards played after they were on (not their own card).
+    const afterimage = this.power('afterimage');
+    const serpentForm = this.power('serpentForm');
     // #109 Vigor: an Attack adds all of it to every hit, then it is used up.
     const vigor = card.type === 'attack' ? this.power('vigor') : 0;
     this.activeVigor = vigor;
@@ -1019,6 +1132,9 @@ class Combat {
     const nostalgia = firstAttackOrSkill && this.power('nostalgia') > 0;
     const again = card.type === 'attack' && this.power('doubleAttack') > 0;
     if (again) this.applyPower('doubleAttack', -1);
+    // #264 Burst: the next Skill(s) played this turn are played an extra time (read before this card's own effects).
+    const burst = card.type === 'skill' && this.power('burst') > 0;
+    if (burst) this.applyPower('burst', -1);
     if (toDrawTop) this.applyPower('nextCardToDrawTop', -1);
     // Rage: Block from the power, not the card (no Dexterity or Frail).
     if (card.type === 'attack' && this.power('rage') > 0) this.gainPowerBlock(this.power('rage'));
@@ -1037,7 +1153,7 @@ class Combat {
     this.activeVigor = 0;
     if (vigor > 0) this.applyPower('vigor', -vigor);
     // #110 One-Two Punch: the Attack is played one more time, like a Replay (never uses Replay up).
-    const replays = (card.replay ?? 0) + (again ? 1 : 0);
+    const replays = (card.replay ?? 0) + (again ? 1 : 0) + (burst ? 1 : 0);
     for (let left = replays - 1; left >= 0 && !died && player.hp > 0 && !this.won(); left--) {
       this.retarget();
       log?.push({ t: 'replay', uid: card.uid, cardId: card.cardId, left });
@@ -1061,9 +1177,20 @@ class Combat {
     } else {
       player.discardPile.push(card);
     }
+    if (!died && !this.won() && (afterimage > 0 || serpentForm > 0)) died = this.playTriggers(afterimage, serpentForm);
     if (!died && !this.won()) died = this.afterPlay(card, panacheOn);
     if (!died && !this.won() && player.hp > 0) died = this.relicCardPlayed(card);
     return died ?? (this.won() ? 'enemy' : null);
+  }
+
+  /**
+   * #266 Afterimage: Block from the power (no Dexterity or Frail). Serpent Form: damage from the power to a
+   * random living enemy (#45; one Rng draw only while 2+ live). Once per play, a Replay does not repeat them.
+   */
+  private playTriggers(afterimage: number, serpentForm: number): Side | null {
+    if (afterimage > 0) this.gainPowerBlock(afterimage);
+    if (serpentForm > 0 && this.powerDamage(serpentForm, 'any')) return 'enemy';
+    return this.won() ? 'enemy' : null;
   }
 
   /**
@@ -1171,6 +1298,8 @@ class Combat {
     const retainHand = this.power('retainHand') > 0 || modifiersOf(this.relics, 'keepHand').length > 0;
     const ghostSeed = scriptMods(this.relics, 'ghostSeed').length > 0;
     const retained: CardInstance[] = [];
+    // #266 Well-Laid Plans: chosen before anything leaves the hand.
+    const planned = retainHand ? new Set<CardInstance>() : this.wellLaidPlansRetained();
     // #113: cards drawn while exhausting (Dark Embrace) join the new hand and stay in it.
     const handNow = player.hand;
     player.hand = retained;
@@ -1178,7 +1307,7 @@ class Combat {
       if (card.keywords.includes('ethereal') || (ghostSeed && isBasicStrikeOrDefend(card))) {
         const died = this.exhaustCard(card, 'ethereal');
         if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
-      } else if (card.keywords.includes('retain') || retainHand) {
+      } else if (card.keywords.includes('retain') || retainHand || planned.has(card)) {
         retained.push(card);
       } else {
         player.discardPile.push(card);
@@ -1217,8 +1346,20 @@ class Combat {
       'doubleAttack',
       'nextCardToDrawTop',
       'retainHand',
+      'doubleBlock',
+      'burst',
     ] as const) {
       if (this.power(id) > 0) this.applyPower(id, -this.power(id));
+    }
+    // #264 Anticipate: the Dexterity gained this turn is taken back.
+    const dexTemp = this.power('dexterityThisTurn');
+    if (dexTemp > 0) {
+      this.applyPower('dexterity', -dexTemp);
+      this.applyPower('dexterityThisTurn', -dexTemp);
+    }
+    // #264 Shadow Step: played this turn it waits for the next one; from an earlier turn it ends now.
+    if (this.power('doubleAttackNextTurn') > 0 && this.shadowStepTurn < this.state.turn) {
+      this.applyPower('doubleAttackNextTurn', -this.power('doubleAttackNextTurn'));
     }
     for (const pile of [player.hand, player.drawPile, player.discardPile, player.exhaustPile]) {
       for (const c of pile) delete c.costThisTurn;
@@ -1327,6 +1468,26 @@ class Combat {
   private poolMove(i: number, patternIndex: number, last: string | null): string {
     const { pattern } = this.enemyDefs[i]!;
     const usedOnce = this.usedOnce[i]!;
+    if (pattern.type === 'alternate') {
+      // #287: the opener (by slot, else startWith), then the fixed move and a weighted pick take turns.
+      const randomPick = () => {
+        const total = pattern.random.reduce((sum, r) => sum + r.weight, 0);
+        let roll = this.rng.int(0, total - 1);
+        for (const r of pattern.random) {
+          if (roll < r.weight) return r.move;
+          roll -= r.weight;
+        }
+        return pattern.random[pattern.random.length - 1]!.move;
+      };
+      if (last === null) {
+        const n = this.enemyDefs.length;
+        const slot = i === 0 || i === n - 1 ? 'outer' : 'middle';
+        const opener = pattern.openerBySlot?.[slot];
+        if (opener) return opener;
+        return pattern.startWith === 'random' ? randomPick() : pattern.fixed;
+      }
+      return last === pattern.fixed ? randomPick() : pattern.fixed;
+    }
     if (pattern.type === 'cycle') return pattern.order[patternIndex] as string;
     // #226: a once-per-fight move that was already made is out of the pool for good.
     const fresh = pattern.moves.filter((id) => !usedOnce.has(id));
@@ -1340,6 +1501,12 @@ class Combat {
   private advancePattern(lastMoveId: string): void {
     const { enemy } = this;
     const { pattern } = this.enemyDef;
+    if (pattern.type === 'alternate') {
+      enemy.movesMade = (enemy.movesMade ?? 0) + 1;
+      if (this.enemyDef.moves[lastMoveId]?.oncePerFight) this.usedOnce[this.focus]!.add(lastMoveId);
+      enemy.nextMoveId = this.poolMove(this.focus, enemy.patternIndex, lastMoveId);
+      return;
+    }
     const openerLength = pattern.opener?.length ?? 0;
     const made = (enemy.movesMade ?? 0) + 1;
     enemy.movesMade = made;
@@ -1384,6 +1551,7 @@ class Combat {
             e.damage + (card?.damageBonus ?? 0) + this.relicCardDamage(card),
             attackHits(e, x),
             e.allEnemies,
+            e.randomTarget,
           );
           break;
         case 'gainBlock': {
@@ -1451,11 +1619,13 @@ class Combat {
           break;
         case 'draw':
           if (source !== 'player') throw new Error('Enemies do not draw cards');
+          this.lastDrawn = [];
           this.drawCards(e.amount);
           break;
         case 'drawUntil':
           if (source !== 'player') throw new Error('Enemies do not draw cards');
-          this.drawUntil(e.stopOn);
+          this.lastDrawn = [];
+          this.drawUntil(e.stopOn, e.handSize);
           break;
         case 'applyPower':
           if (source !== 'player' || !SIMULATED_POWER_IDS.includes(e.power)) {
@@ -1466,6 +1636,9 @@ class Combat {
             player.strength += e.amount;
             log?.push({ t: 'strength', side: 'player', amount: e.amount, total: player.strength });
           }
+          // #264: Dexterity "this turn" is real Dexterity now, taken back at the end of the turn.
+          if (e.power === 'dexterityThisTurn') this.applyPower('dexterity', e.amount);
+          if (e.power === 'doubleAttackNextTurn') this.shadowStepTurn = this.state.turn;
           this.applyPower(e.power, e.amount);
           break;
         case 'applyEnemyPower':
@@ -1522,7 +1695,7 @@ class Combat {
           if (source !== 'player' || !SIMULATED_COUNTERS.includes(e.per)) {
             throw new Error(`Effect "repeat" is not simulated yet (counter "${e.per}")`);
           }
-          const n = this.counter(e.per, lastCount) * (e.times ?? 1);
+          const n = this.counter(e.per, lastCount, card) * (e.times ?? 1);
           for (let i = 0; i < n && !died; i++) died = this.resolveEffects(source, e.effects, x, card);
           break;
         }
@@ -1530,8 +1703,8 @@ class Combat {
           // #111: per hit damage + amount × counter; hits + extra × counter; both read before the attack.
           if (source !== 'player') throw new Error('Effect "attackFrom" is not simulated yet on enemy moves');
           this.checkCounters(e.bonusPer, e.extraHitsPer);
-          const per = e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount);
-          const hits = e.hits + this.perCounter(e.extraHitsPer, lastCount);
+          const per = e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount, card);
+          const hits = e.hits + this.perCounter(e.extraHitsPer, lastCount, card);
           died = this.attack(source, other, per, Math.max(0, hits), e.allEnemies);
           break;
         }
@@ -1541,7 +1714,7 @@ class Combat {
           // Dexterity and Frail don't change it.
           if (source !== 'player') throw new Error('Effect "gainBlockFrom" is not simulated yet on enemy moves');
           this.checkCounters(e.bonusPer);
-          const raw = e.amount + this.perCounter(e.bonusPer, lastCount);
+          const raw = e.amount + this.perCounter(e.bonusPer, lastCount, card);
           const amt = e.bonusPer.per === 'playerBlock' ? Math.max(0, raw) : card ? this.cardBlock(raw, card) : 0;
           self.block += amt;
           log?.push({ t: 'block', side: source, amount: amt, total: self.block });
@@ -1626,6 +1799,7 @@ class Combat {
           else if (source === 'player' && e.id === 'expectAFight') this.expectAFight();
           else if (source === 'player' && e.id === 'upMySleeve') this.upMySleeve(card);
           else if (source === 'player' && e.id === 'omnisliceSplash') died = this.omnisliceSplash();
+          else if (source === 'player' && e.id === 'scheduledBlock') this.scheduledBlock(e.values?.[0] ?? 0);
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
@@ -1757,7 +1931,14 @@ class Combat {
   private choose(request: ChoiceRequest, options: readonly CardInstance[]): CardInstance[] {
     const view = this.view();
     const byPriority = request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade';
-    const fallback = () => (byPriority ? chooseGenerated(request) : chooseExhaust(view, request));
+    const fallback = () =>
+      request.sourcePower === 'wellLaidPlans'
+        ? chooseRetained(request, view.state.player.drawPile)
+        : request.to === 'discard' && request.from === 'hand'
+          ? chooseDiscard(view, request)
+          : byPriority
+            ? chooseGenerated(request)
+            : chooseExhaust(view, request);
     const { uids } = this.strategy.choose ? this.strategy.choose(view, request) : fallback();
     const picked = uids.map((uid) => options.find((c) => c.uid === uid));
     if (
@@ -1774,16 +1955,21 @@ class Combat {
   }
 
   /** #111: the value of a counter right now (`lastCount` = cards moved by the previous effect). */
-  private counter(counter: Counter, lastCount = 0): number {
-    return counterValue(counter, this.state, this.counterContext(lastCount));
+  private counter(counter: Counter, lastCount = 0, card?: CardInstance): number {
+    return counterValue(counter, this.state, this.counterContext(lastCount, card));
   }
 
-  private counterContext(lastCount: number): CounterContext {
-    return { lastEffectCount: lastCount, lastAttackDamage: this.lastAttackDamage };
+  private counterContext(lastCount: number, card?: CardInstance): CounterContext {
+    return {
+      lastEffectCount: lastCount,
+      lastAttackDamage: this.lastAttackDamage,
+      playingAttack: card?.type === 'attack',
+      drawnByLastDraw: this.lastDrawn,
+    };
   }
 
-  private perCounter(per: PerCounter | undefined, lastCount: number): number {
-    return perCounterValue(per, this.state, this.counterContext(lastCount));
+  private perCounter(per: PerCounter | undefined, lastCount: number, card?: CardInstance): number {
+    return perCounterValue(per, this.state, this.counterContext(lastCount, card));
   }
 
   /** #111: counters the engine tracks; the cards-played tallies wait for #113. */
@@ -1803,7 +1989,7 @@ class Combat {
 
   /** #111: whether a condition holds for the card being played (the card itself is not in hand). */
   private holds(cond: Condition, card: CardInstance | undefined, lastCount = 0): boolean {
-    return conditionHolds(cond, this.state, matchesFilter, card?.uid, this.counterContext(lastCount));
+    return conditionHolds(cond, this.state, matchesFilter, card?.uid, this.counterContext(lastCount, card));
   }
 
   /** #111: a card with `playableIf` (Clash) can be played only while it holds. */
@@ -1939,6 +2125,9 @@ class Combat {
       if (i < 0) continue;
       pile.splice(i, 1);
       const to = this.placeCard(c, e.to);
+      // #265 Memento Mori: a card moved from the hand to the discard pile is discarded.
+      if (e.from === 'hand' && to === 'discard')
+        this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
       this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: e.from, to });
       count++;
     }
@@ -2046,13 +2235,30 @@ class Combat {
       for (const c of pile) {
         if (c.cost === null || c.xCost) continue;
         if (e.filter && !matchesFilter(c, e.filter)) continue;
-        const current = cardCost(c, this.counters.attacksPlayedThisTurn, false) as number;
+        const current = cardCost(
+          c,
+          this.counters.attacksPlayedThisTurn,
+          false,
+          this.counters.skillsPlayedThisTurn,
+        ) as number;
         if (e.onlyIfHigher && current <= e.cost) continue;
         if (e.duration === 'turn') c.costThisTurn = e.cost;
         else c.costThisCombat = e.cost;
         this.log?.push({ t: 'costChanged', uid: c.uid, cardId: c.cardId, cost: e.cost, duration: e.duration });
       }
     }
+  }
+
+  /**
+   * #264 Dodge and Roll (Trent): the Block that arrives next turn gets Dexterity and Frail like Block
+   * from a card (the other scheduled Block, Toric Toughness and Prolong, does not).
+   */
+  private scheduledBlock(amount: number): void {
+    const { player } = this;
+    const gained = blockGain(amount + this.power('dexterity') + this.beltBuckle(), player.debuffs.frail);
+    player.block += gained;
+    this.log?.push({ t: 'block', side: 'player', amount: gained, total: player.block });
+    this.blockGained(gained);
   }
 
   /** #110 Prolong: next turn, gain Block equal to the Block you have right now. */
@@ -2547,7 +2753,8 @@ class Combat {
   private applyPower(power: PowerId, amount: number): void {
     const powers = (this.player.powers ??= {});
     const total = (powers[power] ?? 0) + amount;
-    if (total <= 0) {
+    // #264 Wraith Form: Dexterity may go below 0 (only 0 removes it).
+    if (total === 0 || (total < 0 && power !== 'dexterity')) {
       delete powers[power];
       this.log?.push({ t: 'powerRemoved', side: 'player', power });
       return;
@@ -2593,9 +2800,11 @@ class Combat {
    * matching `stopOn` (Pillage), when nothing is left to draw, or when drawing is blocked.
    * It never draws into a full hand, so it never discards for the hand limit.
    */
-  private drawUntil(stopOn: CardFilter | undefined): void {
+  private drawUntil(stopOn: CardFilter | undefined, handSize?: number): void {
+    const target = Math.min(handSize ?? HAND_LIMIT, HAND_LIMIT);
     for (let i = 0; i < MAX_DRAW_UNTIL; i++) {
-      if (this.drawBlocked() || this.player.hand.length >= HAND_LIMIT || this.won()) return;
+      // #265 Expertise: stop once the hand holds `handSize` cards (a bigger hand draws nothing).
+      if (this.drawBlocked() || this.player.hand.length >= target || this.won()) return;
       const card = this.drawOne();
       if (!card) return;
       if (stopOn && matchesFilter(card, stopOn)) return;
@@ -2607,8 +2816,8 @@ class Combat {
    * Vigor to the base (#109) and Cruelty to Vulnerable (playerAttack). After each enemy hit on the
    * player (blocked or not) Thorns deals its damage back (#109). Returns the side that died, if one did.
    */
-  private attack(source: Side, _target: Side, damage: number, hits: number, all = false): Side | null {
-    if (source === 'player') return this.playerAttack(damage, hits, all);
+  private attack(source: Side, _target: Side, damage: number, hits: number, all = false, random = false): Side | null {
+    if (source === 'player') return this.playerAttack(damage, hits, all, random);
     // An enemy's attack: the current enemy hits the player.
     const { player, enemy } = this;
     // #110: the enemy's Strength is lowered through its turn by Mangle / Dark Shackles (0 damage at worst),
@@ -2642,19 +2851,27 @@ class Combat {
    * The player's attack (see `attack`). #5: a single-target attack hits the current enemy and stops
    * when it dies (the remaining hits are lost); with `all`, each hit lands on every living enemy,
    * left to right, before the next hit. Vulnerable is read per enemy. Returns 'enemy' when every
-   * enemy is dead.
+   * enemy is dead. #45 `random`: each hit lands on a random living enemy (one Rng draw per hit, only
+   * while 2+ enemies live, so single-enemy fights draw nothing); hits keep going after a kill.
    */
-  private playerAttack(damage: number, hits: number, all: boolean): Side | null {
+  private playerAttack(damage: number, hits: number, all: boolean, random = false): Side | null {
     const { player } = this;
     this.clearDeadShrink();
     const base = damage + this.activeVigor;
     const cruelty = this.power('cruelty');
+    const tracking = this.power('tracking') > 0;
     const shrink = player.shrink ?? 0;
+    // #264 Shadow Step: Attacks deal double damage on the turn after it was played.
+    const double = this.power('doubleAttackNextTurn') > 0 && this.state.turn > this.shadowStepTurn ? 2 : 1;
     this.lastAttackDamage = 0;
     const multi = all && this.enemies.length > 1;
     const keep = this.focus;
     for (let h = 0; h < hits; h++) {
-      const targets = multi ? this.living() : this.enemy.hp > 0 ? [this.focus] : [];
+      let targets = multi ? this.living() : this.enemy.hp > 0 ? [this.focus] : [];
+      if (random && this.enemies.length > 1) {
+        const alive = this.living();
+        targets = alive.length > 1 ? [alive[this.rng.int(0, alive.length - 1)]!] : alive;
+      }
       if (targets.length === 0) break;
       for (const i of targets) {
         this.focusOn(i);
@@ -2667,6 +2884,8 @@ class Combat {
           cruelty,
           shrink,
           0,
+          tracking && t.debuffs.weak > 0,
+          double,
         );
         const blocked = Math.min(t.block, perHit);
         t.block -= blocked;
@@ -2678,7 +2897,7 @@ class Combat {
         if (this.won()) return 'enemy';
       }
     }
-    if (multi) this.focusOn(keep);
+    if (multi || (random && this.enemies.length > 1)) this.focusOn(keep);
     return null;
   }
 
@@ -2758,6 +2977,10 @@ class Combat {
     log?.push({ t: 'draw', uid: card.uid, cardId: card.cardId });
     this.counters.cardsDrawnThisTurn++;
     this.counters.cardsDrawnThisCombat++;
+    this.lastDrawn.push(card);
+    // #266 Speedster: a card drawn during the player's turn hurts every enemy (power damage, Block absorbs it).
+    const speedster = this.playerTurn ? this.power('speedster') : 0;
+    if (speedster > 0) this.powerDamage(speedster, 'all');
     // #113 Automation: every 10th card drawn while it is on gains energy.
     const automation = this.power('automation');
     if (automation > 0 && ++this.automationCount % AUTOMATION_CARDS === 0) {

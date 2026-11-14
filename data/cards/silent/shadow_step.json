@@ -9,13 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "moveCards",
+      "from": "hand",
+      "to": "discard",
+      "mode": "all"
+    },
+    {
+      "type": "applyPower",
+      "power": "doubleAttackNextTurn",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Discard your Hand. / Next turn, Attacks deal double damage.",
   "upgradedDescription": "Discard your Hand. / Next turn, Attacks deal double damage.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

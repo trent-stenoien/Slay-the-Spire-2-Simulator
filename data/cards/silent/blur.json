@@ -13,6 +13,11 @@
     {
       "type": "gainBlock",
       "amount": 5
+    },
+    {
+      "type": "applyPower",
+      "power": "retainBlock",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -20,12 +25,17 @@
       {
         "type": "gainBlock",
         "amount": 8
+      },
+      {
+        "type": "applyPower",
+        "power": "retainBlock",
+        "amount": 1
       }
     ]
   },
   "description": "Gain 5 Block. / Block is not removed at the start of your next turn.",
   "upgradedDescription": "Gain 8 Block. / Block is not removed at the start of your next turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

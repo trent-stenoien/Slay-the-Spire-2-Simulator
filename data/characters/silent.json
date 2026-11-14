@@ -11,6 +11,7 @@
     { "cardId": "neutralize", "upgraded": false, "count": 1 },
     { "cardId": "survivor", "upgraded": false, "count": 1 }
   ],
+  "ascension": { "2": { "startHp": 56 } },
   "startingRelic": "Ring of the Snake",
   "lastUpdateVersion": "v0.107.1"
 }

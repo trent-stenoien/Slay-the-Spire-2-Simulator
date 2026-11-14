@@ -1,22 +1,43 @@
-import type { Effect, EnemyDef, EnemyMove, MovePattern } from './types';
+import type { CharacterDef, Effect, EnemyDef, EnemyMove, MovePattern } from './types';
 
 function cloneEffects(effects: readonly Effect[]): Effect[] {
   return effects.map((e) => ({ ...e }));
 }
 
 function clonePattern(p: MovePattern): MovePattern {
+  if (p.type === 'alternate')
+    return { ...p, random: p.random.map((r) => ({ ...r })), openerBySlot: p.openerBySlot && { ...p.openerBySlot } };
   const opener = p.opener ? { opener: [...p.opener] } : {};
   return p.type === 'cycle' ? { ...p, order: [...p.order], ...opener } : { ...p, moves: [...p.moves], ...opener };
 }
 
 /** #4: the moves a pattern repeats or picks from (cycle `order`, random `moves`), without the opener. */
 export function patternPool(p: MovePattern): readonly string[] {
+  if (p.type === 'alternate') return [p.fixed, ...p.random.map((r) => r.move)];
   return p.type === 'cycle' ? p.order : p.moves;
 }
 
 /** #4: every move id a pattern names: opener first, then the pool. */
 export function patternMoveIds(p: MovePattern): string[] {
-  return [...(p.opener ?? []), ...patternPool(p)];
+  const opener = p.type === 'alternate' ? Object.values(p.openerBySlot ?? {}) : (p.opener ?? []);
+  return [...opener, ...patternPool(p)];
+}
+
+/**
+ * #286: the HP a combat starts at when `startHp` is not given. Applies the character's Ascension
+ * overrides cumulatively (levels at or below `ascension`, ascending); Max HP is not changed.
+ */
+export function defaultStartHp(character: CharacterDef, ascension: number): number {
+  let hp = character.maxHp;
+  const levels = Object.keys(character.ascension ?? {})
+    .map(Number)
+    .filter((l) => l <= ascension)
+    .sort((a, b) => a - b);
+  for (const l of levels) {
+    const o = character.ascension![String(l)]!.startHp;
+    if (o !== undefined) hp = o;
+  }
+  return hp;
 }
 
 /**

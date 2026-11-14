@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 14,
       "hits": 1
+    },
+    {
+      "type": "applyPower",
+      "power": "freeNextSkill",
+      "amount": 1
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 20,
         "hits": 1
+      },
+      {
+        "type": "applyPower",
+        "power": "freeNextSkill",
+        "amount": 1
       }
     ]
   },
   "description": "Deal 14 damage. / The next Skill you play costs 0 [E].",
   "upgradedDescription": "Deal 20 damage. / The next Skill you play costs 0 [E].",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -29,6 +29,7 @@ Round 1, test reviewer. Break edits were never committed.
 | 4a | Heals count in full past damage / Max HP (overheal) | engine/combat.statuses.test.ts > #115 heal and hpLost > #205 Not Yet heals in full for HP lost, past the damage taken; a heal at full HP still counts in full | caught (overheal dropped) |
 | 4b | hpLost = start - final - overheal; Trent's examples (-3, -6) | engine/combat.relics.test.ts > #205 HP lost with heals and startHp > Trent's example 70/80 ... → −3; a fight with no damage and Burning Blood is −6 | caught (overheal ignored) |
 | 4c | startHp starts a combat lower | engine/combat.relics.test.ts > startHp sets the HP the combat starts at; HP lost is counted from it | covered by 4b break (same formula) |
+| 4c2 | A2+ default start HP per character (Ironclad 64, Silent 56), Max HP unchanged, explicit startHp wins (#286) | engine/combat.relics.test.ts > #286 Ascension 2+ starts at the character's lower HP; app/lib/startHp.test.ts | caught (default ignores ascension) |
 | 4d | Feed's Max HP gain raises current HP (Feed at full HP -> -3) | engine/combat.statuses.test.ts > #115 Max HP > #205 HP lost can go below 0 after Feed at full HP (80/80 → 83/83 = −3) | caught (current HP not raised) |
 | 4e | Brightest Flame cap counts as lost (69/70 -> 68/68) | engine/combat.statuses.test.ts > Brightest Flame caps current HP and the HP removed counts as lost | caught (cap removed) |
 | 4f | Burning Blood heals only on a win | engine/combat.relics.test.ts > Burning Blood does not heal on a loss | caught (also heals on loss) |
@@ -82,6 +83,7 @@ Round 1, test reviewer. Break edits were never committed.
 | 9m | Artifact: one stack per application, negates Vulnerable/Weak/Frail/Poison/Stun | engine/combat.enemies203.test.ts > Artifact (#203) > uses one stack per debuff; negates Poison and Stun too; a large Poison application uses exactly one stack; negates the first debuff only (Cubex golden) | caught (whole stack used; Poison not negated; debuffs not negated) |
 | 9n | Strength per turn at end of enemy's own turn (0,1,2) | engine/combat.enemies203.test.ts > strengthPerTurn adds Strength at the END of the enemy turn, after its move (0, 1, 2 seen) | caught (+1 extra) |
 | 9o | Enemy move may add a named card to a pile (Dismember: 3 Wounds) | engine/combat.enemies203.test.ts > Mawler, Byrdonis, Cubex Construct, Vantom data (#203) > Vantom: boss, 173 HP ... Dismember 26 adds 3 Wounds to discard | caught (data count 3 -> 2) |
+| 9p | Alternate pattern (#287): fixed move and weighted random pick in turn; opener by slot (outer/middle) | engine/combat.patterns.test.ts > alternate pattern (#287) > alternates ...; openerBySlot: first and last enemies are outer ...; respects weights; data/data.test.ts > Inklet (#287); data/data.validate.test.ts > accepts the alternate pattern ... | caught (alternation order / slot opener swapped) |
 | 10a | "Take X damage" statuses are blockable | engine/combat.statuses.test.ts > #115 curse and status triggers > "take X damage" is blockable | caught |
 | 10b | "Lose X HP" ignores Block | engine/combat.statuses.test.ts > "lose X HP" ignores Block | caught |
 | 10c | Intangible: every hit 1, ends after enemy move | engine/combat.statuses.test.ts > #115 Intangible > every enemy hit becomes 1 for that turn, then ends after the enemy move | caught (cap 2) |
@@ -96,6 +98,14 @@ Round 1, test reviewer. Break edits were never committed.
 | 12d | Colossus stacks when replayed, ticks at end of enemy turn | engine/combat.temporary.test.ts > covers the following enemy turn only: one stack ends after it; playing it again in the same turn adds a stack that lasts one more enemy turn | caught |
 | 12e | Panic Button stops Block from cards | engine/combat.temporary.test.ts > #110 Panic Button > gains 30 Block, then no Block from cards for 2 turns | caught |
 | 12f | The Bomb fires at end of third turn | engine/combat.temporary.test.ts > #110 scheduled effects > The Bomb: 40 damage at the end of the third turn (the turn it is played counts as the first) | caught (scheduled turn off by one) |
+| 12g | Anticipate: Dexterity this turn only | engine/combat.silentTemp.test.ts > #264 Anticipate (Dexterity this turn) > adds Dexterity for the turn only | caught (never removed / not applied) |
+| 12h | Blur keeps Block at the next turn start only | engine/combat.silentTemp.test.ts > #264 Blur (Block kept for one turn) > keeps the Block at the next turn start only | caught |
+| 12i | Shadowmeld doubles card Block, with Dexterity and Frail floored once | engine/combat.silentTemp.test.ts > #264 Shadowmeld (double Block this turn) > multiplies with Dexterity and Frail, floored once: (5 + 2) × 0.75 × 2 = 10 | caught |
+| 12j | Burst replays the next Skill(s), ends with the turn | engine/combat.silentTemp.test.ts > #264 Burst (next Skills played an extra time) > Burst+ covers the next 2 Skills; an Attack in between does not use it | caught |
+| 12k | Pounce makes the next Skill cost 0 | engine/combat.silentTemp.test.ts > #264 Pounce (the next Skill costs 0) > the next Skill is free (energy is not spent), the one after pays | caught |
+| 12l | Shadow Step doubles Attacks next turn only | engine/combat.silentTemp.test.ts > #264 Shadow Step (discard hand, next turn Attacks deal double) > discards the hand; next turn Attacks deal double, the turn after they are normal | caught |
+| 12m | Wraith Form loses Dexterity each turn start, below 0 allowed | engine/combat.silentTemp.test.ts > #264 Wraith Form (Intangible, Dexterity lost each turn) > gains Intangible and loses 1 Dexterity at each turn start, going below 0 | caught |
+| 12n | Dodge and Roll next-turn Block gets Dexterity and Frail | engine/combat.silentTemp.test.ts > #264 Dodge and Roll (Block now and next turn) > next turn Block gets Frail: 4 × 0.75 = 3 | caught |
 | 13a | "Strike" = any name with Strike, upgraded included | engine/combat.conditional.test.ts > #111 name and debuff rules > "Strike" anywhere in the name counts, case-sensitive, upgraded "+" included | caught (startsWith) |
 | 13b | Strike count across Draw, Hand, Discard, Exhaust | engine/combat.conditional.test.ts > countStrikes counts all four piles; #111 Perfected Strike > Strikes created mid-combat count | caught (Exhaust pile dropped) |
 | 13c | Rampage growth stays with its copy | engine/combat.conditional.test.ts > #111 Rampage and Maul > Rampage +5 each play, and the growth stays with that copy across reshuffles | caught (growth no longer per copy) |
@@ -119,7 +129,8 @@ Round 1, test reviewer. Break edits were never committed.
 | 18a-2 | Cloak and Dagger: 6 Block + 1 Shiv (2 upgraded); Leading Strike: 3 (6) damage + 2 Shivs | engine/combat.shivs.test.ts > #262 Cloak and Dagger; #262 Leading Strike | caught (Leading Strike Shiv count 2->1, checked by hand) |
 | 18a-3 | Storm of Steel: discards the hand (not itself), 1 Shiv per card (Shiv+ upgraded, 6 damage); empty hand adds none | engine/combat.shivs.test.ts > #262 Storm of Steel | caught (Shiv+ flag removed) |
 | 18a-4 | Up My Sleeve: 3 Shivs (4 upgraded); cost 2, then 1, then 0, never below 0 | engine/combat.shivs.test.ts > #262 Up My Sleeve | caught (reduction 1->0) |
-| 18a-5 | Strategies play Shivs; Up My Sleeve first, Storm of Steel last; Hidden Daggers and Blade of Ink unsimulated | engine/combat.shivs.test.ts > #262 strategies play Shivs; #262 Hidden Daggers stays unsimulated | caught (Blade Dance count 3->2 fails the strategy tests too) |
+| 18a-5 | Strategies play Shivs; Up My Sleeve first, Storm of Steel last; Hidden Daggers unsimulated | engine/combat.shivs.test.ts > #262 strategies play Shivs; #262 Hidden Daggers stays unsimulated | caught (Blade Dance count 3->2 fails the strategy tests too) |
+| 18a-6 | Blade of Ink: 2 Inky Shivs (3 upgraded); each Inky Shiv deals 4, applies 1 Weak, Exhausts; strategies play them | engine/combat.shivs.test.ts > #285 Blade of Ink; data/data.mechanics.test.ts > #285 Blade of Ink | not run |
 | 17a-1 | Ornamental Fan: every 3rd Attack per turn | engine/combat.relics.test.ts > #205 card-play relics > Ornamental Fan 4 Block on every 3rd Attack in one turn | caught (4th) |
 | 17a-2 | Happy Flower / Pollinous Core turns; setup start count | engine/combat.relics.test.ts > Happy Flower +1 energy on turns 3, 6…; carried counters start at the setup count | caught |
 | 17a-3 | Iron Club every 4th card per combat, starting count | engine/combat.relics.test.ts > Iron Club with 3 cards already counted draws on the first card played; draws 1 on every 4th card | caught (start count ignored) |
@@ -254,9 +265,17 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 40f | Combined intent and per-enemy intents in the strategy view | engine/combat.multiEnemy.test.ts > #5 intents (3 tests) | n/a |
 | 40g | enemyIds in setup and Monte Carlo runs; single-enemy logs unchanged | engine/combat.multiEnemy.test.ts > #5 multi-enemy setup; #5 Monte Carlo; `npm run compare-main` (identical) and engine/golden | n/a |
 | 41a | Lowest HP / Biggest incoming attack priorities, ties, dead skipped | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > lowest HP first...; biggest incoming attack first...; no target with a single enemy | caught (lowest HP comparison flipped; biggest attack ignoring incoming) |
+| 41c | Lowest HP counts HP + Block; HP-direct effects (Poison, ...) ignore Block (#282) | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > #282: lowest HP counts Block... | caught (Block ignored) |
 | 41b | Different strategies use different priorities in the same fight | engine/combat.multiEnemy.test.ts > #5 target priority (Trent) > each strategy uses its own priority in the same fight | caught (lowest HP comparison flipped) |
 | 41c | URL codes ("i") and saved configs keep working | engine/combat.multiEnemy.test.ts > URL codes...; saved configs... | n/a |
+| 43a | Random-target hits pick a living enemy per hit via the seeded Rng; same seed, same log; a one-enemy fight draws nothing | engine/combat.randomTarget.test.ts > #45 random-target attacks (4 tests); `npm run compare-main` | n/a |
+| 43b | Juggernaut hits a random living enemy | engine/combat.randomTarget.test.ts > Juggernaut hits a random living enemy... | n/a |
+| 43c | Strategy plays random-target attacks first with 2+ enemies; a targeted kill goes first; no rule with one enemy | engine/combat.randomTarget.test.ts > #45 strategy: random-target attacks first (4 tests) | n/a |
 | 42 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |
+| 44 | Poison-only cards (#46): played before Attacks when the enemy lives 2+ turns; Block favours, Artifact counts against, existing Poison, Strength and Vulnerable counted | engine/strategies.poison.test.ts > #46 Poison-only cards (8 tests) | n/a |
+| 45 | Silent counters (#265): Pinpoint cost, Memento Mori discards, Murder draws, Flechettes / Finisher hit counts, Escape Plan Skill check, Expertise hand size; Finisher played after other Attacks | engine/combat.silentCounters.test.ts (19 tests) | n/a |
+| 46 | Afterimage Block per later card (no Dexterity), Serpent Form damage, Speedster per draw (turn-start draw included), Tools of the Trade draw then discard (discard order: hurting junk, Sly, exhaust order), Tracking ×2 on Weak (×3 with Vulnerable), not on power damage | engine/combat.silentTriggers.test.ts > #266 Afterimage / Serpent Form / Speedster / Tools of the Trade / Tracking | n/a |
+| 47 | Well-Laid Plans retains up to 1 (2), the strategy picks by top priority unless the draw pile is more than half that group, never junk | engine/combat.silentTriggers.test.ts > #266 Well-Laid Plans (6 tests) | n/a |
 
 ## Known failure points
 

@@ -15,7 +15,7 @@ import type {
   TargetPriority,
 } from './types';
 import { attackDamage, attackHits, conditionHolds, countStrikes, perCounterValue } from './rules';
-import { chooseGenerated } from './generate';
+import { chooseGenerated, chooseRetained } from './generate';
 import { pickPotion } from './potions';
 
 type Card = DeepReadonly<CardInstance>;
@@ -88,6 +88,22 @@ function waitsForBlock(card: Card): boolean {
   return card.effects.some((e) => e.type === 'attackFrom' && e.bonusPer?.per === 'playerBlock');
 }
 
+/** #265: Finisher (damage per Attack already played this turn) waits for the other Attacks. */
+function waitsForAttacks(card: Card): boolean {
+  return card.effects.some((e) => e.type === 'attackFrom' && e.extraHitsPer?.per === 'attacksPlayedBeforeThis');
+}
+
+/**
+ * #265: Finisher is left out of `playable` while another Attack (one that doesn't wait itself) can be
+ * played, so it is played last with every earlier Attack counted. Without one it is played like any attack.
+ */
+function withoutWaitingForAttacks(view: StrategyView): StrategyView {
+  if (!view.playable.some(waitsForAttacks)) return view;
+  const { energy } = view.state.player;
+  const other = view.playable.some((c) => isAttackCard(c) && !waitsForAttacks(c) && xCostPlayable(c, energy));
+  return other ? { ...view, playable: view.playable.filter((c) => !waitsForAttacks(c)) } : view;
+}
+
 /** The effects a card would run now: with a state, a `conditional` is replaced by the branch that holds (#111). */
 function activeEffects(card: Card, state: State | undefined): DeepReadonly<Effect>[] {
   const out: DeepReadonly<Effect>[] = [];
@@ -133,7 +149,7 @@ export function isSupportCard(card: Card): boolean {
 }
 
 const makesShiv = (e: DeepReadonly<Effect>): boolean =>
-  e.type === 'addCards' && e.source.kind === 'card' && e.source.cardId === 'shiv';
+  e.type === 'addCards' && e.source.kind === 'card' && (e.source.cardId === 'shiv' || e.source.cardId === 'inky_shiv');
 
 /**
  * #262: a card that only makes Shivs (Blade Dance, Up My Sleeve, Storm of Steel): it is in no group, since
@@ -593,6 +609,23 @@ export function chooseExhaust(
   return { uids: picked.map((c) => c.uid) };
 }
 
+/**
+ * #266 Strategy.choose for "discard N from the hand" (Tools of the Trade; #259 Trent): the shared exhaust
+ * order, except that Sly cards go ahead of curses and statuses, but not ahead of those that hurt if kept
+ * (they lose HP or deal damage while in the hand). Always exactly the requested number.
+ */
+export function chooseDiscard(
+  view: StrategyView,
+  request: ChoiceRequest,
+  config: StrategyConfig = GREEDY_CONFIG,
+): ChoiceResponse {
+  const ordered = exhaustOrder(request.options, view, config);
+  const hurts = (c: Card) => dealsDirectHpDamage(c) || dealsBlockableDamage(c);
+  const sly = (c: Card) => c.keywords.includes('sly') && !hurts(c);
+  const ranked = [...ordered.filter(hurts), ...ordered.filter(sly), ...ordered.filter((c) => !hurts(c) && !sly(c))];
+  return { uids: ranked.slice(0, request.max).map((c) => c.uid) };
+}
+
 // ---------------------------------------------------------------------------
 // #141 Deck-health guard (Trent): exhausting must not thin the deck too far.
 // ---------------------------------------------------------------------------
@@ -834,6 +867,8 @@ function playKillsEnemy(view: StrategyView, card: Card): boolean {
       enemy.debuffs.vulnerable,
       player.powers?.cruelty ?? 0,
       player.shrink ?? 0,
+      0,
+      (player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
     );
     dmg += perHit * attackHits(e, x);
   }
@@ -1077,6 +1112,8 @@ export function fiendFireKills(view: StrategyView, card: Card): boolean {
     enemy.debuffs.vulnerable,
     cruelty,
     player.shrink ?? 0,
+    0,
+    (player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
   );
   return perHit * hits >= enemy.hp + enemy.block;
 }
@@ -1413,6 +1450,23 @@ export function isAttackBooster(c: Card): boolean {
   return !isAttackCard(c) && (['strengthThisTurn', 'rage', 'doubleAttack'] as const).some((p) => appliesPower(c, p));
 }
 
+/**
+ * #264: a card that only pays off when a Block Skill follows: Anticipate (Dexterity this turn),
+ * Shadowmeld (double Block) and Burst (the next Skills twice). Not a rule from Trent.
+ */
+export function isBlockBooster(c: Card): boolean {
+  return (
+    !isAttackCard(c) &&
+    !isBlockCard(c) &&
+    (['dexterityThisTurn', 'doubleBlock', 'burst'] as const).some((p) => appliesPower(c, p))
+  );
+}
+
+/** #264 Shadow Step: discards the hand, so it is only played once nothing else is left to play. */
+export function isShadowStep(c: Card): boolean {
+  return appliesPower(c, 'doubleAttackNextTurn');
+}
+
 /** Dark Shackles: a non-Attack that lowers the enemy's Strength this turn (Mangle is an Attack). */
 export function isEnemyWeakener(c: Card): boolean {
   return !isAttackCard(c) && c.effects.some((e) => e.type === 'applyEnemyPower' && e.power === 'strengthLossThisTurn');
@@ -1459,6 +1513,31 @@ function pickPanic(view: StrategyView): Card | undefined {
 function pickShackles(view: StrategyView): Card | undefined {
   if (view.intent.totalIncoming <= 0) return undefined;
   return best(view.playable.filter(isEnemyWeakener), (c) => [-(c.cost ?? 0)]);
+}
+
+/**
+ * #264: a Block booster is played before the Block cards, only if a Block Skill follows that the energy
+ * left after the booster still pays for; one already on this turn (Shadowmeld, Burst, Anticipate) is not stacked again.
+ */
+function pickBlockBooster(view: StrategyView): Card | undefined {
+  const p = view.state.player;
+  const energy = p.energy;
+  const on = (c: Card) =>
+    (['dexterityThisTurn', 'doubleBlock', 'burst'] as const).some(
+      (id) => appliesPower(c, id) && (p.powers?.[id] ?? 0) > 0,
+    );
+  const followed = (b: Card) =>
+    view.playable.some(
+      (a) =>
+        a.uid !== b.uid &&
+        a.type === 'skill' &&
+        isBlockCard(a) &&
+        (a.xCost ? energy - (b.cost ?? 0) > 0 : (a.cost ?? 0) <= energy - (b.cost ?? 0)),
+    );
+  return best(
+    view.playable.filter((c) => isBlockBooster(c) && !on(c) && followed(c)),
+    (c) => [-(c.cost ?? 0)],
+  );
 }
 
 /**
@@ -1594,6 +1673,8 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   if (shackles) return shackles;
   const booster = pickBooster(view);
   if (booster) return booster;
+  const blockBooster = pickBlockBooster(view);
+  if (blockBooster) return blockBooster;
   const pure = pickPureDraw(view);
   if (
     pure &&
@@ -1616,6 +1697,75 @@ function pickNotYet(view: StrategyView): Card | undefined {
     view.playable.filter((c) => heals(c) > 0),
     (c) => [heals(c)],
   );
+}
+
+// ---------------------------------------------------------------------------
+// #46 Poison-only cards (Trent)
+// ---------------------------------------------------------------------------
+
+/** #46: Poison applications a Poison-only card makes (a repeat counts its fixed `times`, else 1); 0 when it isn't Poison-only. */
+export function poisonApplications(card: Card): number {
+  if (isJunk(card) || card.keywords.includes('unplayable')) return 0;
+  const leaves = allEffects(card).filter((e) => e.type !== 'repeat');
+  if (leaves.length === 0 || !leaves.every((e) => e.type === 'applyPoison')) return 0;
+  let n = 0;
+  const walk = (effects: readonly DeepReadonly<Effect>[], mult: number) => {
+    for (const e of effects) {
+      if (e.type === 'repeat') walk(e.effects, mult * (e.times ?? 1));
+      else if (e.type === 'applyPoison') n += mult;
+    }
+  };
+  walk(card.effects, 1);
+  return n;
+}
+
+/** #46: a card whose only effect is applying Poison (Deadly Poison). */
+export function isPoisonOnly(card: Card): boolean {
+  return poisonApplications(card) > 0;
+}
+
+/**
+ * #46: damage the Attacks in hand would deal this turn with `energy` (greedy by damage per energy),
+ * counting Strength and Vulnerable; an estimate for "how long will the enemy live".
+ */
+function attackDamageThisTurn(view: StrategyView, energy: number): number {
+  const { state } = view;
+  const e = state.enemy;
+  const mult = e.debuffs.vulnerable > 0 ? 1.5 : 1;
+  const attacks = view.playable
+    .filter((c) => isAttackCard(c) && !c.xCost)
+    .map((c) => ({
+      cost: c.cost ?? 0,
+      dmg: Math.floor((totalBaseDamage(c, 0, state) + attackHitCount(c, 0) * state.player.strength) * mult),
+    }))
+    .sort((a, b) => b.dmg / Math.max(b.cost, 0.01) - a.dmg / Math.max(a.cost, 0.01));
+  let left = energy;
+  let sum = 0;
+  for (const a of attacks) {
+    if (a.cost <= left) {
+      left -= a.cost;
+      sum += a.dmg;
+    }
+  }
+  return sum;
+}
+
+/**
+ * #46 (Trent): play a Poison-only card before the Attacks when the enemy will live at least two more
+ * turns. Estimate: the Attacks in hand deal D a turn (Block absorbs it first, but Poison ignores
+ * Block); the enemy lives 2+ turns when HP - Poison - 2 x max(0, D - Block) > 0, so Block makes Poison
+ * likelier. Artifact counts against it: each application uses one stack and is negated, so a card
+ * whose applications the enemy's Artifact fully absorbs is not played.
+ */
+function pickPoison(view: StrategyView): Card | undefined {
+  const e = view.state.enemy;
+  const energy = view.state.player.energy;
+  const live = view.playable.filter((c) => isPoisonOnly(c) && poisonApplications(c) > (e.powers?.artifact ?? 0));
+  const card = best(live, (c) => [-(c.cost ?? 0), damagePerEnergy(c)]);
+  if (!card) return undefined;
+  const d = attackDamageThisTurn(view, Math.max(0, energy - (card.cost ?? 0)));
+  const through = Math.max(0, d - e.block);
+  return e.hp - e.poison - 2 * through > 0 ? card : undefined;
 }
 
 /**
@@ -1778,9 +1928,11 @@ export function blockIsLast(config: StrategyConfig): boolean {
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
-  const view = withoutWaitingForBlock(
-    withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config),
-    config,
+  const view = withoutWaitingForAttacks(
+    withoutWaitingForBlock(
+      withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config),
+      config,
+    ),
   );
   const d = decideWith(view, config, false);
   if (d.kind !== 'endTurn') return d;
@@ -1835,6 +1987,8 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   const top = pickTop(view, config);
   if (top) return play(top);
   for (const g of config.order) {
+    const poison = g === 'attack' ? pickPoison(view) : undefined;
+    if (poison) return play(poison);
     const c = pickFromGroup(view, g, config, planning);
     if (c) return play(c);
   }
@@ -1857,6 +2011,9 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   const preferBlock = config.order.indexOf('block') < config.order.indexOf('attack');
   const last = pickLast(view, preferBlock);
   if (last) return play(last);
+  // #264: Shadow Step goes last: it discards what is left in the hand for double Attacks next turn.
+  const shadowStep = best(view.playable.filter(isShadowStep), () => []);
+  if (shadowStep) return play(shadowStep);
   return END;
 }
 
@@ -1931,10 +2088,20 @@ export function createStrategy(config: StrategyConfig): Strategy {
     decide: (raw) => {
       const { target, view } = aim(raw);
       tally.observe(view);
+      const first = randomTargetFirst(raw);
+      if (first) {
+        // #45: random-target attacks first (or a targeted kill); the next decision re-plans the rest.
+        tally.record(view, first.decision);
+        playing = view.playable.find((p) => p.uid === first.decision.uid);
+        return first.decision;
+      }
       const d = decide(view, withTally());
       tally.record(view, d);
       playing = d.kind === 'play' ? view.playable.find((p) => p.uid === d.uid) : undefined;
-      return d.kind === 'play' && target !== undefined ? { ...d, target } : d;
+      if (d.kind !== 'play' || target === undefined) return d;
+      // #282: an HP-direct card (Poison, ...) ignores Block, so it targets the lowest plain HP.
+      const direct = playing && playing.effects.some((e) => e.type === 'applyPoison' || e.type === 'enemyLoseHp');
+      return { ...d, target: direct ? (pickTarget(raw, c.target, true) ?? target) : target };
     },
     usePotion: (raw) => {
       const { target, view } = aim(raw);
@@ -1943,6 +2110,8 @@ export function createStrategy(config: StrategyConfig): Strategy {
     },
     choose: (raw, request) => {
       const { view } = aim(raw);
+      if (request.sourcePower === 'wellLaidPlans') return chooseRetained(request, view.state.player.drawPile, c.order);
+      if (request.to === 'discard' && request.from === 'hand') return chooseDiscard(view, request, withTally());
       return request.purpose === 'generate' || request.purpose === 'move' || request.purpose === 'upgrade'
         ? chooseGenerated(request, c.order)
         : chooseExhaust(view, request, withTally(), playing && playing.uid === request.sourceUid ? playing : undefined);
@@ -1950,15 +2119,72 @@ export function createStrategy(config: StrategyConfig): Strategy {
   };
 }
 
+function isRandomTargetAttack(card: Card): boolean {
+  return card.effects.some((e) => e.type === 'attack' && e.randomTarget === true);
+}
+
+/** #45: damage a targeted attack card would deal to `enemy` now (Strength, Weak, Vulnerable; Block counts as HP). */
+function wouldKill(
+  card: Card,
+  state: State,
+  enemy: { hp: number; block: number; debuffs: { vulnerable: number; weak: number } },
+) {
+  const x = card.xCost ? state.player.energy : 0;
+  let dmg = 0;
+  for (const e of card.effects) {
+    if (e.type !== 'attack' || e.allEnemies) continue;
+    const per = attackDamage(
+      e.damage + (card.damageBonus ?? 0),
+      state.player.strength,
+      state.player.debuffs.weak,
+      enemy.debuffs.vulnerable,
+      0,
+      0,
+      0,
+      (state.player.powers?.tracking ?? 0) > 0 && enemy.debuffs.weak > 0,
+    );
+    dmg += per * attackHits(e, x);
+  }
+  return dmg >= enemy.hp + enemy.block;
+}
+
+/**
+ * #45 (Trent): with 2+ enemies alive, random-target attacks (Sword Boomerang, Rip and Tear, ...) are
+ * played first, and the turn is then re-planned with the new board (every decision is made afresh).
+ * Exception: a targeted attack that would kill a living enemy goes first (the cheapest such card, at
+ * the leftmost enemy it kills). The biggest random attack goes first. Undefined when the rule does not apply.
+ */
+function randomTargetFirst(view: StrategyView): { decision: Extract<Decision, { kind: 'play' }> } | undefined {
+  const enemies = view.state.enemies;
+  if (!enemies || enemies.filter((e) => e.hp > 0).length < 2) return undefined;
+  const random = best(view.playable.filter(isRandomTargetAttack), (c) => [
+    totalBaseDamage(c, view.state.player.energy, view.state),
+  ]);
+  if (!random) return undefined;
+  for (const c of [...view.playable]
+    .filter((c) => isAttackCard(c) && !isRandomTargetAttack(c))
+    .sort((a, b) => (a.cost as number) - (b.cost as number))) {
+    const i = enemies.findIndex((e) => e.hp > 0 && wouldKill(c, view.state, e));
+    if (i >= 0) return { decision: { kind: 'play', uid: c.uid, target: i } };
+  }
+  return { decision: { kind: 'play', uid: random.uid } };
+}
+
 /**
  * #5 (Trent): the living enemy a strategy targets, as an index into `state.enemies`; undefined with
- * a single enemy. 'lowestHp': lowest current HP. 'biggestAttack': biggest incoming attack this turn
+ * a single enemy. 'lowestHp': lowest effective HP (HP + Block, #282); `hpDirect` (Poison, Doom,
+ * Capture Spirit: effects that lose HP past Block) ranks by HP alone. 'biggestAttack': biggest incoming attack this turn
  * (the enemy's intent), ties to the lowest HP. Remaining ties: the leftmost.
  */
-export function pickTarget(view: StrategyView, priority: TargetPriority = 'lowestHp'): number | undefined {
+export function pickTarget(
+  view: StrategyView,
+  priority: TargetPriority = 'lowestHp',
+  hpDirect = false,
+): number | undefined {
   const enemies = view.state.enemies;
   if (!enemies || enemies.length < 2) return undefined;
   const incoming = (i: number) => view.intents?.[i]?.totalIncoming ?? 0;
+  const eff = (e: { hp: number; block: number }) => (hpDirect ? e.hp : e.hp + e.block);
   let best: number | undefined;
   enemies.forEach((e, i) => {
     if (e.hp <= 0) return;
@@ -1967,7 +2193,7 @@ export function pickTarget(view: StrategyView, priority: TargetPriority = 'lowes
       return;
     }
     const b = enemies[best]!;
-    const lower = e.hp < b.hp;
+    const lower = eff(e) < eff(b);
     if (priority === 'biggestAttack') {
       if (incoming(i) > incoming(best) || (incoming(i) === incoming(best) && lower)) best = i;
     } else if (lower) {

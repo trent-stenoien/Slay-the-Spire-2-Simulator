@@ -52,6 +52,20 @@ describe('Omnislice splash with several enemies (FEATURES 8, #283)', () => {
     expect(dealt(multi(true))).toEqual([11, 11, 11]);
   });
 
+  it('splashes the primary hit final damage (Vulnerable x1.5 = 12), not Attack damage on the others', () => {
+    const w = world();
+    w.enemies.second = makeEnemy('second', 50, { wait: { name: 'Wait', effects: [] } });
+    const r = simulateCombat(
+      w,
+      cfg({ enemyIds: ['dummy', 'second'], deck: deckOf(['bash', 1], ['omnislice', 1]) }),
+      scripted((t) => (t === 1 ? ['bash', 'omnislice'] : [])),
+      { log: true },
+    );
+    const hits = events(r.log, 'damage').filter((e) => e.target === 'enemy');
+    // Bash 8 on the Vulnerable-to-be target; Omnislice then 12 on it and 12 (no Vulnerable) on the other.
+    expect(hits.slice(-2).map((e) => e.amount)).toEqual([12, 12]);
+  });
+
   it('a dead enemy takes no splash; the target is not hit twice', () => {
     const w = world();
     w.enemies.second = makeEnemy('second', 50, { wait: { name: 'Wait', effects: [] } });

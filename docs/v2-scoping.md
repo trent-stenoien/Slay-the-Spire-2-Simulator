@@ -42,7 +42,7 @@ Legend for "lacks": DATA = effects can be written with today's vocabulary (card 
 | expose | script (remove Artifact and Block, then Vulnerable 2); `script` ids need no types.ts change |
 | malaise | X-cost for non-attack effects (X Strength loss, X Weak); `xTimes` is attack-only. New script or a new Counter `xValue` (types.ts). |
 | hidden_daggers, blade_dance, cloak_and_dagger, leading_strike, up_my_sleeve, storm_of_steel | Shivs: `addCards` source card `shiv` to hand (exists); Hidden Daggers+/Storm of Steel+ add upgraded Shivs (the `upgraded` field of `addCards` is listed as unsimulated for copies: check for source `card`); Storm of Steel count = cards discarded (`repeat` per lastEffectCount); Up My Sleeve reduces its own cost by 1 each play (script). Hidden Daggers and Storm of Steel also need Discard. |
-| blade_of_ink | "Inky Shivs": enchantment unknown (Q-A5). Keep unsimulated until answered. |
+| blade_of_ink | Simulated (#285): Inky = "This card applies 1 Weak", the `inky_shiv` token. |
 | knife_trap | "Play every Shiv in your Exhaust Pile on the enemy": `playCards` needs a count of "all matching" (types.ts: `count` is required) |
 | accuracy, phantom_blades, infinite_blades, fan_of_knives | Shiv powers: new PowerIds (+4 Shiv damage; Shivs Retain and first Shiv +9; start-of-turn add a Shiv; Shivs hit ALL, needs #5) |
 | abrasive, flick_flack, haze, reflex, ricochet, tactician, untouchable | Sly (keyword), then DATA (Abrasive `dexterity 1` + `thorns 4`; Haze Poison ALL; Ricochet random target x4) |

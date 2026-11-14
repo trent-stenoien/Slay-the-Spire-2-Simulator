@@ -31,6 +31,7 @@ export function checkEffects(r: Reporter, list: unknown, path: string): void {
       r.int(e, 'hits', 1, `${p}.hits`);
       optBool(r, e, 'allEnemies', p);
       optBool(r, e, 'xTimes', p);
+      optBool(r, e, 'randomTarget', p);
       checkXBonus(r, e, p);
     } else if (isOneOf(e.type, AMOUNT_EFFECTS)) {
       r.int(e, 'amount', 0, `${p}.amount`);
@@ -81,7 +82,7 @@ export function checkCondition(r: Reporter, v: unknown, p: string): void {
   const kind = r.oneOf(
     v,
     'kind',
-    ['lostHpThisTurn', 'enemyHas', 'counter', 'handHasNone', 'handAll', 'fatal'],
+    ['lostHpThisTurn', 'enemyHas', 'counter', 'handHasNone', 'handAll', 'fatal', 'drewMatching'],
     `${p}.kind`,
   );
   if (kind === 'enemyHas') r.oneOf(v, 'status', ['vulnerable', 'weak', 'frail', 'poison'], `${p}.status`);
@@ -91,7 +92,7 @@ export function checkCondition(r: Reporter, v: unknown, p: string): void {
     optInt(r, v, 'max', 0, p);
     if (!has(v, 'min') && !has(v, 'max')) r.add(p, 'needs "min" or "max"');
   }
-  if (kind === 'handHasNone' || kind === 'handAll') checkFilter(r, v.filter, `${p}.filter`);
+  if (kind === 'handHasNone' || kind === 'handAll' || kind === 'drewMatching') checkFilter(r, v.filter, `${p}.filter`);
 }
 
 function checkSource(r: Reporter, v: unknown, p: string): void {
@@ -160,7 +161,9 @@ const CONTRACT_CHECKS: Record<ContractEffect, EffectCheck> = {
   drawUntil: (r, e, p) => {
     optBool(r, e, 'handFull', p);
     optFilter(r, e, 'stopOn', p);
-    if (e.handFull !== true && !has(e, 'stopOn')) r.add(p, 'needs "handFull": true or "stopOn"');
+    if (has(e, 'handSize')) r.int(e, 'handSize', 1, `${p}.handSize`);
+    if (e.handFull !== true && !has(e, 'stopOn') && !has(e, 'handSize'))
+      r.add(p, 'needs "handFull": true, "stopOn" or "handSize"');
   },
   exhaustCards: (r, e, p) => {
     if (has(e, 'from')) r.oneOf(e, 'from', PILES, `${p}.from`);

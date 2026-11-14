@@ -13,7 +13,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    turn, enemy debuffs at the end of the enemy's turn; Poison at enemy turn start (ignores Block,
    a kill wins before the move, then −1); Howl from Beyond plays itself from the Exhaust pile at
    the end of the player's turn, then goes to discard (#114).
-4. **HP lost (#115, #205)** = start HP (default Max HP; `startHp` can start a combat lower) − final HP,
+4. **HP lost (#115, #205)** = start HP (default Max HP; `startHp` can start a combat lower; without it, A2+ starts lower per character: Ironclad 64/80, Silent 56/70, cumulative per-character `ascension` overrides, Max HP unchanged, #286) − final HP,
    and can be negative: every heal from cards and relics counts in full, past the damage taken and
    past Max HP (Trent: start 70/80, Blood Vial 2, lose 5, Burning Blood 6 → −3; no damage + Burning
    Blood → −6; Not Yet 10 at full HP → −10). HP itself stops at Max HP. It includes self-damage
@@ -43,6 +43,11 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    uses one stack, so a multi-hit attack uses one per hit; a fully blocked hit (0 HP loss) uses none;
    Strength and Vulnerable don't matter. Poison counts as a loss (literal reading of the text). While
    it is up, the attack with the most hits is played first and big single hits wait.
+9c. **Alternate pattern (#287, Inklet):** an `alternate` pattern plays a fixed move and a weighted seeded random
+    pick in turn. The first move comes from `openerBySlot` by position (first and last enemy = outer, any other
+    = middle; a lone enemy is outer), else `startWith` (default the fixed move); afterwards the move after the
+    fixed one is a random pick and the move after a pick is the fixed one. Inklet: outer opens Jab, middle opens
+    Whirlwind, then Jab alternates with a 50/50 Piercing Gaze or Whirlwind.
 9b. **Once-per-fight moves (#226):** an enemy move flagged `oncePerFight` (Mawler's Roar) is never picked again
     once made; the no-repeat picker still always has a legal move (a pool with no unused move falls back to the
     whole pool, and a pool of only once-moves is rejected by the validator).
@@ -64,6 +69,12 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     enemy's turn (3×3 → 0×3). Flame Barrier and Colossus cover the following enemy turn. Colossus
     multiplies with Weak (62.5% less together), stacks when replayed, and ticks down at the end of the
     enemy's turn. Panic Button stops Block from cards; The Bomb fires at the end of the third turn.
+    Silent (#264): Anticipate's Dexterity ends with the turn; Blur keeps the Block through the next turn
+    start only; Shadowmeld doubles Block from cards this turn (with Dexterity and Frail, floored once);
+    Burst replays the next 1 (2 upgraded) Skills this turn; Pounce makes the next Skill cost 0; Shadow Step
+    discards the hand and doubles Attack damage on the next turn only; Wraith Form loses 1 Dexterity at each
+    turn start (Dexterity may go below 0, Block from cards stays at 0 or more); Dodge and Roll's next-turn Block
+    gets Dexterity and Frail (Trent).
 13. **Conditional and scaling cards (#111, #113):** "Strike" means any card with Strike in its name
     (Strike+ included) in Draw, Hand, Discard and Exhaust, including ones created mid-combat; used by
     Perfected Strike and Hellraiser. Rampage's growth stays with that copy. Fisticuffs' Block = damage
@@ -90,8 +101,10 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     hand, not itself; 1 Shiv per discarded card, Shiv+ upgraded) add Shivs to the hand (a full hand sends them to
     the discard pile). Shivs are 0-cost Attacks (4 damage, 6 upgraded) that Exhaust. Strategies play Blade Dance and
     Up My Sleeve first in the Attack group and Storm of Steel last, once nothing else is played and the hand still
-    holds cards. Hidden Daggers stays unsimulated until the discard choice exists (#259); Blade of Ink until its
-    Inky Shivs are known.
+    holds cards. Hidden Daggers stays unsimulated until the discard choice exists (#259).
+    **Blade of Ink (#285):** adds 2 Inky Shivs to the hand (3 upgraded); the Inky enchantment is "This card
+    applies 1 Weak" (Trent), so an Inky Shiv is a Shiv (4 damage, Exhaust, 0 cost) that also applies 1 Weak to the
+    target. Modelled as the `inky_shiv` token; strategies treat it like a Shiv.
 17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
     in pick order: combat start (before the first draw), turn start (after the draw and start-of-turn
     powers), turn end (before Plating), after a card is played, combat end (wins only). "Start each
@@ -128,6 +141,8 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Panic Button only as a last resort (#110). Body Slam and Entrench after other block cards, with
     Entrench planned to avoid excess Block (#111). Catastrophe, Beat Down, Hidden Gem, Dual Wield, The
     Bomb, Outmaneuver and Prolong use leftover energy; Dual Wield copies the highest-value card.
+    Anticipate, Shadowmeld and Burst are played before Block Skills only when a Block Skill follows;
+    Shadow Step is played last (#264).
     "Choose a card" follows the strategy's priorities (#112, #150).
 22. **Self-damage:** never play a card that would kill you; otherwise ignore the HP cost.
 23. **Fiend Fire:** always if it kills; otherwise only when it beats other uses of the energy; played
@@ -215,11 +230,50 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     attack first" (ties: lowest HP); further ties go to the leftmost enemy. Strategies in one run can use
     different priorities. The Block group plans against all enemies' incoming damage combined. URL
     strategy codes end in "i" for Biggest attack; older codes and saved strategies mean Lowest HP.
+    Lowest HP ranks by effective HP (HP + Block, #282); only HP-direct effects (Poison, Doom, Capture Spirit:
+    cards that lose HP past Block) rank by HP alone.
 42. **Multi-enemy UI (#5):** Setup has "Add enemy" / "Remove enemy N" (any enemy), the link holds one
     enemy code per enemy (`e=NbSe`), the results text joins the names ("Ironclad vs A and B"), the
     combat log shows one HP bar per enemy, lines "Enemy N:" before that enemy's events, and one intent
     line naming every living enemy's move with the total incoming damage. The strategy editor and the
     New Strategy form have a Target picker.
+43. **Random-target cards (#45, Trent):** an `attack` effect with `randomTarget` (Sword Boomerang, Rip and
+    Tear, Volley, Ricochet) sends each hit to a random living enemy through the seeded Rng, one draw per hit,
+    only while 2+ enemies live (a one-enemy fight draws nothing and is unchanged); hits continue after a kill.
+    Juggernaut's damage also picks a random living enemy. Strategies, with 2+ enemies alive, play random-target
+    attacks first and re-plan the rest of the turn on the new board, except that a targeted attack that would
+    kill a living enemy goes first, aimed at it.
+44. **Poison-only cards (#46, Trent):** a card whose only effect is applying Poison (Deadly Poison, Bouncing
+    Flask) is played before the Attacks when the enemy will live at least two more turns. Estimate: the Attacks in
+    hand deal D a turn (Strength and Vulnerable counted, energy after the Poison card); the enemy lives 2+ turns
+    when HP - its Poison - 2 x max(0, D - its Block) > 0, so enemy Block favours Poison (Poison ignores Block).
+    Enemy Artifact counts against it: each application uses one stack and is negated, so a card is not played
+    when the Artifact stacks cover all its applications.
+
+45. **Silent counters (#265):** Pinpoint costs 1 less per Skill played this turn (minimum 0). Memento Mori
+    deals 4 (5 upgraded) more per card discarded this turn by an effect (the end-of-turn discard does not
+    count; resets each turn). Murder deals 1 more per card drawn this combat (the opening hand counts).
+    Flechettes hits once per Skill in hand and Finisher once per Attack played earlier this turn (not
+    itself), each hit for the card's damage with Strength and modifiers; with none, no hits (0 damage).
+    Escape Plan draws 1 card and gains Block only if the card drawn is a Skill. Expertise draws until the
+    hand holds 6 (7 upgraded) cards; a bigger hand draws nothing. Strategies play Finisher after the other
+    Attacks.
+
+## Silent trigger powers (#266)
+
+46. **Silent trigger powers (#266):** Afterimage: each card played after it gains [amount] Block (power Block: no
+    Dexterity or Frail; its own card does not count). Serpent Form: each such card deals [amount] damage to a random
+    living enemy (not an Attack: Block absorbs it; Strength, Weak and Vulnerable do not change it). Speedster: each
+    card drawn during the player's turn, the turn-start draw included, deals [amount] damage to ALL enemies (power
+    damage). Tools of the Trade: at the start of each turn after the normal draw, draw [amount], then discard
+    [amount] cards from the hand; the strategy discards in the exhaust order, with Sly cards ahead of curses and
+    statuses except those that hurt while kept (Trent, #259). Tracking (main release): Attacks deal double damage to
+    a Weak enemy (a ×2 multiplier floored once, ×3 with Vulnerable; it is not Weak on the player).
+47. **Well-Laid Plans (#266, Trent):** at the end of the turn up to [amount] cards (1, upgraded 2) are retained
+    (Ethereal and Retain cards are not offered; curses and statuses are never kept). The strategy keeps the card it
+    needs next turn for its top priority (the first group of its order with a card in hand; a Block-first strategy
+    keeps a Block card, the best of the group first), unless more than half of the draw pile is cards of that
+    group, in which case it keeps other cards first (leftover slots take the demoted ones).
 
 ## Known failure points
 

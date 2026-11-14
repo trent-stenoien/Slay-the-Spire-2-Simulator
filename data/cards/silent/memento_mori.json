@@ -11,23 +11,31 @@
   "keywords": [],
   "effects": [
     {
-      "type": "attack",
+      "type": "attackFrom",
       "damage": 9,
-      "hits": 1
+      "hits": 1,
+      "bonusPer": {
+        "per": "cardsDiscardedThisTurn",
+        "amount": 4
+      }
     }
   ],
   "upgraded": {
     "effects": [
       {
-        "type": "attack",
+        "type": "attackFrom",
         "damage": 11,
-        "hits": 1
+        "hits": 1,
+        "bonusPer": {
+          "per": "cardsDiscardedThisTurn",
+          "amount": 5
+        }
       }
     ]
   },
   "description": "Deal 9 damage. / Deals 4 additional damage for each card discarded this turn.",
   "upgradedDescription": "Deal 11 damage. / Deals 5 additional damage for each card discarded this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

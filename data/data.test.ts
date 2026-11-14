@@ -119,17 +119,20 @@ describe('real game data', () => {
     ]);
   });
 
-  // Random-target damage is the one enemy in a single-enemy fight (#6): plain attack, no target flag.
+  // #45: random-target damage is a multi-hit attack flagged `randomTarget` (one enemy in a single-enemy fight, #6).
   it.each([
     ['sword_boomerang', 3, 3, 3, 4, true],
     ['rip_and_tear', 7, 2, 9, 2, true],
     ['ricochet', 3, 4, 3, 5, false], // Sly keeps it unsimulated
-  ] as const)('random-target card %s is a plain multi-hit attack', (id, dmg, hits, upDmg, upHits, simulated) => {
-    const c = gameData.cards[id]!;
-    expect(c.effects).toEqual([{ type: 'attack', damage: dmg, hits }]);
-    expect(c.upgraded?.effects).toEqual([{ type: 'attack', damage: upDmg, hits: upHits }]);
-    expect(c.simulated).toBe(simulated);
-  });
+  ] as const)(
+    'random-target card %s is a multi-hit attack flagged randomTarget',
+    (id, dmg, hits, upDmg, upHits, simulated) => {
+      const c = gameData.cards[id]!;
+      expect(c.effects).toEqual([{ type: 'attack', damage: dmg, hits, randomTarget: true }]);
+      expect(c.upgraded?.effects).toEqual([{ type: 'attack', damage: upDmg, hits: upHits, randomTarget: true }]);
+      expect(c.simulated).toBe(simulated);
+    },
+  );
 
   it('Nibbit is at code Nb', () => {
     expect(enemyByCode('Nb')?.id).toBe('nibbit');
@@ -254,5 +257,37 @@ describe('imported characters and enemies', () => {
 
   it('Fuzzy Wurm Crawler cycles Acid Goop, Inhale, Acid Goop', () => {
     expect(enemyByCode('FW')?.pattern).toMatchObject({ order: ['acidGoop', 'inhale', 'acidGoop'] });
+  });
+});
+
+describe('Inklet (#287)', () => {
+  const inklet = () => resolveEnemy(gameData.enemies.inklet!, 0);
+
+  it('is an Act 1 Overgrowth normal enemy with Slippery 1 and the alternate pattern', () => {
+    const e = enemyByCode('Ik')!;
+    expect(e).toMatchObject({ id: 'inklet', act: 1, zone: 'overgrowth', difficulty: 'normal' });
+    expect(e.startPowers).toEqual({ slippery: 1 });
+    expect(e.pattern).toEqual({
+      type: 'alternate',
+      fixed: 'jab',
+      random: [
+        { move: 'piercingGaze', weight: 1 },
+        { move: 'whirlwind', weight: 1 },
+      ],
+      openerBySlot: { outer: 'jab', middle: 'whirlwind' },
+    });
+  });
+
+  it.each([
+    [0, { min: 11, max: 17 }, 3, 2, 10],
+    [8, { min: 12, max: 18 }, 3, 2, 10],
+    [9, { min: 12, max: 18 }, 4, 3, 11],
+  ] as const)('at A%i has the wiki numbers', (asc, hp, jab, whirl, gaze) => {
+    const e = resolveEnemy(gameData.enemies.inklet!, asc);
+    expect(e.hp).toEqual(hp);
+    expect(e.moves.jab!.effects).toEqual([{ type: 'attack', damage: jab, hits: 1 }]);
+    expect(e.moves.whirlwind!.effects).toEqual([{ type: 'attack', damage: whirl, hits: 3 }]);
+    expect(e.moves.piercingGaze!.effects).toEqual([{ type: 'attack', damage: gaze, hits: 1 }]);
+    expect(e.pattern).toEqual(inklet().pattern);
   });
 });
