@@ -293,6 +293,59 @@ describe('pick helpers', () => {
     expect(pickAttack([big, one, three], 2, 0, st({}, 1), ['ornamental_fan'])!.cardId).toBe('one_hit');
   });
 
+  describe('#339 enemy-punishment factors', () => {
+    const shivDef = { ...cards[S]!, id: 'shiv', cost: 0, effects: [{ type: 'attack', damage: 4, hits: 1 }] } as CardDef;
+    const decideWith = (hand: CardInstance[], powers: Record<string, number>, cardsPlayed = 0, energy = 3) => {
+      const state = {
+        turn: 1,
+        player: {
+          hp: 80,
+          maxHp: 80,
+          block: 0,
+          energy,
+          strength: 0,
+          debuffs: { vulnerable: 0, weak: 0, frail: 0 },
+          drawPile: [],
+          hand,
+          discardPile: [],
+          exhaustPile: [],
+          counters: { cardsPlayedThisCombat: cardsPlayed },
+        },
+        enemy: {
+          enemyId: 'x',
+          name: 'x',
+          hp: 100,
+          maxHp: 100,
+          block: 0,
+          strength: 0,
+          debuffs: { vulnerable: 0, weak: 0, frail: 0 },
+          poison: 0,
+          patternIndex: 0,
+          powers,
+        },
+      } as unknown as CombatState;
+      const view: StrategyView = {
+        state,
+        intent: { moveId: 'm', name: 'm', attacks: [], totalIncoming: 0 },
+        playable: hand,
+      };
+      return createStrategy(GREEDY_CONFIG).decide(view);
+    };
+    it('Aeonglass: a Shiv that would be the 6th card is held back; other Shivs go first', () => {
+      const shiv = makeCardInstance(shivDef, false, 0);
+      const defend = makeCardInstance(cards[D]!, false, 1);
+      expect(decideWith([shiv, defend], { witheringPresence: 6 }, 5)).not.toEqual({ kind: 'play', uid: 0 });
+      expect(decideWith([shiv, defend], { witheringPresence: 6 }, 3)).toEqual({ kind: 'play', uid: 0 });
+    });
+    it('Bygone Effigy: Attacks wait for other cards that leave Energy for them', () => {
+      const strike = makeCardInstance(cards[S]!, false, 0);
+      const defend = makeCardInstance(cards[D]!, false, 1);
+      expect(decideWith([strike, defend], { slow: 1 })).toEqual({ kind: 'play', uid: 1 });
+      expect(decideWith([strike, defend], {})).toEqual({ kind: 'play', uid: 0 });
+      expect(decideWith([strike, defend], { slow: 1 }, 0, 1)).toEqual({ kind: 'play', uid: 0 });
+    });
+  });
+
   it('#11: Vulnerable first only with no enemy Vulnerable and energy for it plus another attack', () => {
     const us = makeCardInstance(cards.ultimate_strike!, true, 0);
     const bash = makeCardInstance(cards.bash!, false, 1);
