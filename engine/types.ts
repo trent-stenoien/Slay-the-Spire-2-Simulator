@@ -88,6 +88,7 @@
  *                     Self-buffs reuse `enemyGainStrength`; cards added to the player's
  *                     piles reuse `addCards` (source `card`) on an enemy move.
  * #213 Slippery     — EnemyPowerId `slippery` (via EnemyDef.startPowers).
+ * #303 Slow         — EnemyPowerId `slow` (declared, not simulated yet).
  * #204 Potions      — PotionDef, GameData.potions; CombatConfig.potions / RunConfig.potions;
  *                     PlayerState.potions; Strategy.usePotion + PotionUse; GameEvent `potion`.
  *                     Strength Potion = `gainStrength`, Fire Potion = `dealDamage`.
@@ -609,7 +610,12 @@ export type EnemyPowerId =
    * #213: the next [amount] times the enemy loses HP, it loses only 1 (one stack per loss).
    * Poison and `enemyLoseHp` losses count; a fully blocked hit (0 HP loss) uses no stack (#213).
    */
-  | 'slippery';
+  | 'slippery'
+  /**
+   * Slow (#303, Bygone Effigy): each card the player plays this turn makes this enemy take 10% more Attack damage
+   * (potions don't count); the count resets at the end of the player's turn. Declared only until #303 simulates it.
+   */
+  | 'slow';
 
 /** Effects queued by a `schedule` effect. */
 export interface ScheduledEffect {

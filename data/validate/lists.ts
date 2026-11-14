@@ -338,8 +338,15 @@ export const POWER_IDS = [
   'dexterityLossPerTurn',
 ] as const;
 
-/** #215 adds artifact, strengthPerTurn, slippery: valid data, not simulated (not in SIMULATED_ENEMY_POWERS). */
-export const ENEMY_POWER_IDS = ['strengthLossThisTurn', 'stun', 'artifact', 'strengthPerTurn', 'slippery'] as const;
+/** #215 adds artifact, strengthPerTurn, slippery; #303 adds slow: valid data, not simulated (not in SIMULATED_ENEMY_POWERS). */
+export const ENEMY_POWER_IDS = [
+  'strengthLossThisTurn',
+  'stun',
+  'artifact',
+  'strengthPerTurn',
+  'slippery',
+  'slow',
+] as const;
 
 export const TRIGGER_WHENS = ['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust'] as const;
 
