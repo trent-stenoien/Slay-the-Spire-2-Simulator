@@ -140,6 +140,10 @@
  *                     with `applyPower` on an enemy move; Frantic Escape adds 1 (`applyPower`) and raises its own
  *                     cost with `script` `increaseOwnCost` (#361). Simulated.
  *
+ * #274 Test Subject — EnemyDef.nextPhase (multi-phase enemies: on death it revives as that EnemyDef);
+ *                     EnemyState.reviving; GameEvent `revive`; EnemyPowerId `enrage`, `painfulStabs`,
+ *                     `nemesis`, `intangible`; Effect `attack.extraHitsPerUse` (Multi-Claw). Declared only.
+ *
  * #5 Multi-enemy    — CombatConfig.enemyIds / RunConfig.enemyIds; CombatState.enemies (`enemy` is
  *                     the current one); StrategyView.intents; Decision / PotionUse `target`;
  *                     StrategyConfig.target + TargetPriority; `allEnemies` on applyVulnerable /
@@ -193,6 +197,11 @@ export type Effect =
        * repeat chain into further repeats is decided by the engine card, not by this field.
        */
       repeatPerKill?: boolean;
+      /**
+       * #274 (Test Subject's Multi-Claw, enemy moves only): the move gains this many hits per earlier use
+       * of it (read from EnemyState.moveUses, which a revive resets). Declared only.
+       */
+      extraHitsPerUse?: number;
     }
   | { type: 'gainBlock'; amount: number }
   | { type: 'gainStrength'; amount: number }
@@ -752,7 +761,21 @@ export type EnemyPowerId =
    * (Shivs, free plays, Powers, Sly, cards that play themselves from the Exhaust pile; Trent), i.e. each
    * time CombatCounters.cardsPlayedThisCombat reaches a multiple of [amount]. Does not stack. Declared only.
    */
-  | 'witheringPresence';
+  | 'witheringPresence'
+  /** #274 (Test Subject phase 1): whenever the player plays a Skill, the enemy gains [amount] Strength. Declared only. */
+  | 'enrage'
+  /**
+   * #274 (Test Subject phase 2): each attack hit on the player that does HP damage shuffles [amount] Wounds
+   * into the player's discard pile. Declared only.
+   */
+  | 'painfulStabs'
+  /** #274 (Test Subject phase 3): at the end of every other turn of its own, gains 1 enemy Intangible. Declared only. */
+  | 'nemesis'
+  /**
+   * #274: enemy Intangible: all damage and HP loss the enemy takes becomes 1. Falls off at the end of the
+   * player's turn (Trent). Declared only.
+   */
+  | 'intangible';
 
 /** Effects queued by a `schedule` effect. */
 export interface ScheduledEffect {
@@ -1113,6 +1136,15 @@ export interface EnemyDef {
   ascension: Record<string, EnemyAscensionOverride>;
   /** #203/#213: powers the enemy starts combat with (Cubex Construct: 1 artifact; Vantom: 8 slippery). */
   startPowers?: Partial<Record<EnemyPowerId, number>>;
+  /**
+   * #274: multi-phase enemy (Test Subject): when it dies it revives as the EnemyDef with this id (new HP,
+   * moves, pattern and start powers; its buffs, debuffs, Poison and Block clear; the player's carry over).
+   * Killed during the player's turn → revives at the start of its own turn (that turn is spent reviving);
+   * killed during its own turn → stays dead and untargetable through the player's next turn. The combat is
+   * won only when an enemy with no nextPhase dies. Enemies named as another's nextPhase are not offered in
+   * the enemy picker. Declared only.
+   */
+  nextPhase?: string;
   /** #322: effects that run when this enemy dies (Phrog Parasite: spawn 4 stunned Wrigglers). Simulated. */
   onDeath?: Effect[];
   source: string;
@@ -1237,6 +1269,11 @@ export interface EnemyState {
   powers?: Partial<Record<EnemyPowerId, number>>;
   /** #273: times this enemy has made each move, by move id (read by `xFromMoveUses`). Absent means none. */
   moveUses?: Record<string, number>;
+  /**
+   * #274: dead (hp ≤ 0) but waiting to revive as its EnemyDef.nextPhase: not targetable, does not count as
+   * killed for winning. Absent means false. Declared only.
+   */
+  reviving?: boolean;
   /** #273: upgrade level for cards of each id this enemy's powers create (`upgradeAllCopies`). Absent means 0. */
   createdCardLevels?: Record<string, number>;
 }
@@ -1402,6 +1439,8 @@ export type GameEvent =
   | { t: 'target'; enemy: number }
   /** #333: an enemy joined mid-fight (spawnEnemies, #322), one event per enemy. `index` is its slot in CombatState.enemies. */
   | { t: 'spawn'; enemyId: string; index: number; hp: number; stunned?: boolean }
+  /** #274: a multi-phase enemy revived as its next phase (`enemyId`, the new EnemyDef) with `hp` HP. Declared only. */
+  | { t: 'revive'; enemyId: string; hp: number }
   | { t: 'shuffle'; reason: 'start' | 'reshuffle'; count: number }
   | { t: 'turnStart'; turn: number; side: Side }
   | { t: 'draw'; uid: number; cardId: string }

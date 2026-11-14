@@ -406,10 +406,15 @@ export const ENEMY_POWER_IDS = [
   'slow',
   // #273: Aeonglass's start power (simulated in engine/combat.ts).
   'witheringPresence',
+  // #274 Test Subject: declared, not simulated
+  'enrage',
+  'painfulStabs',
+  'nemesis',
+  'intangible',
 ] as const;
 
-/** #273: `xFromMoveUses` reads an enemy's move uses, so a simulated card may not use it. */
-export const UNSIMULATED_EFFECT_FIELDS = ['xFromMoveUses'] as const;
+/** #273/#274: `xFromMoveUses` and `extraHitsPerUse` read an enemy's move uses, so a simulated card may not use it. */
+export const UNSIMULATED_EFFECT_FIELDS = ['xFromMoveUses', 'extraHitsPerUse'] as const;
 
 export const TRIGGER_WHENS = ['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust'] as const;
 
