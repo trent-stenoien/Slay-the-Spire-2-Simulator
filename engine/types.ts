@@ -113,6 +113,11 @@
  *                     (Wriggler). Declared, not simulated yet; validators reject the new fields in data.
  * #333 Spawn log   — GameEvent `spawn` (an enemy joined mid-fight; one per spawned enemy).
  *
+ * #270 Boss player debuffs — PowerId `disintegration` (end of turn, take [amount] damage), `mindRot`
+ *                     (draw [amount] fewer), `sloth` (play at most [amount] cards per turn), `wasteAway`
+ *                     ([amount] less energy per turn). Powers only, not status cards (Trent). An enemy
+ *                     move's `applyPower` effect puts the power on the PLAYER (not the enemy).
+ *
  * #5 Multi-enemy    — CombatConfig.enemyIds / RunConfig.enemyIds; CombatState.enemies (`enemy` is
  *                     the current one); StrategyView.intents; Decision / PotionUse `target`;
  *                     StrategyConfig.target + TargetPriority; `allEnemies` on applyVulnerable /
@@ -625,7 +630,16 @@ export type PowerId =
   /** This turn, whenever you draw a card, apply [amount] Poison to ALL enemies; ends with the turn (Corrosive Wave). */
   | 'corrosiveWave'
   /** Every 3rd time you apply Poison, deal [amount] damage to ALL enemies (Outbreak). */
-  | 'outbreak';
+  | 'outbreak'
+  // #270 boss player debuffs (Knowledge Demon's Curse of Knowledge; not simulated yet)
+  /** End of turn: take [amount] damage; blockable, Intangible makes it 1 (Disintegration). */
+  | 'disintegration'
+  /** Start of turn: draw [amount] fewer cards (Mind Rot). */
+  | 'mindRot'
+  /** You cannot play more than [amount] cards from your hand each turn (Sloth). */
+  | 'sloth'
+  /** Gain [amount] less energy at the start of each turn (Waste Away). */
+  | 'wasteAway';
 
 /** Enemy powers, stored in EnemyState.powers. */
 export type EnemyPowerId =
