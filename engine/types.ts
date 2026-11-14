@@ -779,6 +779,10 @@ export type EnemyPowerId =
    * time CombatCounters.cardsPlayedThisCombat reaches a multiple of [amount]. Does not stack. Declared only.
    */
   | 'witheringPresence'
+  /** #339 (Thorns): when hit by an Attack, deal [amount] damage back to the player. Declared only; read by strategies as an attack factor. */
+  | 'thorns'
+  /** #339 (Entomancer, Personal Hive): whenever this enemy is hit by an Attack, add [amount] Dazed to the player's Draw Pile. Declared only; read by strategies as an attack factor. */
+  | 'personalHive'
   /** #274 (Test Subject phase 1): whenever the player plays a Skill, the enemy gains [amount] Strength. Declared only. */
   | 'enrage'
   /**
@@ -1355,6 +1359,8 @@ export interface StrategyView {
   intents?: EnemyIntent[];
   /** Cards in hand that are playable right now (affordable, not unplayable). */
   playable: readonly DeepReadonly<CardInstance>[];
+  /** #339: ids of the player's relics in play (RelicSetup.relicId), read-only, for attack factors (Ornamental Fan). Absent means none. Declared only until the engine fills it. */
+  relics?: readonly string[];
 }
 
 /** #5: `target` = index into `state.enemies` for the card's single-target effects; absent or dead = the engine picks. */
