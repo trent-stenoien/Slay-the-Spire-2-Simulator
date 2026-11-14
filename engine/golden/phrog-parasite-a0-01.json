@@ -1,0 +1,230 @@
+{
+  "combat": "phrog-parasite-a0-01",
+  "source": "Played by hand in the real game; recorded on issue #198 (Combat 8). Notes, screenshots and reviews on the golden-screenshots branch, combat-08/. Phrog Parasite (64 HP) dies on turn 3 and spawns 4 Stunned Wrigglers (A 17, B 18, C 21, D 19); Whirlwind kills them on turn 4 before they move. Trent's 4 HP lost is before the +6 Burning Blood heal: start 45, final 41 + 6 = 47, so hpLost is -2 (#205).",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 0,
+  "deck": [
+    {
+      "card": "strike",
+      "count": 4
+    },
+    {
+      "card": "defend",
+      "count": 4
+    },
+    {
+      "card": "bash",
+      "count": 1
+    },
+    {
+      "card": "setup_strike",
+      "count": 1
+    },
+    {
+      "card": "inflame",
+      "count": 1
+    },
+    {
+      "card": "dismantle",
+      "count": 1
+    },
+    {
+      "card": "armaments",
+      "count": 1,
+      "upgraded": true
+    },
+    {
+      "card": "rage",
+      "count": 1
+    },
+    {
+      "card": "uppercut",
+      "count": 1
+    },
+    {
+      "card": "pyre",
+      "count": 1
+    },
+    {
+      "card": "whirlwind",
+      "count": 1
+    },
+    {
+      "card": "pommel_strike",
+      "count": 1
+    },
+    {
+      "card": "sword_boomerang",
+      "count": 1
+    },
+    {
+      "card": "byrdonis_egg",
+      "count": 1
+    }
+  ],
+  "enemies": [
+    {
+      "id": "phrog_parasite",
+      "startHp": 64,
+      "alias": "P"
+    }
+  ],
+  "player": {
+    "startHp": 45,
+    "maxHp": 80
+  },
+  "relics": [
+    {
+      "id": "burning_blood"
+    },
+    {
+      "id": "vajra"
+    },
+    {
+      "id": "gorget"
+    },
+    {
+      "id": "anchor"
+    }
+  ],
+  "potions": ["energy_potion"],
+  "turns": [
+    {
+      "hand": ["strike", "defend", "defend", "armaments+", "byrdonis_egg"],
+      "enemyMoves": {
+        "P": "infect"
+      },
+      "atStart": {
+        "player": {
+          "hp": 45,
+          "block": 10,
+          "strength": 1,
+          "plating": 4,
+          "energy": 3
+        }
+      },
+      "plays": ["armaments+", "strike+"],
+      "targets": ["P", "P"],
+      "enemyHpAfterEachPlay": [64, 54],
+      "afterPlays": {
+        "player": {
+          "energy": 1
+        },
+        "enemies": {
+          "P": {
+            "hp": 54
+          }
+        }
+      },
+      "afterEnemy": {}
+    },
+    {
+      "hand": ["strike", "strike", "defend", "bash", "uppercut"],
+      "enemyMoves": {
+        "P": "lash"
+      },
+      "atStart": {
+        "player": {
+          "hp": 45,
+          "strength": 1,
+          "plating": 3
+        }
+      },
+      "plays": ["bash", "uppercut", "defend"],
+      "targets": ["P", "P", null],
+      "potions": [
+        {
+          "potion": "energy_potion",
+          "beforePlay": 1
+        }
+      ],
+      "afterPlays": {
+        "enemies": {
+          "P": {
+            "hp": 24,
+            "vulnerable": 3,
+            "weak": 1
+          }
+        }
+      },
+      "afterEnemy": {
+        "player": {
+          "hp": 41
+        }
+      }
+    },
+    {
+      "hand": ["defend", "rage", "pommel_strike", "inflame", "sword_boomerang"],
+      "drawn": ["setup_strike"],
+      "enemyMoves": {
+        "P": "infect"
+      },
+      "atStart": {
+        "player": {
+          "hp": 41,
+          "strength": 1,
+          "plating": 2
+        }
+      },
+      "plays": ["rage", "inflame", "pommel_strike", "sword_boomerang"],
+      "targets": ["P", null, "P", null],
+      "randomPicks": [1, 2],
+      "afterPlays": {
+        "player": {
+          "block": 6,
+          "strength": 3
+        },
+        "enemies": {
+          "B": {
+            "hp": 12
+          },
+          "C": {
+            "hp": 15
+          }
+        }
+      },
+      "afterEnemy": {}
+    },
+    {
+      "hand": ["strike", "whirlwind", "pyre", "dismantle", "infection"],
+      "atStart": {
+        "player": {
+          "hp": 41,
+          "strength": 3,
+          "plating": 1
+        }
+      },
+      "plays": ["whirlwind"],
+      "afterPlays": {}
+    }
+  ],
+  "result": {
+    "outcome": "win",
+    "turns": 4,
+    "finalHp": 47,
+    "hpLost": -2
+  },
+  "spawned": [
+    {
+      "id": "wriggler",
+      "startHp": 17,
+      "alias": "A"
+    },
+    {
+      "id": "wriggler",
+      "startHp": 18,
+      "alias": "B"
+    },
+    {
+      "id": "wriggler",
+      "startHp": 21,
+      "alias": "C"
+    },
+    {
+      "id": "wriggler",
+      "startHp": 19,
+      "alias": "D"
+    }
+  ]
+}

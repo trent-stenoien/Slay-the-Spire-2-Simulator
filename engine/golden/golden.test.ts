@@ -141,6 +141,8 @@ interface Fixture {
   /** One enemy; or `enemies` for a multi-enemy fight (left to right; `alias` names each in targets and states). */
   enemy?: { id: string; startHp: number };
   enemies?: { id: string; startHp: number; alias: string }[];
+  /** Enemies that spawn mid-fight (Phrog Parasite's Wrigglers), in spawn order: their HP rolls are forced and the alias names them in states. */
+  spawned?: { id: string; startHp: number; alias: string }[];
   player: { startHp: number; maxHp: number };
   relics?: { id: string; choice?: number }[];
   potions?: string[];
@@ -195,6 +197,11 @@ function enemyList(fx: Fixture): { id: string; startHp: number; alias: string }[
   return fx.enemies ?? [{ ...fx.enemy!, alias: '' }];
 }
 
+/** The starting enemies plus the ones that spawn later, in the engine's enemy order (aliases for states). */
+function allEnemies(fx: Fixture): { id: string; startHp: number; alias: string }[] {
+  return [...enemyList(fx), ...(fx.spawned ?? [])];
+}
+
 /** Fields a fixture state may name; anything else is a typo. */
 function checkFields(fx: Fixture): string[] {
   const allowed = {
@@ -210,7 +217,7 @@ function checkFields(fx: Fixture): string[] {
         }
       }
       for (const [alias, side] of Object.entries(t[stage]?.enemies ?? {})) {
-        if (!enemyList(fx).some((e) => e.alias === alias)) bad.push(`turn ${i + 1} ${stage}.enemies.${alias}`);
+        if (!allEnemies(fx).some((e) => e.alias === alias)) bad.push(`turn ${i + 1} ${stage}.enemies.${alias}`);
         for (const f of Object.keys(side))
           if (!allowed.enemy.has(f)) bad.push(`turn ${i + 1} ${stage}.enemies.${alias}.${f}`);
       }
@@ -338,7 +345,7 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
   }
   const enemies = enemyList(fx);
   const multi = !!fx.enemies;
-  const aliases = enemies.map((e) => e.alias);
+  const aliases = allEnemies(fx).map((e) => e.alias);
   const mismatches: string[] = [];
   const miss = (turn: number | string, stage: string, field: string, expected: unknown, actual: unknown) =>
     mismatches.push(`turn ${turn} ${stage}: ${field}: expected ${expected}, engine ${actual}`);
@@ -493,7 +500,7 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
     ...(fx.playerStart ? { playerStart: fx.playerStart } : {}),
   };
 
-  control.enemyHps = enemies.map((e) => e.startHp);
+  control.enemyHps = allEnemies(fx).map((e) => e.startHp);
   control.error = null;
   control.picks = [];
   control.pickError = null;
