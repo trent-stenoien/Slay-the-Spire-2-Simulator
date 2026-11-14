@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "doubleBlock",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Double your Block gain this turn.",
   "upgradedDescription": "Double your Block gain this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

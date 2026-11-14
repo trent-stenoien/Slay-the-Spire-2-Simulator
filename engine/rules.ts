@@ -16,6 +16,7 @@ import type {
  * (25 → ×1.75, 50 → ×2); it only matters when the target is Vulnerable. #4 Shrink: the attacker
  * deals `shrinkPercent`% less, applied after every other modifier (×0.7 for 30). #110 Colossus:
  * `reducePercent` is a further percent less on the same floor (50 → ×0.5, so Weak + Colossus = ×0.375).
+ * #264 Shadow Step: `multiplier` doubles the damage (×2 with the other multipliers, floored once).
  * #266 Tracking: `trackingDouble` (the target is Weak and the attacker has Tracking) doubles it (×2, so Vulnerable + Tracking = ×3).
  */
 export function attackDamage(
@@ -27,8 +28,9 @@ export function attackDamage(
   shrinkPercent = 0,
   reducePercent = 0,
   trackingDouble = false,
+  multiplier = 1,
 ): number {
-  let dmg = base + attackerStrength;
+  let dmg = (base + attackerStrength) * multiplier;
   if (attackerWeak > 0) dmg *= 0.75;
   if (targetVulnerable > 0) dmg *= 1.5 + crueltyPercent / 100;
   // #266 Tracking: a Weak target takes double (a multiplier like Vulnerable, floored once at the end).
@@ -63,10 +65,12 @@ export function cardCost(
   attacksPlayedThisTurn: number,
   freeAttack: boolean,
   skillsPlayedThisTurn = 0,
+  freeSkill = false,
 ): number | null {
   if (card.cost === null) return null;
   if (card.xCost) return 0;
   if (freeAttack && card.type === 'attack') return 0;
+  if (freeSkill && card.type === 'skill') return 0;
   let cost = card.costThisTurn ?? card.costThisCombat ?? card.cost;
   if (card.costLessPer)
     cost = Math.max(

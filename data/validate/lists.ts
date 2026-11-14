@@ -135,6 +135,7 @@ export const SIMULATED_SCRIPTS = new Set<string>([
   'perfectedStrike',
   'expectAFight',
   'upMySleeve',
+  'scheduledBlock',
 ]);
 
 /** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */
@@ -212,6 +213,14 @@ export const SIMULATED_POWERS = new Set<string>([
   'wellLaidPlans',
   'tracking',
   'stratagem',
+  // #264 Silent temporary and next-turn powers
+  'dexterityThisTurn',
+  'retainBlock',
+  'doubleBlock',
+  'burst',
+  'freeNextSkill',
+  'doubleAttackNextTurn',
+  'dexterityLossPerTurn',
 ]);
 
 /** CardFilter fields the engine matches on (every field of CardFilter since #113 enabled `nameIncludes`). */

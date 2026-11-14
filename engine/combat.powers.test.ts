@@ -220,6 +220,14 @@ describe('#109 played Power cards', () => {
         'mayhem',
         'nostalgia',
         'stratagem',
+        // #264
+        'dexterityThisTurn',
+        'retainBlock',
+        'doubleBlock',
+        'burst',
+        'freeNextSkill',
+        'doubleAttackNextTurn',
+        'dexterityLossPerTurn',
         // #266
         'afterimage',
         'serpentForm',

@@ -362,6 +362,14 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'wellLaidPlans',
   'tracking',
   'stratagem',
+  // #264 Silent temporary and next-turn powers
+  'dexterityThisTurn',
+  'retainBlock',
+  'doubleBlock',
+  'burst',
+  'freeNextSkill',
+  'doubleAttackNextTurn',
+  'dexterityLossPerTurn',
 ];
 
 /** #116 Hello World: a random Common card from the player's character. */
@@ -410,6 +418,8 @@ class Combat {
   private mantleCopies = 0;
   /** #110: true while scheduled effects run: Block they gain is not changed by Dexterity or Frail. */
   private unpowered = false;
+  /** #264 Shadow Step: the player turn it was last played on (its double damage is for the turn after). */
+  private shadowStepTurn = 0;
   /** #116: uid for the next created card (the deck uses 0..n-1). */
   private nextUid: number;
   /** #116: pools already computed, keyed by pool + upgraded. */
@@ -682,7 +692,10 @@ class Combat {
     this.lastDrawn = [];
     this.panacheCount = 0;
     this.unmovableUsed = false;
-    if (!this.power('barricade')) {
+    if (this.power('retainBlock') > 0) {
+      // #264 Blur: this turn's Block is not removed, and the power is used up.
+      this.applyPower('retainBlock', -this.power('retainBlock'));
+    } else if (!this.power('barricade')) {
       player.block = 0;
       log?.push({ t: 'blockReset', side: 'player' });
     }
@@ -783,6 +796,7 @@ class Combat {
       this.counters.attacksPlayedThisTurn,
       this.power('freeAttack') > 0,
       this.counters.skillsPlayedThisTurn,
+      this.power('freeNextSkill') > 0,
     );
   }
 
@@ -819,6 +833,10 @@ class Combat {
           break;
         case 'vigorPerTurn':
           this.applyPower('vigor', amount);
+          break;
+        case 'dexterityLossPerTurn':
+          // #264 Wraith Form: Dexterity may go below 0.
+          this.applyPower('dexterity', -amount);
           break;
         case 'crimsonMantle':
           if (this.loseHp(CRIMSON_MANTLE_HP_LOSS * this.mantleCopies)) return 'loss';
@@ -957,7 +975,9 @@ class Combat {
     const double = raw > 0 && this.power('unmovable') > 0 && !this.unmovableUsed;
     if (double) this.unmovableUsed = true;
     const frail = this.player.debuffs.frail > 0 ? 0.75 : 1;
-    return Math.max(0, Math.floor(raw * frail * (double ? 2 : 1)));
+    // #264 Shadowmeld: all Block from cards is doubled this turn (one doubling, however many are played).
+    const shadowmeld = this.power('doubleBlock') > 0 ? 2 : 1;
+    return Math.max(0, Math.floor(raw * frail * (double ? 2 : 1) * shadowmeld));
   }
 
   /**
@@ -1012,9 +1032,12 @@ class Combat {
       // #110 Unrelenting: the next Attack played costs 0 (an X-cost Attack still gets X = all the energy, free).
       const free = card.type === 'attack' && this.power('freeAttack') > 0;
       if (free) this.applyPower('freeAttack', -1);
+      // #264 Pounce: the next Skill played costs 0 (an X-cost Skill still gets X = all the energy, free).
+      const freeSkill = !free && card.type === 'skill' && this.power('freeNextSkill') > 0;
+      if (freeSkill) this.applyPower('freeNextSkill', -1);
       // X-cost: X is all the energy available, and the card spends all of it.
       const x = card.xCost ? player.energy : 0;
-      player.energy -= free ? 0 : card.xCost ? x : (cost as number);
+      player.energy -= free || freeSkill ? 0 : card.xCost ? x : (cost as number);
       this.retarget(decision.target);
       const died = this.playCard(card, x);
       if (died === 'player' || player.hp <= 0) return 'loss';
@@ -1083,6 +1106,9 @@ class Combat {
     const nostalgia = firstAttackOrSkill && this.power('nostalgia') > 0;
     const again = card.type === 'attack' && this.power('doubleAttack') > 0;
     if (again) this.applyPower('doubleAttack', -1);
+    // #264 Burst: the next Skill(s) played this turn are played an extra time (read before this card's own effects).
+    const burst = card.type === 'skill' && this.power('burst') > 0;
+    if (burst) this.applyPower('burst', -1);
     if (toDrawTop) this.applyPower('nextCardToDrawTop', -1);
     // Rage: Block from the power, not the card (no Dexterity or Frail).
     if (card.type === 'attack' && this.power('rage') > 0) this.gainPowerBlock(this.power('rage'));
@@ -1101,7 +1127,7 @@ class Combat {
     this.activeVigor = 0;
     if (vigor > 0) this.applyPower('vigor', -vigor);
     // #110 One-Two Punch: the Attack is played one more time, like a Replay (never uses Replay up).
-    const replays = (card.replay ?? 0) + (again ? 1 : 0);
+    const replays = (card.replay ?? 0) + (again ? 1 : 0) + (burst ? 1 : 0);
     for (let left = replays - 1; left >= 0 && !died && player.hp > 0 && !this.won(); left--) {
       this.retarget();
       log?.push({ t: 'replay', uid: card.uid, cardId: card.cardId, left });
@@ -1294,8 +1320,20 @@ class Combat {
       'doubleAttack',
       'nextCardToDrawTop',
       'retainHand',
+      'doubleBlock',
+      'burst',
     ] as const) {
       if (this.power(id) > 0) this.applyPower(id, -this.power(id));
+    }
+    // #264 Anticipate: the Dexterity gained this turn is taken back.
+    const dexTemp = this.power('dexterityThisTurn');
+    if (dexTemp > 0) {
+      this.applyPower('dexterity', -dexTemp);
+      this.applyPower('dexterityThisTurn', -dexTemp);
+    }
+    // #264 Shadow Step: played this turn it waits for the next one; from an earlier turn it ends now.
+    if (this.power('doubleAttackNextTurn') > 0 && this.shadowStepTurn < this.state.turn) {
+      this.applyPower('doubleAttackNextTurn', -this.power('doubleAttackNextTurn'));
     }
     for (const pile of [player.hand, player.drawPile, player.discardPile, player.exhaustPile]) {
       for (const c of pile) delete c.costThisTurn;
@@ -1572,6 +1610,9 @@ class Combat {
             player.strength += e.amount;
             log?.push({ t: 'strength', side: 'player', amount: e.amount, total: player.strength });
           }
+          // #264: Dexterity "this turn" is real Dexterity now, taken back at the end of the turn.
+          if (e.power === 'dexterityThisTurn') this.applyPower('dexterity', e.amount);
+          if (e.power === 'doubleAttackNextTurn') this.shadowStepTurn = this.state.turn;
           this.applyPower(e.power, e.amount);
           break;
         case 'applyEnemyPower':
@@ -1731,6 +1772,7 @@ class Combat {
           else if (source === 'player' && e.id === 'prolong') this.prolong();
           else if (source === 'player' && e.id === 'expectAFight') this.expectAFight();
           else if (source === 'player' && e.id === 'upMySleeve') this.upMySleeve(card);
+          else if (source === 'player' && e.id === 'scheduledBlock') this.scheduledBlock(e.values?.[0] ?? 0);
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
@@ -2178,6 +2220,18 @@ class Combat {
         this.log?.push({ t: 'costChanged', uid: c.uid, cardId: c.cardId, cost: e.cost, duration: e.duration });
       }
     }
+  }
+
+  /**
+   * #264 Dodge and Roll (Trent): the Block that arrives next turn gets Dexterity and Frail like Block
+   * from a card (the other scheduled Block, Toric Toughness and Prolong, does not).
+   */
+  private scheduledBlock(amount: number): void {
+    const { player } = this;
+    const gained = blockGain(amount + this.power('dexterity') + this.beltBuckle(), player.debuffs.frail);
+    player.block += gained;
+    this.log?.push({ t: 'block', side: 'player', amount: gained, total: player.block });
+    this.blockGained(gained);
   }
 
   /** #110 Prolong: next turn, gain Block equal to the Block you have right now. */
@@ -2672,7 +2726,8 @@ class Combat {
   private applyPower(power: PowerId, amount: number): void {
     const powers = (this.player.powers ??= {});
     const total = (powers[power] ?? 0) + amount;
-    if (total <= 0) {
+    // #264 Wraith Form: Dexterity may go below 0 (only 0 removes it).
+    if (total === 0 || (total < 0 && power !== 'dexterity')) {
       delete powers[power];
       this.log?.push({ t: 'powerRemoved', side: 'player', power });
       return;
@@ -2779,6 +2834,8 @@ class Combat {
     const cruelty = this.power('cruelty');
     const tracking = this.power('tracking') > 0;
     const shrink = player.shrink ?? 0;
+    // #264 Shadow Step: Attacks deal double damage on the turn after it was played.
+    const double = this.power('doubleAttackNextTurn') > 0 && this.state.turn > this.shadowStepTurn ? 2 : 1;
     this.lastAttackDamage = 0;
     const multi = all && this.enemies.length > 1;
     const keep = this.focus;
@@ -2801,6 +2858,7 @@ class Combat {
           shrink,
           0,
           tracking && t.debuffs.weak > 0,
+          double,
         );
         const blocked = Math.min(t.block, perHit);
         t.block -= blocked;
