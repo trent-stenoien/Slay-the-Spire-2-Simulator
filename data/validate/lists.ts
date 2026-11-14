@@ -238,6 +238,11 @@ export const SIMULATED_POWERS = new Set<string>([
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
+  // #270 boss player debuffs
+  'disintegration',
+  'mindRot',
+  'sloth',
+  'wasteAway',
 ]);
 
 /** CardFilter fields the engine matches on (every field of CardFilter since #113 enabled `nameIncludes`). */
@@ -364,6 +369,11 @@ export const POWER_IDS = [
   'infiniteBlades',
   'phantomBlades',
   'fanOfKnives',
+  // #270 boss player debuffs
+  'disintegration',
+  'mindRot',
+  'sloth',
+  'wasteAway',
 ] as const;
 
 /** #215 adds artifact, strengthPerTurn, slippery; #303 adds slow (enemy start power, simulated in engine/combat.ts; not applicable by cards, so not in SIMULATED_ENEMY_POWERS). */

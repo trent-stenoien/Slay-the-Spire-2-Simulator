@@ -228,6 +228,11 @@ describe('#109 played Power cards', () => {
         'freeNextSkill',
         'doubleAttackNextTurn',
         'dexterityLossPerTurn',
+        // #270
+        'disintegration',
+        'mindRot',
+        'sloth',
+        'wasteAway',
         // #266
         'afterimage',
         'serpentForm',

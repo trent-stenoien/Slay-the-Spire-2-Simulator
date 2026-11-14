@@ -177,6 +177,15 @@ describe('#105 contract shapes', () => {
     );
   });
 
+  it('#270: accepts applyPower on an enemy move (the power goes on the player)', () => {
+    const d = fixture();
+    d.enemies.nibbit.moves.hiss.effects.push({ type: 'applyPower', power: 'disintegration', amount: 6 });
+    d.enemies.nibbit.moves.butt.effects.push({ type: 'applyPower', power: 'sloth', amount: 3 });
+    expect(errorsOf(d)).toEqual([]);
+    d.enemies.nibbit.moves.hiss.effects.push({ type: 'applyPower', power: 'notAPower', amount: 1 });
+    expect(errorsOf(d)).not.toEqual([]);
+  });
+
   it('#108: accepts "when exhausted" triggers with simulated effects on a simulated card', () => {
     const d = fixture();
     d.cards.strike.triggers = [{ when: 'exhausted', effects: [{ type: 'gainEnergy', amount: 2 }] }];

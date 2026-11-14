@@ -56,6 +56,8 @@
  *                     helloWorld, entropy.
  * #169 Enemy Strength — Effect `enemyGainStrength` (Fight Me!); reuses EnemyState.strength.
  * #45 Random target — Effect `attack.randomTarget` (each hit picks a random living enemy).
+ * #269 Silent multi-enemy cards — Effect `attack.repeatPerKill` (Echoing Slash), `applyPoison.randomTarget`
+ *                     + `hits` (Bouncing Flask), `applyEnemyPower.allEnemies` (Piercing Wail).
  * #286 Ascension HP — CharacterDef.ascension (CharacterAscensionOverride.startHp; cumulative,
  *                     lowers STARTING HP only, Max HP unchanged).
  * #287 Inklet       — MovePattern `alternate` (AlternatePattern: fixed move, then a weighted
@@ -120,6 +122,11 @@
  *                     (Wriggler). Declared, not simulated yet; validators reject the new fields in data.
  * #333 Spawn log   — GameEvent `spawn` (an enemy joined mid-fight; one per spawned enemy).
  *
+ * #270 Boss player debuffs — PowerId `disintegration` (end of turn, take [amount] damage), `mindRot`
+ *                     (draw [amount] fewer), `sloth` (play at most [amount] cards per turn), `wasteAway`
+ *                     ([amount] less energy per turn). Powers only, not status cards (Trent). An enemy
+ *                     move's `applyPower` effect puts the power on the PLAYER (not the enemy).
+ *
  * #5 Multi-enemy    — CombatConfig.enemyIds / RunConfig.enemyIds; CombatState.enemies (`enemy` is
  *                     the current one); StrategyView.intents; Decision / PotionUse `target`;
  *                     StrategyConfig.target + TargetPriority; `allEnemies` on applyVulnerable /
@@ -168,6 +175,11 @@ export type Effect =
       xTimes?: boolean;
       xBonus?: number;
       randomTarget?: boolean;
+      /**
+       * #269 (Echoing Slash): the attack repeats once per enemy it killed. Whether kills made by a
+       * repeat chain into further repeats is decided by the engine card, not by this field.
+       */
+      repeatPerKill?: boolean;
     }
   | { type: 'gainBlock'; amount: number }
   | { type: 'gainStrength'; amount: number }
@@ -180,7 +192,8 @@ export type Effect =
    * At the start of the enemy's turn, after its Block is removed, it loses HP equal
    * to its Poison (ignores Block, Strength, Weak, Vulnerable), then Poison goes down by 1.
    */
-  | { type: 'applyPoison'; amount: number; allEnemies?: boolean }
+  /** #269: `randomTarget` + `hits`: apply `amount` Poison `hits` times, each to a random living enemy (Bouncing Flask). */
+  | { type: 'applyPoison'; amount: number; allEnemies?: boolean; randomTarget?: boolean; hits?: number }
   /**
    * Gain `amount` energy now (cards only). Spendable this turn; it does not carry
    * over, since energy is set to energyPerTurn at the start of the next turn.
@@ -216,7 +229,8 @@ export type Effect =
   /** #109/#113: give the player `amount` of a power (stacks add). Meaning per PowerId below. */
   | { type: 'applyPower'; power: PowerId; amount: number }
   /** #110/#115: give the enemy `amount` of an enemy power (temporary Strength loss, Stun). */
-  | { type: 'applyEnemyPower'; power: EnemyPowerId; amount: number }
+  /** #269: `allEnemies` applies it to every living enemy (Piercing Wail). */
+  | { type: 'applyEnemyPower'; power: EnemyPowerId; amount: number; allEnemies?: boolean }
   /**
    * #110: run `effects` later. `delay` = player turns from now (1 = next turn);
    * `at` = 'turnStart' (default, after draw) or 'turnEnd' (The Bomb). Values are
@@ -645,7 +659,16 @@ export type PowerId =
   /** Shivs gain Retain; the first Shiv you play each turn deals [amount] additional damage (Phantom Blades). */
   | 'phantomBlades'
   /** Shivs hit ALL enemies, as if `attack.allEnemies` (Fan of Knives). The power's amount is 1; stacking changes nothing. */
-  | 'fanOfKnives';
+  | 'fanOfKnives'
+  // #270 boss player debuffs (Knowledge Demon's Curse of Knowledge; not simulated yet)
+  /** End of turn: take [amount] damage; blockable, Intangible makes it 1 (Disintegration). */
+  | 'disintegration'
+  /** Start of turn: draw [amount] fewer cards (Mind Rot). */
+  | 'mindRot'
+  /** You cannot play more than [amount] cards from your hand each turn (Sloth). */
+  | 'sloth'
+  /** Gain [amount] less energy at the start of each turn (Waste Away). */
+  | 'wasteAway';
 
 /** Enemy powers, stored in EnemyState.powers. */
 export type EnemyPowerId =
