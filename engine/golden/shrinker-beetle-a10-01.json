@@ -1,0 +1,52 @@
+{
+  "combat": "shrinker-beetle-a10-01",
+  "source": "Played by hand in the real game; recorded on issue #295 (Combat 11). Silent, Ascension 10, mid-run at 40/70 HP. Notes, screenshots and reviews on the golden-screenshots branch, combat-11/. Fishing Rod has no combat effect. Ring of the Snake draws 2 extra cards on turn 1. T4: Deadly Poison (Poison 7) kills the Beetle at the start of its turn.",
+  "gameVersion": "v0.107.1",
+  "character": "silent",
+  "ascension": 10,
+  "deck": [
+    { "card": "strike", "count": 5 },
+    { "card": "defend", "count": 5 },
+    { "card": "neutralize", "count": 1 },
+    { "card": "survivor", "count": 1 },
+    { "card": "deadly_poison", "count": 1 }
+  ],
+  "enemy": { "id": "shrinker_beetle", "startHp": 40 },
+  "player": { "startHp": 40, "maxHp": 70 },
+  "relics": [{ "id": "ring_of_the_snake" }, { "id": "fishing_rod" }],
+  "turns": [
+    {
+      "hand": ["strike", "strike", "defend", "defend", "defend", "deadly_poison", "ascenders_bane"],
+      "plays": ["deadly_poison", "strike", "strike"],
+      "atStart": { "player": { "hp": 40, "energy": 3 }, "enemy": { "hp": 40 } },
+      "enemyHpAfterEachPlay": [40, 34, 28],
+      "afterPlays": { "player": { "hp": 40 }, "enemy": { "hp": 28, "poison": 5 } },
+      "afterEnemy": { "player": { "hp": 40, "shrink": 30 }, "enemy": { "hp": 23, "poison": 4 } }
+    },
+    {
+      "hand": ["strike", "strike", "strike", "defend", "survivor"],
+      "plays": ["survivor", "strike", "strike"],
+      "choices": [{ "source": "survivor", "pick": ["defend"] }],
+      "atStart": { "player": { "hp": 40, "shrink": 30 }, "enemy": { "hp": 23, "poison": 4 } },
+      "enemyHpAfterEachPlay": [23, 19, 15],
+      "afterPlays": { "player": { "block": 8 }, "enemy": { "hp": 15, "poison": 4 } },
+      "afterEnemy": { "player": { "hp": 40 }, "enemy": { "hp": 11, "poison": 3 } }
+    },
+    {
+      "hand": ["defend", "neutralize", "defend", "defend", "defend"],
+      "plays": ["neutralize", "defend", "defend", "defend"],
+      "atStart": { "player": { "hp": 40, "shrink": 30 }, "enemy": { "hp": 11, "poison": 3 } },
+      "enemyHpAfterEachPlay": [9, 9, 9, 9],
+      "afterPlays": { "player": { "block": 15 }, "enemy": { "hp": 9, "poison": 3, "weak": 1 } },
+      "afterEnemy": { "player": { "hp": 40 }, "enemy": { "hp": 6, "poison": 2 } }
+    },
+    {
+      "hand": ["strike", "strike", "strike", "strike", "deadly_poison"],
+      "plays": ["deadly_poison"],
+      "atStart": { "player": { "hp": 40, "shrink": 30 }, "enemy": { "hp": 6, "poison": 2 } },
+      "enemyHpAfterEachPlay": [6],
+      "afterPlays": { "enemy": { "poison": 7 } }
+    }
+  ],
+  "result": { "outcome": "win", "turns": 4, "finalHp": 40, "hpLost": 0 }
+}
