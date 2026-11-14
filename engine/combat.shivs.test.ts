@@ -271,3 +271,57 @@ describe('#284 Shiv play rule', () => {
     expect(plays).toEqual(['strike', 'storm_of_steel', 'shiv']);
   });
 });
+
+describe('#339 Shiv makers: Storm of Steel, Shadow Step, Cloak and Dagger', () => {
+  const plays = (d: ReturnType<typeof world>, deck: ReturnType<typeof deckOf>, n: number, config = GREEDY_CONFIG) => {
+    const r = simulateCombat(
+      d,
+      cfg({ enemyId: 'dummy', deck, strategy: { ...config, order: [...config.order] } }),
+      createStrategy({ ...config, order: [...config.order] }),
+      { log: true },
+    );
+    return events(r.log, 'play')
+      .map((e) => e.cardId)
+      .slice(0, n);
+  };
+
+  it('Storm of Steel as the best attack: the other cards are played first, keeping 1 Energy for it', () => {
+    const d = world(['storm_of_steel', 'defend']);
+    // 3 Energy: two Defends fit beside Storm; the other two are discarded into 2 Shivs.
+    const p = plays(d, deckOf(['storm_of_steel', 1], ['defend', 4]), 6);
+    expect(p).toEqual(['defend', 'defend', 'storm_of_steel', 'shiv', 'shiv', expect.anything()]);
+  });
+
+  it('Storm of Steel is not played before a more energy efficient attack (no reservation, plays last)', () => {
+    const d = world(['storm_of_steel', 'strike', 'defend']);
+    d.cards.strike!.effects = d.cards.strike!.effects.map((e) => (e.type === 'attack' ? { ...e, damage: 30 } : e));
+    const p = plays(d, deckOf(['storm_of_steel', 1], ['strike', 1], ['defend', 3]), 2);
+    expect(p[0]).toBe('strike');
+  });
+
+  it('with Energy for only one, Shadow Step is played over Storm of Steel when the hand has strong attacks and no Shiv synergy', () => {
+    const d = world(['storm_of_steel', 'shadow_step', 'strike']);
+    d.characters.ironclad!.energyPerTurn = 1;
+    d.cards.strike!.cost = 3; // unplayable, but a strong attack in the hand
+    d.cards.strike!.effects = d.cards.strike!.effects.map((e) => (e.type === 'attack' ? { ...e, damage: 30 } : e));
+    const p = plays(d, deckOf(['storm_of_steel', 1], ['shadow_step', 1], ['strike', 2]), 2);
+    expect(p[0]).toBe('shadow_step');
+    expect(p).not.toContain('storm_of_steel');
+  });
+
+  it('with Energy for only one, Storm of Steel is played over Shadow Step when the hand has weak attacks', () => {
+    const d = world(['storm_of_steel', 'shadow_step', 'defend']);
+    d.characters.ironclad!.energyPerTurn = 1;
+    d.cards.defend!.cost = 3;
+    const p = plays(d, deckOf(['storm_of_steel', 1], ['shadow_step', 1], ['defend', 3]), 2);
+    expect(p[0]).toBe('storm_of_steel');
+  });
+
+  it('Cloak and Dagger is played before a bigger Defend', () => {
+    const d = world(['cloak_and_dagger', 'defend']);
+    d.cards.defend!.effects = d.cards.defend!.effects.map((e) => (e.type === 'gainBlock' ? { ...e, amount: 12 } : e));
+    const config = { order: ['block', 'powers', 'attack'], allowThrough: 0 } as const;
+    const p = plays(d, deckOf(['cloak_and_dagger', 1], ['defend', 1]), 2, config as never);
+    expect(p).toEqual(['cloak_and_dagger', 'shiv']);
+  });
+});

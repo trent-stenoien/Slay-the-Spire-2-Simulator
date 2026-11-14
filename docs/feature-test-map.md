@@ -134,6 +134,7 @@ Round 1, test reviewer. Break edits were never committed.
 | 18a-5 | Strategies play Shivs; Storm of Steel last; Hidden Daggers unsimulated | engine/combat.shivs.test.ts > #262 strategies play Shivs; #262 Hidden Daggers stays unsimulated | caught (Blade Dance count 3->2 fails the strategy tests too) |
 | 18a-5b | #284 Shiv makers compared with attacks by energy efficiency (Shivs counted); Shivs played like attacks | engine/combat.shivs.test.ts > #284 Shiv play rule (first three) | not run |
 | 18a-5c | #284 Storm of Steel after all other energy is spent | engine/combat.shivs.test.ts > #284 Shiv play rule (Storm) | not run |
+| 18a-5d | #339 Storm of Steel valued by its Shivs and played after the other cards (Energy kept); Storm vs Shadow Step; Cloak and Dagger preferred Block | engine/combat.shivs.test.ts > #339 Shiv makers | not run |
 | 18a-6 | Blade of Ink: 2 Inky Shivs (3 upgraded); each Inky Shiv deals 4, applies 1 Weak, Exhausts; strategies play them | engine/combat.shivs.test.ts > #285 Blade of Ink; data/data.mechanics.test.ts > #285 Blade of Ink | not run |
 | 17a-1 | Ornamental Fan: every 3rd Attack per turn | engine/combat.relics.test.ts > #205 card-play relics > Ornamental Fan 4 Block on every 3rd Attack in one turn | caught (4th) |
 | 17a-2 | Happy Flower / Pollinous Core turns; setup start count | engine/combat.relics.test.ts > Happy Flower +1 energy on turns 3, 6…; carried counters start at the setup count | caught |
