@@ -70,6 +70,21 @@ describe('spawnEnemies / onDeath (#322)', () => {
     expect(r.enemyHpRemaining).toBe(0);
   });
 
+  it('logs one spawn event per spawned enemy with its slot, rolled HP and Stunned flag (#333)', () => {
+    const r = logged(
+      world(),
+      scripted((t) => (t === 1 ? ['zap'] : [])),
+      { enemyId: 'mother', deck: deckOf(['zap', 10]) },
+    );
+    const spawns = r.log!.filter((e): e is Extract<GameEvent, { t: 'spawn' }> => e.t === 'spawn');
+    expect(spawns.map((e) => [e.enemyId, e.index, e.stunned])).toEqual([
+      ['kid', 1, true],
+      ['kid', 2, true],
+    ]);
+    expect(spawns.every((e) => e.hp > 0)).toBe(true);
+    expect(r.log!.filter((e) => e.t === 'combatStart')).toHaveLength(1);
+  });
+
   it('the new enemies are appended on the right with seeded HP and the line-up is visible to targeting', () => {
     const data = world();
     data.enemies.kid!.hp = { min: 5, max: 9 };

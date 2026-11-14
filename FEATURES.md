@@ -48,6 +48,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     = middle; a lone enemy is outer), else `startWith` (default the fixed move); afterwards the move after the
     fixed one is a random pick and the move after a pick is the fixed one. Inklet: outer opens Jab, middle opens
     Whirlwind, then Jab alternates with a 50/50 Piercing Gaze or Whirlwind.
+9e. **Spawn log event (#333):** each enemy added mid-fight logs one `spawn` event (enemy id, slot, rolled HP, `stunned`); the log panel shows "Wriggler appears as Enemy 2 (19 HP, Stunned)" and the replay adds the enemy's HP snapshot.
 9d. **Summons and pattern extras (#322):** `spawnEnemies` (enemy moves and `EnemyDef.onDeath`) appends `count` enemies
     to the right, HP rolled with the seeded Rng; `stunned` ones skip their first move, and that arrival Stun does not advance the pattern (#329: Wrigglers still open
     Bite, Wriggle, Bite, Wriggle by slot; an ordinary Stun still advances it, #148).
