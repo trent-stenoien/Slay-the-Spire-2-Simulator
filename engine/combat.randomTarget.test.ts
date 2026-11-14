@@ -161,6 +161,23 @@ describe('#45 strategy: random-target attacks first', () => {
     expect(d).toMatchObject({ kind: 'play', uid: 2 });
   });
 
+  it('#304: targeted attacks that kill together (not alone) go first, aimed at that enemy', () => {
+    const d = createStrategy(GREEDY_CONFIG).decide(view([boomer, poke, poke], [50, 6]));
+    expect(d).toMatchObject({ kind: 'play', uid: 2, target: 1 });
+  });
+
+  it('#304: a combined kill the Energy cannot pay for does not go first', () => {
+    const pricey = { ...poke, cost: 1 };
+    const d = createStrategy(GREEDY_CONFIG).decide(view([boomer, pricey, pricey], [50, 6], 1));
+    expect(d).toMatchObject({ kind: 'play', uid: 1 });
+    expect((d as { target?: number }).target).toBeUndefined();
+  });
+
+  it('#304: targeted attacks that cannot kill any enemy together leave random-target first', () => {
+    const d = createStrategy(GREEDY_CONFIG).decide(view([boomer, poke, poke], [50, 7]));
+    expect(d).toMatchObject({ kind: 'play', uid: 1 });
+  });
+
   it('with one living enemy the rule does not apply (a killing stab gets no forced target)', () => {
     const d = createStrategy(GREEDY_CONFIG).decide(view([stab, boomer], [8]));
     expect(d).toMatchObject({ kind: 'play' });
