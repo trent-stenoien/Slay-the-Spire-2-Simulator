@@ -276,6 +276,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 45 | Silent counters (#265): Pinpoint cost, Memento Mori discards, Murder draws, Flechettes / Finisher hit counts, Escape Plan Skill check, Expertise hand size; Finisher played after other Attacks | engine/combat.silentCounters.test.ts (19 tests) | n/a |
 | 46 | Afterimage Block per later card (no Dexterity), Serpent Form damage, Speedster per draw (turn-start draw included), Tools of the Trade draw then discard (discard order: hurting junk, Sly, exhaust order), Tracking ×2 on Weak (×3 with Vulnerable), not on power damage | engine/combat.silentTriggers.test.ts > #266 Afterimage / Serpent Form / Speedster / Tools of the Trade / Tracking | n/a |
 | 47 | Well-Laid Plans retains up to 1 (2), the strategy picks by top priority unless the draw pile is more than half that group, never junk | engine/combat.silentTriggers.test.ts > #266 Well-Laid Plans (6 tests) | n/a |
+| 48 | Silent damage / Block / debuff cards (#260): Skewer, Malaise X-cost, Grand Finale playable, Strangle, Bullet Time, Footwork, Bubble Bubble, Precise Cut floor, Expose, Piercing Wail | engine/combat.silentDamage.test.ts | n/a |
 
 ## Known failure points
 

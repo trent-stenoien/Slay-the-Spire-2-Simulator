@@ -9,11 +9,27 @@
   "xCost": true,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "attack",
+      "damage": 8,
+      "hits": 1,
+      "xTimes": true
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "attack",
+        "damage": 11,
+        "hits": 1,
+        "xTimes": true
+      }
+    ]
+  },
   "description": "Deal 8 damage X times.",
   "upgradedDescription": "Deal 11 damage X times.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

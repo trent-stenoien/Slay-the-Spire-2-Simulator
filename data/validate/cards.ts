@@ -42,7 +42,10 @@ function checkXTimes(r: Reporter, c: Obj, list: unknown, path: string): void {
 
 /** True when some effect in the list scales with X. */
 function usesX(list: unknown): boolean {
-  return Array.isArray(list) && list.some((e) => isObj(e) && e.xTimes === true);
+  return (
+    Array.isArray(list) &&
+    list.some((e) => isObj(e) && (e.xTimes === true || (e.type === 'script' && e.id === 'malaise')))
+  );
 }
 
 /** The first filter field the engine does not match on, as `<path>.<field>`, or undefined. */

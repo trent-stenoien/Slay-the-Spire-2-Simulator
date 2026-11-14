@@ -1703,7 +1703,8 @@ class Combat {
           // #111: per hit damage + amount × counter; hits + extra × counter; both read before the attack.
           if (source !== 'player') throw new Error('Effect "attackFrom" is not simulated yet on enemy moves');
           this.checkCounters(e.bonusPer, e.extraHitsPer);
-          const per = e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount, card);
+          // Precise Cut (#260): a negative bonus floors the card's damage at 0, before Strength.
+          const per = Math.max(0, e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount, card));
           const hits = e.hits + this.perCounter(e.extraHitsPer, lastCount, card);
           died = this.attack(source, other, per, Math.max(0, hits), e.allEnemies);
           break;
@@ -1800,6 +1801,8 @@ class Combat {
           else if (source === 'player' && e.id === 'upMySleeve') this.upMySleeve(card);
           else if (source === 'player' && e.id === 'omnisliceSplash') died = this.omnisliceSplash();
           else if (source === 'player' && e.id === 'scheduledBlock') this.scheduledBlock(e.values?.[0] ?? 0);
+          else if (source === 'player' && e.id === 'expose') died = this.expose();
+          else if (source === 'player' && e.id === 'malaise') died = this.malaise(x + (e.values?.[0] ?? 0));
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
         default:
@@ -2259,6 +2262,33 @@ class Combat {
     player.block += gained;
     this.log?.push({ t: 'block', side: 'player', amount: gained, total: player.block });
     this.blockGained(gained);
+  }
+
+  /** #260 Expose: remove all Artifact and Block from the enemy (the Vulnerable that follows is then not negated). */
+  private expose(): Side | null {
+    return this.onEnemies(false, () => {
+      const { enemy, log } = this;
+      enemy.block = 0;
+      if ((enemy.powers?.artifact ?? 0) > 0) {
+        delete enemy.powers!.artifact;
+        log?.push({ t: 'powerRemoved', side: 'enemy', power: 'artifact' });
+      }
+    });
+  }
+
+  /**
+   * #260 Malaise: the enemy loses `amount` Strength for good, then gets `amount` Weak. Each is a debuff
+   * that Artifact negates (one stack apiece, Strength first). Nothing happens at 0.
+   */
+  private malaise(amount: number): Side | null {
+    if (amount <= 0) return null;
+    return this.onEnemies(false, () => {
+      if (!this.artifactNegates('strengthLossThisTurn')) {
+        this.enemy.strength -= amount;
+        this.log?.push({ t: 'strength', side: 'enemy', amount: -amount, total: this.enemy.strength });
+      }
+      this.applyDebuff('enemy', 'weak', amount);
+    });
   }
 
   /** #110 Prolong: next turn, gain Block equal to the Block you have right now. */
