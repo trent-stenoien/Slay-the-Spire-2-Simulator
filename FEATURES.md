@@ -393,6 +393,12 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     (cost 1, Exhaust; 10 damage, 15 upgraded): if the hit kills the enemy (the last one with several), the combat
     gains one extra card reward, counted in `CombatResult.rewards.cardRewards` like Hand of Greed's gold; no kill,
     no reward. The count is not summarised or shown in the Results view yet (StrategySummary has no field for it).
+57. **Boss player debuffs (#270, Trent: powers, not status cards):** an enemy move's `applyPower` puts the power
+    on the player; stacks add. Disintegration: at the end of the player's turn (after Stampede, just before
+    curses and statuses in hand act) take [amount] damage; Block absorbs it, Intangible makes it 1, it can kill.
+    Mind Rot: the start-of-turn draw is [amount] smaller (not below 0). Waste Away: the energy refill is [amount]
+    smaller (not below 0; Pyre's energy still comes after). Sloth: once [amount] cards have been played from the
+    hand this turn nothing more is playable; cards played by effects, powers or Sly do not count (builder's call).
 
 ## Known failure points
 

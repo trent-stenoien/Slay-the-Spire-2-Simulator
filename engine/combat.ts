@@ -378,6 +378,11 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
+  // #270 boss player debuffs
+  'disintegration',
+  'mindRot',
+  'sloth',
+  'wasteAway',
 ];
 
 /** #116 Hello World: a random Common card from the player's character. */
@@ -798,6 +803,8 @@ class Combat {
    */
   /** #303 Slow: cards played before the current one this turn (resets each player turn). */
   private slowCards = 0;
+  /** #270 Sloth: cards the strategy played from the hand this turn (free plays by effects, powers, Sly not counted). */
+  private handPlays = 0;
   /** #314 Sly cards discarded during a card play (or Tools of the Trade's discard), waiting to be played. */
   private slyQueue: CardInstance[] = [];
   /** #314: above 0 while a card is being played or a discard is running (Sly cards wait in slyQueue). */
@@ -816,6 +823,7 @@ class Combat {
     counters.cardsExhaustedThisTurn = 0;
     counters.cardsPlayedThisTurn = 0;
     this.slowCards = 0;
+    this.handPlays = 0;
     counters.attacksPlayedThisTurn = 0;
     counters.skillsPlayedThisTurn = 0;
     counters.cardsDiscardedThisTurn = 0;
@@ -831,13 +839,18 @@ class Combat {
     }
     this.relicTurnLoss = 0;
     // #205: Ice Cream keeps unspent energy; Sozu / Velvet Choker add to every refill.
-    const refill = this.character.energyPerTurn + modifierTotal(this.relics, 'energyPerTurn');
+    // #270 Waste Away: [amount] less energy from the refill (never below 0).
+    const refill = Math.max(
+      0,
+      this.character.energyPerTurn + modifierTotal(this.relics, 'energyPerTurn') - this.power('wasteAway'),
+    );
     player.energy = (modifiersOf(this.relics, 'conserveEnergy').length > 0 ? player.energy : 0) + refill;
     this.returnCards();
     // #268 Nightmare: its copies arrive before the draw.
     this.nightmareArrive();
     // #205 Snecko Eye: extra cards in the normal draw.
-    const draw = this.character.drawPerTurn + modifierTotal(this.relics, 'drawPerTurn');
+    // #270 Mind Rot: [amount] fewer cards in the normal draw (never below 0).
+    const draw = this.character.drawPerTurn + modifierTotal(this.relics, 'drawPerTurn') - this.power('mindRot');
     for (let i = 0; i < draw; i++) {
       if (!this.drawOne()) break;
       if (player.hp <= 0) return 'loss';
@@ -1239,6 +1252,7 @@ class Combat {
         throw new Error(`Strategy tried to play illegal card uid ${decision.uid} on turn ${this.state.turn}`);
       }
       player.hand.splice(idx, 1);
+      this.handPlays++;
       // #110 Unrelenting: the next Attack played costs 0 (an X-cost Attack still gets X = all the energy, free).
       const free = card.type === 'attack' && this.power('freeAttack') > 0;
       if (free) this.applyPower('freeAttack', -1);
@@ -1503,6 +1517,10 @@ class Combat {
       );
       if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
     }
+    // #270 Disintegration: take [amount] damage (Block absorbs it, Intangible makes it 1), just
+    // before the curses and statuses in hand act.
+    const disintegration = this.power('disintegration');
+    if (disintegration > 0 && this.takeDamage(disintegration)) return 'loss';
     // #115: curses and statuses in hand act (Burn, Bad Luck), before the hand is discarded.
     for (const card of [...player.hand]) {
       if (this.runJunkTriggers(card, 'turnEndInHand')) return 'loss';
@@ -1868,7 +1886,8 @@ class Combat {
           this.drawUntil(e.stopOn, e.handSize);
           break;
         case 'applyPower':
-          if (source !== 'player' || !SIMULATED_POWER_IDS.includes(e.power)) {
+          // #270: on an enemy move the power goes on the PLAYER too (Curse of Knowledge's debuffs).
+          if (!SIMULATED_POWER_IDS.includes(e.power)) {
             throw new Error(`Effect "applyPower" is not simulated yet (power "${e.power}")`);
           }
           // #110: Strength "this turn" is real Strength now, taken back at the end of the turn.
@@ -2252,6 +2271,9 @@ class Combat {
     // #205 Velvet Choker: no more cards once the turn's limit is reached.
     const limit = cardsPerTurnLimit(this.relics);
     if (limit !== null && this.counters.cardsPlayedThisTurn >= limit) return false;
+    // #270 Sloth: at most [amount] cards played from the hand each turn.
+    const sloth = this.power('sloth');
+    if (sloth > 0 && this.handPlays >= sloth) return false;
     return !card.playableIf || this.holds(card.playableIf, card);
   }
 

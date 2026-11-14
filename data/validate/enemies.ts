@@ -7,6 +7,7 @@ import {
   PATTERN_STARTS,
   PATTERN_TYPES,
   NUMERIC_KEY,
+  SIMULATED_POWERS,
 } from './lists';
 import { type Obj, isOneOf, isObj, Reporter, checkTwoCharCode } from './shared';
 import { checkEffects } from './effects';
@@ -26,8 +27,11 @@ function checkEnemyOnlyEffects(r: Reporter, list: unknown, path: string): void {
     const namedCard = e.type === 'addCards' && isObj(e.source) && e.source.kind === 'card';
     // #303: an enemy move may buff its own Strength (Bygone Effigy's Wake).
     // #322: an enemy move or onDeath may summon enemies.
+    // #270: an enemy move may put a simulated power on the player (Curse of Knowledge's debuffs).
+    const playerPower = e.type === 'applyPower' && SIMULATED_POWERS.has(String(e.power));
     if (
       !namedCard &&
+      !playerPower &&
       e.type !== 'enemyGainStrength' &&
       e.type !== 'spawnEnemies' &&
       isOneOf(e.type, CONTRACT_EFFECTS)
