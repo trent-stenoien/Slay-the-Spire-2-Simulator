@@ -108,11 +108,11 @@ describe('validateGameData on broken fixtures', () => {
 
   it('rejects simulated cards that use unsimulated mechanics', () => {
     const d = fixture();
-    d.cards.bash.keywords = ['sly'];
+    d.cards.bash.effects.push({ type: 'gainStars', amount: 1 });
     d.cards.strike.effects.push({ type: 'gainStars', amount: 2 });
     d.cards.defend.starCost = 1;
     const errs = errorsOf(d);
-    expect(errs).toContainEqual(expect.stringMatching(/cards\/bash.*"simulated".*sly/));
+    expect(errs).toContainEqual(expect.stringMatching(/cards\/bash.*"simulated".*gainStars/));
     expect(errs).toContainEqual(expect.stringMatching(/cards\/strike.*"simulated".*gainStars/));
     expect(errs).toContainEqual(expect.stringMatching(/cards\/defend.*"simulated".*Star cost/));
     d.cards.bash.simulated = false;

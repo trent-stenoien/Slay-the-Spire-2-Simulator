@@ -11,11 +11,25 @@
   "keywords": [
     "sly"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPoison",
+      "amount": 4,
+      "allEnemies": true
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPoison",
+        "amount": 6,
+        "allEnemies": true
+      }
+    ]
+  },
   "description": "Sly. / Apply 4 Poison to ALL enemies.",
   "upgradedDescription": "Sly. / Apply 6 Poison to ALL enemies.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

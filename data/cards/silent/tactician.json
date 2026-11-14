@@ -11,11 +11,23 @@
   "keywords": [
     "sly"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "gainEnergy",
+      "amount": 1
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "gainEnergy",
+        "amount": 2
+      }
+    ]
+  },
   "description": "Sly. / Gain [E].",
   "upgradedDescription": "Sly. / Gain [E][E].",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

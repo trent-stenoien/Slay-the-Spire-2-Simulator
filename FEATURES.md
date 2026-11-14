@@ -301,6 +301,21 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     normal draw). Dodge and Roll's next-turn Block gets Dexterity and Frail (#264, tested in
     combat.silentTemp.test.ts). Calculated Gamble is not simulated yet (#311).
 
+## Silent Sly keyword (#261)
+
+51. **Sly (#261, Trent):** a Sly card discarded from the hand by a card or power effect during the player's turn
+    (the shared discard step of item 49) is played at once, before the rest of the discarding effect, exactly as
+    if played from the hand (all effects, on-play triggers, cards-played counters, Slow, Calamity) but for free;
+    a single-target Attack hits a random living enemy (seeded Rng, one draw only while 2+ live). Afterwards it
+    goes where a played card goes (discard pile, Exhaust, a Power leaves play). Several Sly cards discarded at
+    once play in discard order; a Sly card may itself discard (and play) another; a Sly play that kills the last
+    enemy wins and the rest of the discarding card does not resolve. The discarding card keeps its own target,
+    Slow count and Vigor (a Sly Attack does not reuse Vigor an Attack already claimed). The end-of-turn hand
+    discard never plays Sly cards. Abrasive, Flick-Flack (6/8, main), Haze (cost 3, Sly, main), Reflex,
+    Ricochet, Tactician and Untouchable are simulated.
+52. **Sly strategy (#261, orchestrator's default):** while a Sly card that does not hurt is in the hand, the
+    cheapest playable "Discard N" card (Survivor, Acrobatics, Prepared, Dagger Throw) is played first.
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

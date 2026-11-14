@@ -11,11 +11,23 @@
   "keywords": [
     "sly"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "draw",
+      "amount": 2
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "draw",
+        "amount": 3
+      }
+    ]
+  },
   "description": "Sly. / Draw 2 cards.",
   "upgradedDescription": "Sly. / Draw 3 cards.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

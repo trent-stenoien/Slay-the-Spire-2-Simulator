@@ -281,6 +281,8 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 48 | Silent damage / Block / debuff cards (#260): Skewer, Malaise X-cost, Grand Finale playable, Strangle, Bullet Time, Footwork, Bubble Bubble, Precise Cut floor, Expose, Piercing Wail | engine/combat.silentDamage.test.ts | n/a |
 | 49 | Discard N picked by Strategy.choose (exactly N, none from an empty hand), shared discard counts toward cardsDiscardedThisTurn, fallback order puts Sly before a harmless curse | engine/combat.silentDraw.test.ts > #259 Survivor (3 tests); #259 Acrobatics, Prepared, Dagger Throw (3 tests) | n/a |
 | 50 | Backflip, Adrenaline, Predator next-turn draw, Dodge and Roll real data; the strategy plays every card | engine/combat.silentDraw.test.ts > #259 Backflip and Adrenaline; #259 Predator; #259 Dodge and Roll; #259 strategies play the cards | n/a |
+| 51 | Sly: played for free on effect discard, logged discard then play, resolves mid-card, several in discard order (Storm of Steel), kill wins, Sly that discards, Exhaust / Power destinations, Reflex / Haze / Ricochet / Tactician, not on end-of-turn discard, Tools of the Trade at turn start, random target + outer target kept, Slow count, Vigor; the seven cards' data | engine/combat.sly.test.ts (15 tests) | n/a |
+| 52 | Strategy plays a Discard card first while a Sly card is in hand (not without one) | engine/strategies.sly.test.ts (2 tests) | n/a |
 
 ## Known failure points
 

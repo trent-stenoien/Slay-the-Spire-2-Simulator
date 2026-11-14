@@ -123,7 +123,7 @@ describe('real game data', () => {
   it.each([
     ['sword_boomerang', 3, 3, 3, 4, true],
     ['rip_and_tear', 7, 2, 9, 2, true],
-    ['ricochet', 3, 4, 3, 5, false], // Sly keeps it unsimulated
+    ['ricochet', 3, 4, 3, 5, true], // #261: Sly is simulated
   ] as const)(
     'random-target card %s is a multi-hit attack flagged randomTarget',
     (id, dmg, hits, upDmg, upHits, simulated) => {

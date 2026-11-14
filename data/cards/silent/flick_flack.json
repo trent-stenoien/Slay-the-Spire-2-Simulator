@@ -31,7 +31,7 @@
   },
   "description": "Sly. / Deal 6 damage to ALL enemies.",
   "upgradedDescription": "Sly. / Deal 8 damage to ALL enemies.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

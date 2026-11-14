@@ -171,6 +171,26 @@ function isStorm(card: Card): boolean {
   return card.effects.some((e) => e.type === 'moveCards' && e.from === 'hand' && e.mode === 'all');
 }
 
+/** #261: a card that discards N chosen cards from the hand (Survivor, Acrobatics, Prepared, Dagger Throw), not the whole hand. */
+function discardsFromHand(card: Card): boolean {
+  return card.effects.some(
+    (e) => e.type === 'moveCards' && e.from === 'hand' && e.to === 'discard' && e.mode !== 'all',
+  );
+}
+
+/**
+ * #261 Sly (orchestrator's default, not a rule from Trent): while a Sly card that does not hurt is in the hand,
+ * a playable card that discards from the hand is played first (the cheapest, ties to the lowest uid), so the
+ * Sly card is discarded (chooseDiscard puts it first) and played for free instead of paid for.
+ */
+function pickSlyDiscarder(view: StrategyView): Card | undefined {
+  const hand = view.state.player.hand;
+  const discarders = view.playable.filter(
+    (c) => discardsFromHand(c) && hand.some((o) => o.uid !== c.uid && o.keywords.includes('sly') && !hurtsInHand(o)),
+  );
+  return best(discarders, (c) => [-(c.cost ?? 0)]);
+}
+
 /** #262: a Shiv maker for the Attack group: the cheapest first (ties to the lowest uid), never Storm of Steel. */
 function pickShivMaker(view: StrategyView): Card | undefined {
   return best(
@@ -609,6 +629,11 @@ export function chooseExhaust(
   return { uids: picked.map((c) => c.uid) };
 }
 
+/** #259: a card that loses HP or deals damage while it stays in the hand (discarded before Sly cards). */
+function hurtsInHand(c: Card): boolean {
+  return dealsDirectHpDamage(c) || dealsBlockableDamage(c);
+}
+
 /**
  * #266 Strategy.choose for "discard N from the hand" (Tools of the Trade; #259 Trent): the shared exhaust
  * order, except that Sly cards go ahead of curses and statuses, but not ahead of those that hurt if kept
@@ -620,7 +645,7 @@ export function chooseDiscard(
   config: StrategyConfig = GREEDY_CONFIG,
 ): ChoiceResponse {
   const ordered = exhaustOrder(request.options, view, config);
-  const hurts = (c: Card) => dealsDirectHpDamage(c) || dealsBlockableDamage(c);
+  const hurts = hurtsInHand;
   const sly = (c: Card) => c.keywords.includes('sly') && !hurts(c);
   const ranked = [...ordered.filter(hurts), ...ordered.filter(sly), ...ordered.filter((c) => !hurts(c) && !sly(c))];
   return { uids: ranked.slice(0, request.max).map((c) => c.uid) };
@@ -1666,6 +1691,8 @@ function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   if (zero) return zero;
   const enlightenment = best(view.playable.filter(isEnlightenment), () => []);
   if (enlightenment) return enlightenment;
+  const slyDiscarder = pickSlyDiscarder(view);
+  if (slyDiscarder) return slyDiscarder;
   const fetched = pickFetchOrUpgrade(view);
   if (fetched) return fetched;
   if (config.order[0] === 'attack') {
