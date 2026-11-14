@@ -9,13 +9,42 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "setCost",
+      "piles": [
+        "hand"
+      ],
+      "cost": 0,
+      "duration": "turn"
+    },
+    {
+      "type": "applyPower",
+      "power": "noDraw",
+      "amount": 1
+    }
+  ],
   "upgraded": {
-    "cost": 2
+    "cost": 2,
+    "effects": [
+      {
+        "type": "setCost",
+        "piles": [
+          "hand"
+        ],
+        "cost": 0,
+        "duration": "turn"
+      },
+      {
+        "type": "applyPower",
+        "power": "noDraw",
+        "amount": 1
+      }
+    ]
   },
   "description": "You cannot draw additional cards this turn. ALL cards in your Hand are free to play this turn.",
   "upgradedDescription": "You cannot draw additional cards this turn. ALL cards in your Hand are free to play this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -274,6 +274,14 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     needs next turn for its top priority (the first group of its order with a card in hand; a Block-first strategy
     keeps a Block card, the best of the group first), unless more than half of the draw pile is cards of that
     group, in which case it keeps other cards first (leftover slots take the demoted ones).
+48. **Silent damage, Block and debuff cards (#260, Trent):** X-cost cards (Skewer, Malaise) spend all the Energy
+    left, so two X-cost cards in one hand play only one unless Energy is gained in between. Bullet Time makes only the
+    cards in hand at that moment free this turn (X-cost cards still spend their X) and blocks all later draws this turn.
+    Precise Cut deals 2 less per other card in hand, floored at 0 before Strength. Grand Finale is playable only with
+    an empty draw pile. Expose removes the enemy's Block and Artifact before it applies Vulnerable. Malaise takes X
+    (X+1 upgraded) Strength from the enemy for good, then applies that much Weak; Artifact negates each separately.
+    Strangle: the enemy loses 2 (3) HP for every card played after it this turn. Piercing Wail hits one enemy.
+    Bubble Bubble adds Poison only to an enemy that already has Poison.
 
 ## Known failure points
 

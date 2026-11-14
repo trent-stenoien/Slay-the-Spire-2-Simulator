@@ -14,6 +14,11 @@
       "type": "attack",
       "damage": 8,
       "hits": 1
+    },
+    {
+      "type": "applyPower",
+      "power": "choking",
+      "amount": 2
     }
   ],
   "upgraded": {
@@ -22,12 +27,17 @@
         "type": "attack",
         "damage": 10,
         "hits": 1
+      },
+      {
+        "type": "applyPower",
+        "power": "choking",
+        "amount": 3
       }
     ]
   },
   "description": "Deal 8 damage. / Whenever you play a card this turn, the enemy loses 2 HP.",
   "upgradedDescription": "Deal 10 damage. / Whenever you play a card this turn, the enemy loses 3 HP.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

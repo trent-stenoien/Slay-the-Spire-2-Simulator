@@ -9,11 +9,41 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "conditional",
+      "if": {
+        "kind": "enemyHas",
+        "status": "poison"
+      },
+      "then": [
+        {
+          "type": "applyPoison",
+          "amount": 9
+        }
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "conditional",
+        "if": {
+          "kind": "enemyHas",
+          "status": "poison"
+        },
+        "then": [
+          {
+            "type": "applyPoison",
+            "amount": 12
+          }
+        ]
+      }
+    ]
+  },
   "description": "If the enemy has Poison, apply 9 Poison.",
   "upgradedDescription": "If the enemy has Poison, apply 12 Poison.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

@@ -11,11 +11,29 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "script",
+      "id": "malaise",
+      "values": [
+        0
+      ]
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "script",
+        "id": "malaise",
+        "values": [
+          1
+        ]
+      }
+    ]
+  },
   "description": "Enemy loses X Strength. / Apply X Weak. / Exhaust.",
   "upgradedDescription": "Enemy loses X+1 Strength. / Apply X+1 Weak. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
