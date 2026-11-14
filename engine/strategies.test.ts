@@ -13,6 +13,7 @@ import {
   withOptionChoices,
 } from './strategies';
 import { cards } from './testFixtures';
+type CardState = { state: StrategyView['state'] };
 import type { CardDef, CardInstance, CombatState, StrategyConfig, StrategyView } from './types';
 
 /** Extra test cards: Tremble (#1), energy gain (#22), X-cost (#23). */
@@ -231,6 +232,30 @@ describe('pick helpers', () => {
     const us = makeCardInstance(cards.ultimate_strike!, true, 0);
     const bash = makeCardInstance(cards.bash!, false, 1);
     expect(pickAttack([us, bash], 3)!.cardId).toBe('bash');
+  });
+
+  it('#339: Strength counts per hit when attacks are valued', () => {
+    const one = makeCardInstance(
+      { ...cards[S]!, id: 'one_hit', effects: [{ type: 'attack', damage: 5, hits: 1 }] } as CardDef,
+      false,
+      0,
+    );
+    const two = makeCardInstance(
+      { ...cards[S]!, id: 'two_hits', effects: [{ type: 'attack', damage: 3, hits: 2 }] } as CardDef,
+      false,
+      1,
+    );
+    const view = (strength: number) =>
+      ({
+        state: {
+          turn: 1,
+          player: { strength, hand: [one, two], debuffs: {}, powers: {} },
+          enemy: { hp: 100, debuffs: {}, powers: {} },
+        },
+      }) as unknown as CardState;
+    expect(pickAttack([one, two], 1, 0, view(0).state)!.cardId).toBe('two_hits');
+    expect(pickAttack([one, two], 1, 0, view(-2).state)!.cardId).toBe('one_hit');
+    expect(pickAttack([one, two], 1, 0, view(3).state)!.cardId).toBe('two_hits');
   });
 
   it('#11: Vulnerable first only with no enemy Vulnerable and energy for it plus another attack', () => {

@@ -273,6 +273,24 @@ function shivDamageMade(card: Card, state?: State): number {
   return sum;
 }
 
+/** #339: number of Shivs a card makes (Storm of Steel excluded). */
+function shivCountMade(card: Card): number {
+  let n = 0;
+  for (const e of card.effects) if (makesShiv(e) && e.type === 'addCards') n += e.count;
+  return n;
+}
+
+/**
+ * #339 (Trent): the per-hit attack factors of an attack's value: each hit gains the player's Strength, counting
+ * the Shivs the card makes. Enemy Thorns and Personal Hive (no enemy power type) and the relics Ornamental Fan,
+ * Shuriken, Kunai, Kusarigama (not visible to strategies) need a contract change first.
+ */
+function attackFactors(card: Card, energy: number, state?: State): number {
+  if (!state) return 0;
+  const perHit = state.player.strength;
+  return perHit === 0 ? 0 : perHit * (attackHitCount(card, energy) + shivCountMade(card));
+}
+
 /** #284: damage per energy of a Shiv maker (Infinity at cost 0). */
 function makerEfficiency(card: Card, state?: State): number {
   const cost = card.cost ?? 0;
@@ -1444,7 +1462,9 @@ function attackDamagePerEnergy(card: Card, state?: State): number {
   if (card.xCost) return totalBaseDamage(card, 1, state);
   const cost = card.cost ?? 0;
   // #284: an attack that makes Shivs (Leading Strike) counts their damage too.
-  return cost <= 0 ? Infinity : (totalBaseDamage(card, 0, state) + shivDamageMade(card, state)) / cost;
+  return cost <= 0
+    ? Infinity
+    : (totalBaseDamage(card, 0, state) + shivDamageMade(card, state) + attackFactors(card, 0, state)) / cost;
 }
 
 /**
@@ -1465,7 +1485,8 @@ function vulnerableFirst(card: Card, attacks: readonly Card[], energy: number, e
  * re-planned. Only the first 10 paid attacks are searched. Undefined when no attack is affordable.
  */
 function pickAttackFromBestSet(attacks: readonly Card[], energy: number, state?: State): Card | undefined {
-  const value = (c: Card) => totalBaseDamage(c, energy, state) + shivDamageMade(c, state);
+  const value = (c: Card) =>
+    totalBaseDamage(c, energy, state) + shivDamageMade(c, state) + attackFactors(c, energy, state);
   const byUid = [...attacks].sort((a, b) => a.uid - b.uid);
   const free = byUid.filter((c) => (c.cost ?? 0) <= 0);
   const paid = byUid.filter((c) => (c.cost ?? 0) > 0 && (c.cost ?? 0) <= energy).slice(0, 10);
@@ -1488,7 +1509,11 @@ function pickAttackFromBestSet(attacks: readonly Card[], energy: number, state?:
   }
   return (
     bestSet &&
-    best(bestSet.cards, (c) => [totalBaseDamage(c, energy, state), attackDamagePerEnergy(c, state), draws(c)])
+    best(bestSet.cards, (c) => [
+      totalBaseDamage(c, energy, state) + attackFactors(c, energy, state),
+      attackDamagePerEnergy(c, state),
+      draws(c),
+    ])
   );
 }
 
