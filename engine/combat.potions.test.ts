@@ -104,6 +104,40 @@ describe('using potions', () => {
   });
 });
 
+describe('Poison Potion (#303)', () => {
+  it('data: Silent common potion, Apply 6 Poison, simulated', () => {
+    expect(gameData.potions?.poison_potion).toMatchObject({
+      code: 'PP',
+      rarity: 'common',
+      character: 'S',
+      effects: [{ type: 'applyPoison', amount: 6 }],
+      simulated: true,
+    });
+  });
+
+  it('applies 6 Poison to the enemy, costs no energy, then ticks 6, 5, 4 ...', () => {
+    const r = logged(potionData(999), useAll, { enemyId: 'target', potions: ['poison_potion'] });
+    expect(events(r.log, 'poison')).toEqual([{ t: 'poison', amount: 6, total: 6 }]);
+    expect(
+      events(r.log, 'poisonDamage')
+        .slice(0, 3)
+        .map((e) => e.amount),
+    ).toEqual([6, 5, 4]);
+    expect(events(r.log, 'energy')).toEqual([]);
+  });
+
+  it('pickPotion uses it at once, after the Strength Potion and before the Fire Potion', () => {
+    const v = (potions: (string | null)[]) =>
+      ({
+        state: { turn: 1, player: { hp: 80, block: 0, potions }, enemy: { hp: 50, block: 5 } },
+        intent: { totalIncoming: 0 },
+      }) as unknown as StrategyView;
+    expect(pickPotion(v([null, 'poison_potion']))).toEqual({ slot: 1 });
+    expect(pickPotion(v(['poison_potion', 'strength_potion']))).toEqual({ slot: 1 });
+    expect(pickPotion(v(['fire_potion', 'poison_potion']))).toEqual({ slot: 1 });
+  });
+});
+
 describe('pickPotion rules', () => {
   const view = (o: {
     potions: (string | null)[];

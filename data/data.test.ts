@@ -291,3 +291,28 @@ describe('Inklet (#287)', () => {
     expect(e.pattern).toEqual(inklet().pattern);
   });
 });
+
+describe('Bygone Effigy, Fishing Rod (#303)', () => {
+  it('Bygone Effigy: Act 1 Overgrowth elite, Sleep then Wake (+10 Strength) then Slashes forever', () => {
+    const e = enemyByCode('BE')!;
+    expect(e).toMatchObject({ id: 'bygone_effigy', act: 1, zone: 'overgrowth', difficulty: 'elite' });
+    expect(e.pattern).toEqual({ type: 'cycle', opener: ['sleep', 'wake'], order: ['slashes'], start: 'first' });
+    expect(e.moves.sleep!.effects).toEqual([]);
+    expect(e.moves.wake!.effects).toEqual([{ type: 'enemyGainStrength', amount: 10 }]);
+  });
+
+  it.each([
+    [0, 127, 13],
+    [8, 132, 13],
+    [9, 132, 15],
+  ] as const)('Bygone Effigy at A%i has %i HP and Slashes %i', (asc, hp, slashes) => {
+    const e = resolveEnemy(gameData.enemies.bygone_effigy!, asc);
+    expect(e.hp).toEqual({ min: hp, max: hp });
+    expect(e.moves.slashes!.effects).toEqual([{ type: 'attack', damage: slashes, hits: 1 }]);
+  });
+
+  it('Fishing Rod is an Ancient relic with no combat effect', () => {
+    expect(gameData.relics?.fishing_rod).toMatchObject({ code: 'FR', rarity: 'ancient', hooks: [], simulated: true });
+    expect(gameData.relics?.fishing_rod?.modifiers ?? []).toEqual([]);
+  });
+});

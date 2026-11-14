@@ -24,7 +24,8 @@ function checkEnemyOnlyEffects(r: Reporter, list: unknown, path: string): void {
     if (e.type === 'gainEnergy') r.add(`${path}[${i}].type`, 'is "gainEnergy", but enemies have no energy');
     // #203: an enemy move may add a named card to a pile (Vantom's Dismember adds Wounds).
     const namedCard = e.type === 'addCards' && isObj(e.source) && e.source.kind === 'card';
-    if (!namedCard && isOneOf(e.type, CONTRACT_EFFECTS)) {
+    // #303: an enemy move may buff its own Strength (Bygone Effigy's Wake).
+    if (!namedCard && e.type !== 'enemyGainStrength' && isOneOf(e.type, CONTRACT_EFFECTS)) {
       r.add(`${path}[${i}].type`, `is "${e.type}", which is not simulated on enemy moves`);
     }
     if (e.type === 'applyShrink' && typeof e.amount === 'number' && e.amount > 100) {
