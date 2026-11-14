@@ -9,11 +9,36 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "playCards",
+      "from": "exhaust",
+      "mode": "top",
+      "count": 0,
+      "all": true,
+      "filter": {
+        "nameIncludes": "Shiv"
+      }
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "playCards",
+        "from": "exhaust",
+        "mode": "top",
+        "count": 0,
+        "all": true,
+        "filter": {
+          "nameIncludes": "Shiv"
+        },
+        "upgradeFirst": true
+      }
+    ]
+  },
   "description": "Play every Shiv in your Exhaust Pile on the enemy.",
   "upgradedDescription": "Upgrade and play every Shiv in your Exhaust Pile on the enemy.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

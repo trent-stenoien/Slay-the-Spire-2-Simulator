@@ -32,7 +32,7 @@ import {
   scriptMods,
   turnMatches,
 } from './relics';
-import { chooseDiscard, chooseExhaust, createStrategy } from './strategies';
+import { chooseDiscard, chooseExhaust, createStrategy, isShivCard } from './strategies';
 import {
   HAND_LIMIT,
   TURN_CAP,
@@ -241,6 +241,7 @@ function emptyCounters(): CombatCounters {
     cardsDrawnThisTurn: 0,
     cardsDrawnThisCombat: 0,
     cardsDiscardedThisTurn: 0,
+    shivsPlayedThisTurn: 0,
   };
 }
 
@@ -378,6 +379,11 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
+  // #267 Silent Shiv powers
+  'accuracy',
+  'infiniteBlades',
+  'phantomBlades',
+  'fanOfKnives',
   // #270 boss player debuffs
   'disintegration',
   'mindRot',
@@ -438,6 +444,9 @@ class Combat {
   private readonly rng: Rng;
   /** #109: Vigor added to every hit of the Attack card being played (0 otherwise). */
   private activeVigor = 0;
+  /** #267: extra damage per hit (Accuracy, Phantom Blades) and 'hits ALL' (Fan of Knives) for the Shiv being played. */
+  private shivBonus = 0;
+  private shivAll = false;
   /** #135: each Rolling Boulder played is its own instance with its own damage (the sum is in powers). */
   private boulders: number[] = [];
   /** #135: Crimson Mantle copies played; each loses 1 HP a turn and adds its own Block. */
@@ -832,6 +841,7 @@ class Combat {
     counters.attacksPlayedThisTurn = 0;
     counters.skillsPlayedThisTurn = 0;
     counters.cardsDiscardedThisTurn = 0;
+    counters.shivsPlayedThisTurn = 0;
     this.lastDrawn = [];
     this.panacheCount = 0;
     this.unmovableUsed = false;
@@ -1104,6 +1114,10 @@ class Combat {
           // #263: Poison ALL enemies at the start of the turn (after the draw, like the other start powers).
           if (this.poisonAllFromPower(amount)) return 'win';
           break;
+        case 'infiniteBlades':
+          // #267: [amount] Shiv(s) into the hand at the start of the turn (a full hand sends them to the discard pile).
+          this.addCards({ type: 'addCards', source: { kind: 'card', cardId: 'shiv' }, count: amount, to: 'hand' });
+          break;
         case 'helloWorld':
           this.addCards({
             type: 'addCards',
@@ -1346,6 +1360,14 @@ class Combat {
     counters.cardsPlayedThisCombat++;
     if (card.type === 'attack') counters.attacksPlayedThisTurn++;
     if (card.type === 'skill') counters.skillsPlayedThisTurn++;
+    // #267: Accuracy on every Shiv, Phantom Blades on the first Shiv each turn (a Replay does not count again), Fan of Knives hits ALL.
+    let shivBonus = 0;
+    const shivAll = isShivCard(card) && this.power('fanOfKnives') > 0;
+    if (isShivCard(card)) {
+      const first = (counters.shivsPlayedThisTurn ?? 0) === 0;
+      counters.shivsPlayedThisTurn = (counters.shivsPlayedThisTurn ?? 0) + 1;
+      shivBonus = this.power('accuracy') + (first ? this.power('phantomBlades') : 0);
+    }
     // #268 Master Planner: a Skill played while it is in play gains Sly for the rest of the combat.
     if (card.type === 'skill' && this.power('masterPlanner') > 0 && !card.keywords.includes('sly')) {
       card.keywords.push('sly');
@@ -1383,7 +1405,11 @@ class Combat {
       return 'enemy';
     }
     this.lastAttackDamage = 0;
+    this.shivBonus = shivBonus;
+    this.shivAll = shivAll;
     let died = this.resolveEffects('player', card.effects, x, card);
+    this.shivBonus = 0;
+    this.shivAll = false;
     this.activeVigor = 0;
     if (vigor > 0) this.applyPower('vigor', -vigor);
     // #110 One-Two Punch: the Attack is played one more time, like a Replay (never uses Replay up).
@@ -1392,7 +1418,11 @@ class Combat {
       this.retarget();
       log?.push({ t: 'replay', uid: card.uid, cardId: card.cardId, left });
       logPlay('replay');
+      this.shivBonus = shivBonus;
+      this.shivAll = shivAll;
       died = this.resolveEffects('player', card.effects, x, card);
+      this.shivBonus = 0;
+      this.shivAll = false;
     }
     if (died === 'player' || player.hp <= 0) return 'player';
     if (card.type === 'power') {
@@ -1535,6 +1565,8 @@ class Combat {
     // #205 Runic Pyramid: the hand is kept like Retain (Ethereal cards still exhaust).
     const retainHand = this.power('retainHand') > 0 || modifiersOf(this.relics, 'keepHand').length > 0;
     const ghostSeed = scriptMods(this.relics, 'ghostSeed').length > 0;
+    // #267 Phantom Blades: Shivs gain Retain.
+    const phantomBlades = this.power('phantomBlades') > 0;
     const retained: CardInstance[] = [];
     // #266 Well-Laid Plans: chosen before anything leaves the hand.
     const planned = retainHand ? new Set<CardInstance>() : this.wellLaidPlansRetained();
@@ -1545,7 +1577,12 @@ class Combat {
       if (card.keywords.includes('ethereal') || (ghostSeed && isBasicStrikeOrDefend(card))) {
         const died = this.exhaustCard(card, 'ethereal');
         if (died) return died === 'enemy' && player.hp > 0 ? 'win' : 'loss';
-      } else if (card.keywords.includes('retain') || retainHand || planned.has(card)) {
+      } else if (
+        card.keywords.includes('retain') ||
+        retainHand ||
+        planned.has(card) ||
+        (phantomBlades && isShivCard(card))
+      ) {
         retained.push(card);
       } else {
         player.discardPile.push(card);
@@ -1805,7 +1842,7 @@ class Combat {
       switch (e.type) {
         case 'attack': {
           const dmg = e.damage + (card?.damageBonus ?? 0) + this.relicCardDamage(card);
-          died = this.attack(source, other, dmg, attackHits(e, x), e.allEnemies, e.randomTarget);
+          died = this.attack(source, other, dmg, attackHits(e, x), e.allEnemies || this.shivAll, e.randomTarget);
           // #269 Echoing Slash: repeat once per enemy killed; kills made by a repeat repeat again.
           if (e.repeatPerKill && source === 'player') {
             let repeats = this.deadCount() - deadBefore;
@@ -2703,6 +2740,7 @@ class Combat {
     by: 'effect' | 'power' = 'effect',
   ): Side | null {
     const { player } = this;
+    if (e.all) return this.playAll(e, by);
     const total = e.xTimes ? e.count * Math.max(0, x + (e.xBonus ?? 0)) : e.count;
     const matches = (c: CardInstance) => !e.filter || matchesFilter(c, e.filter);
     let picks: CardInstance[] | null = null;
@@ -2737,6 +2775,33 @@ class Combat {
         } else {
           player.discardPile.push(card);
         }
+        continue;
+      }
+      const died = this.playCard(card, card.xCost ? player.energy : 0, by, e.exhaust);
+      if (died) return died;
+    }
+    return null;
+  }
+
+  /**
+   * #267 Knife Trap: play EVERY matching card of `e.from` (the Exhaust pile) for free, in pile order, on the
+   * current target. `upgradeFirst` upgrades each one first. The pile is read once, so Shivs that exhaust again
+   * are not played twice. A played Shiv exhausts as usual (Dark Embrace, Feel No Pain react each time).
+   */
+  private playAll(e: Extract<Effect, { type: 'playCards' }>, by: 'effect' | 'power'): Side | null {
+    const { player } = this;
+    const uids = this.anyPile(e.from)
+      .filter((c) => !e.filter || matchesFilter(c, e.filter))
+      .map((c) => c.uid);
+    for (const uid of uids) {
+      const pile = this.anyPile(e.from);
+      let at = pile.findIndex((c) => c.uid === uid);
+      if (at < 0) continue;
+      if (e.upgradeFirst && this.canUpgrade(pile[at]!)) this.upgradeInstance(pile[at]!, pile);
+      at = pile.findIndex((c) => c.uid === uid);
+      const card = pile.splice(at, 1)[0]!;
+      if (!this.canPlayFree(card)) {
+        pile.splice(at, 0, card);
         continue;
       }
       const died = this.playCard(card, card.xCost ? player.energy : 0, by, e.exhaust);
@@ -3265,7 +3330,7 @@ class Combat {
   private playerAttack(damage: number, hits: number, all: boolean, random = false): Side | null {
     const { player } = this;
     this.clearDeadShrink();
-    const base = damage + this.activeVigor;
+    const base = damage + this.activeVigor + this.shivBonus;
     const cruelty = this.power('cruelty');
     const tracking = this.power('tracking') > 0;
     const shrink = player.shrink ?? 0;

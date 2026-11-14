@@ -238,6 +238,11 @@ export const SIMULATED_POWERS = new Set<string>([
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
+  // #267 Silent Shiv powers
+  'accuracy',
+  'infiniteBlades',
+  'phantomBlades',
+  'fanOfKnives',
   // #270 boss player debuffs
   'disintegration',
   'mindRot',
@@ -364,7 +369,7 @@ export const POWER_IDS = [
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
-  // #267: declared, not simulated
+  // #267 (simulated)
   'accuracy',
   'infiniteBlades',
   'phantomBlades',
