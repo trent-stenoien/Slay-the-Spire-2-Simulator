@@ -9,11 +9,33 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "attackFrom",
+      "damage": 6,
+      "hits": 0,
+      "extraHitsPer": {
+        "per": "attacksPlayedBeforeThis",
+        "amount": 1
+      }
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "attackFrom",
+        "damage": 8,
+        "hits": 0,
+        "extraHitsPer": {
+          "per": "attacksPlayedBeforeThis",
+          "amount": 1
+        }
+      }
+    ]
+  },
   "description": "Deal 6 damage for each Attack already played this turn.",
   "upgradedDescription": "Deal 8 damage for each Attack already played this turn.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

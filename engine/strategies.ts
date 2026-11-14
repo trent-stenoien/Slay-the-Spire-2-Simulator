@@ -88,6 +88,22 @@ function waitsForBlock(card: Card): boolean {
   return card.effects.some((e) => e.type === 'attackFrom' && e.bonusPer?.per === 'playerBlock');
 }
 
+/** #265: Finisher (damage per Attack already played this turn) waits for the other Attacks. */
+function waitsForAttacks(card: Card): boolean {
+  return card.effects.some((e) => e.type === 'attackFrom' && e.extraHitsPer?.per === 'attacksPlayedBeforeThis');
+}
+
+/**
+ * #265: Finisher is left out of `playable` while another Attack (one that doesn't wait itself) can be
+ * played, so it is played last with every earlier Attack counted. Without one it is played like any attack.
+ */
+function withoutWaitingForAttacks(view: StrategyView): StrategyView {
+  if (!view.playable.some(waitsForAttacks)) return view;
+  const { energy } = view.state.player;
+  const other = view.playable.some((c) => isAttackCard(c) && !waitsForAttacks(c) && xCostPlayable(c, energy));
+  return other ? { ...view, playable: view.playable.filter((c) => !waitsForAttacks(c)) } : view;
+}
+
 /** The effects a card would run now: with a state, a `conditional` is replaced by the branch that holds (#111). */
 function activeEffects(card: Card, state: State | undefined): DeepReadonly<Effect>[] {
   const out: DeepReadonly<Effect>[] = [];
@@ -1868,9 +1884,11 @@ export function blockIsLast(config: StrategyConfig): boolean {
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
-  const view = withoutWaitingForBlock(
-    withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config),
-    config,
+  const view = withoutWaitingForAttacks(
+    withoutWaitingForBlock(
+      withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config),
+      config,
+    ),
   );
   const d = decideWith(view, config, false);
   if (d.kind !== 'endTurn') return d;

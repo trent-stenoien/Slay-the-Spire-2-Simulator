@@ -74,7 +74,7 @@ function unsimulatedCondition(cond: unknown): string | undefined {
   if (!isObj(cond)) return undefined;
   if (cond.kind === 'handAll' || cond.kind === 'handHasNone')
     return unsimulatedFilter(cond.filter, 'conditional.filter');
-  if (cond.kind === 'drewMatching') return 'conditional.drewMatching';
+  if (cond.kind === 'drewMatching') return unsimulatedFilter(cond.filter, 'conditional.filter');
   if (cond.kind !== 'counter') return undefined;
   return SIMULATED_COUNTERS.has(String(cond.counter)) ? undefined : `conditional.${String(cond.counter)}`;
 }
@@ -136,8 +136,7 @@ function unsimulatedEffect(e: Obj, name: string): string | undefined {
   if (UNSIMULATED_EFFECTS.has(name)) return name;
   // #4: Shrink is simulated on enemy moves only (it Shrinks the player).
   if (name === 'applyShrink') return name;
-  if (name === 'drawUntil')
-    return has(e, 'handSize') ? 'drawUntil.handSize' : unsimulatedFilter(e.stopOn, 'drawUntil.stopOn');
+  if (name === 'drawUntil') return unsimulatedFilter(e.stopOn, 'drawUntil.stopOn');
   if (name === 'exhaustCards') {
     if (e.from === 'exhaust') return 'exhaustCards.from.exhaust';
     return unsimulatedFilter(e.filter, 'exhaustCards.filter');

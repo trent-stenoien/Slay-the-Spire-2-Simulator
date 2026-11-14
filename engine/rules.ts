@@ -62,12 +62,19 @@ export function cardCost(
   card: DeepReadonly<CardInstance>,
   attacksPlayedThisTurn: number,
   freeAttack: boolean,
+  skillsPlayedThisTurn = 0,
 ): number | null {
   if (card.cost === null) return null;
   if (card.xCost) return 0;
   if (freeAttack && card.type === 'attack') return 0;
   let cost = card.costThisTurn ?? card.costThisCombat ?? card.cost;
-  if (card.costLessPer) cost = Math.max(0, cost - card.costLessPer.amount * attacksPlayedThisTurn);
+  if (card.costLessPer)
+    cost = Math.max(
+      0,
+      cost -
+        card.costLessPer.amount *
+          (card.costLessPer.per === 'skillsPlayedThisTurn' ? skillsPlayedThisTurn : attacksPlayedThisTurn),
+    );
   return cost;
 }
 
@@ -117,6 +124,10 @@ export function uniqueDebuffs(enemy: DeepReadonly<EnemyState>): number {
 export interface CounterContext {
   lastEffectCount?: number;
   lastAttackDamage?: number;
+  /** #265: the card being played is an Attack, already counted in attacksPlayedThisTurn (Finisher reads "before this"). */
+  playingAttack?: boolean;
+  /** #265: the cards the previous `draw` effect of this card drew (Escape Plan). */
+  drawnByLastDraw?: readonly DeepReadonly<CardInstance>[];
 }
 
 /** The value of a counter in `state` (#111). */
@@ -155,9 +166,10 @@ export function counterValue(counter: Counter, state: DeepReadonly<CombatState>,
     case 'cardsDiscardedThisTurn':
       return c?.cardsDiscardedThisTurn ?? 0;
     case 'skillsInHand':
+      return player.hand.filter((card) => card.type === 'skill').length;
     case 'attacksPlayedBeforeThis':
-      // #265: declared, not simulated; the engine throws before reading these.
-      return 0;
+      // The card being played is already counted; a card still in hand is not.
+      return Math.max(0, (c?.attacksPlayedThisTurn ?? 0) - (ctx.playingAttack ? 1 : 0));
     case 'cardsExhaustedThisTurn':
       return c?.cardsExhaustedThisTurn ?? 0;
     case 'cardsExhaustedThisCombat':
@@ -204,8 +216,9 @@ export function conditionHolds(
       return !player.hand.some((c) => c.uid !== selfUid && matches(c as CardInstance, cond.filter as CardFilter));
     case 'handAll':
       return player.hand.every((c) => c.uid === selfUid || matches(c as CardInstance, cond.filter as CardFilter));
-    case 'fatal':
     case 'drewMatching':
+      return (ctx.drawnByLastDraw ?? []).some((c) => matches(c as CardInstance, cond.filter as CardFilter));
+    case 'fatal':
       return false;
   }
 }

@@ -264,8 +264,9 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 43c | Strategy plays random-target attacks first with 2+ enemies; a targeted kill goes first; no rule with one enemy | engine/combat.randomTarget.test.ts > #45 strategy: random-target attacks first (4 tests) | n/a |
 | 42 | Setup add/remove enemies, links, results text, log per enemy, Target picker | app/components/multiEnemy.test.tsx (11 tests) | n/a |
 | 44 | Poison-only cards (#46): played before Attacks when the enemy lives 2+ turns; Block favours, Artifact counts against, existing Poison, Strength and Vulnerable counted | engine/strategies.poison.test.ts > #46 Poison-only cards (8 tests) | n/a |
-| 45 | Afterimage Block per later card (no Dexterity), Serpent Form damage, Speedster per draw (turn-start draw included), Tools of the Trade draw then discard (discard order: hurting junk, Sly, exhaust order), Tracking ×2 on Weak (×3 with Vulnerable), not on power damage | engine/combat.silentTriggers.test.ts > #266 Afterimage / Serpent Form / Speedster / Tools of the Trade / Tracking | n/a |
-| 46 | Well-Laid Plans retains up to 1 (2), the strategy picks by top priority unless the draw pile is more than half that group, never junk | engine/combat.silentTriggers.test.ts > #266 Well-Laid Plans (6 tests) | n/a |
+| 45 | Silent counters (#265): Pinpoint cost, Memento Mori discards, Murder draws, Flechettes / Finisher hit counts, Escape Plan Skill check, Expertise hand size; Finisher played after other Attacks | engine/combat.silentCounters.test.ts (19 tests) | n/a |
+| 46 | Afterimage Block per later card (no Dexterity), Serpent Form damage, Speedster per draw (turn-start draw included), Tools of the Trade draw then discard (discard order: hurting junk, Sly, exhaust order), Tracking ×2 on Weak (×3 with Vulnerable), not on power damage | engine/combat.silentTriggers.test.ts > #266 Afterimage / Serpent Form / Speedster / Tools of the Trade / Tracking | n/a |
+| 47 | Well-Laid Plans retains up to 1 (2), the strategy picks by top priority unless the draw pile is more than half that group, never junk | engine/combat.silentTriggers.test.ts > #266 Well-Laid Plans (6 tests) | n/a |
 
 ## Known failure points
 

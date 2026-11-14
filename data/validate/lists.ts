@@ -114,6 +114,11 @@ export const SIMULATED_COUNTERS = new Set<string>([
   'cardsPlayedThisTurn',
   'cardsPlayedThisCombat',
   'attacksPlayedThisTurn',
+  'skillsPlayedThisTurn',
+  'attacksPlayedBeforeThis',
+  'cardsDiscardedThisTurn',
+  'cardsDrawnThisCombat',
+  'skillsInHand',
   'cardsExhaustedThisTurn',
   'cardsExhaustedThisCombat',
   'lastEffectCount',
@@ -223,8 +228,8 @@ export const SIMULATED_FILTER_FIELDS = new Set<string>([
 /** CardDef fields from #105 that the engine does not simulate yet (`triggers`: see SIMULATED_TRIGGERS; `costLessPer`: see SIMULATED_COST_COUNTERS; `playableIf` is simulated, #111). */
 export const UNSIMULATED_CARD_FIELDS: readonly string[] = [];
 
-/** #110: the counters `costLessPer` may use on a simulated card (Stomp: Attacks played this turn). */
-export const SIMULATED_COST_COUNTERS = new Set<string>(['attacksPlayedThisTurn']);
+/** #110: the counters `costLessPer` may use on a simulated card (Stomp: Attacks played this turn; #265 Pinpoint: Skills). */
+export const SIMULATED_COST_COUNTERS = new Set<string>(['attacksPlayedThisTurn', 'skillsPlayedThisTurn']);
 
 export const PILES = ['hand', 'draw', 'discard', 'exhaust'] as const;
 

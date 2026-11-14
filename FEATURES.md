@@ -242,9 +242,18 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Enemy Artifact counts against it: each application uses one stack and is negated, so a card is not played
     when the Artifact stacks cover all its applications.
 
+45. **Silent counters (#265):** Pinpoint costs 1 less per Skill played this turn (minimum 0). Memento Mori
+    deals 4 (5 upgraded) more per card discarded this turn by an effect (the end-of-turn discard does not
+    count; resets each turn). Murder deals 1 more per card drawn this combat (the opening hand counts).
+    Flechettes hits once per Skill in hand and Finisher once per Attack played earlier this turn (not
+    itself), each hit for the card's damage with Strength and modifiers; with none, no hits (0 damage).
+    Escape Plan draws 1 card and gains Block only if the card drawn is a Skill. Expertise draws until the
+    hand holds 6 (7 upgraded) cards; a bigger hand draws nothing. Strategies play Finisher after the other
+    Attacks.
+
 ## Silent trigger powers (#266)
 
-45. **Silent trigger powers (#266):** Afterimage: each card played after it gains [amount] Block (power Block: no
+46. **Silent trigger powers (#266):** Afterimage: each card played after it gains [amount] Block (power Block: no
     Dexterity or Frail; its own card does not count). Serpent Form: each such card deals [amount] damage to a random
     living enemy (not an Attack: Block absorbs it; Strength, Weak and Vulnerable do not change it). Speedster: each
     card drawn during the player's turn, the turn-start draw included, deals [amount] damage to ALL enemies (power
@@ -252,7 +261,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     [amount] cards from the hand; the strategy discards in the exhaust order, with Sly cards ahead of curses and
     statuses except those that hurt while kept (Trent, #259). Tracking (main release): Attacks deal double damage to
     a Weak enemy (a ×2 multiplier floored once, ×3 with Vulnerable; it is not Weak on the player).
-46. **Well-Laid Plans (#266, Trent):** at the end of the turn up to [amount] cards (1, upgraded 2) are retained
+47. **Well-Laid Plans (#266, Trent):** at the end of the turn up to [amount] cards (1, upgraded 2) are retained
     (Ethereal and Retain cards are not offered; curses and statuses are never kept). The strategy keeps the card it
     needs next turn for its top priority (the first group of its order with a card in hand; a Block-first strategy
     keeps a Block card, the best of the group first), unless more than half of the draw pile is cards of that

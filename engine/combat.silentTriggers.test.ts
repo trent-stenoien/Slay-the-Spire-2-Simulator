@@ -196,6 +196,26 @@ describe('#266 Tools of the Trade', () => {
     expect(turn2.findIndex((e) => e.t === 'moved')).toBeGreaterThan(lastDraw);
   });
 
+  it('its discards count toward cards discarded this turn (#265)', () => {
+    let seen: number | undefined;
+    const inner = scripted((t) => (t === 1 ? ['tools'] : []));
+    const s: Strategy = {
+      decide(view) {
+        if (view.state.turn === 2 && seen === undefined) seen = view.state.player.counters?.cardsDiscardedThisTurn;
+        return inner.decide(view);
+      },
+    };
+    run(
+      [
+        ['tools', 1],
+        ['strike0', 10],
+      ],
+      () => [],
+      s,
+    );
+    expect(seen).toBe(1);
+  });
+
   it('discards curses and statuses that hurt first, then Sly cards, then by the exhaust order', () => {
     const hand = ['strike0', 'slyOne', 'burn', 'defend0'].map((id, i) => makeCardInstance(data().cards[id]!, false, i));
     const names = (ids: string[], n: number) => {
