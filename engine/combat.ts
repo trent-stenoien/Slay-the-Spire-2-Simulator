@@ -240,6 +240,7 @@ function emptyCounters(): CombatCounters {
     cardsExhaustedThisCombat: 0,
     cardsDrawnThisTurn: 0,
     cardsDrawnThisCombat: 0,
+    cardsDiscardedThisTurn: 0,
   };
 }
 
@@ -286,6 +287,11 @@ export const SIMULATED_COUNTERS: readonly Counter[] = [
   'cardsPlayedThisTurn',
   'cardsPlayedThisCombat',
   'attacksPlayedThisTurn',
+  'skillsPlayedThisTurn',
+  'attacksPlayedBeforeThis',
+  'cardsDiscardedThisTurn',
+  'cardsDrawnThisCombat',
+  'skillsInHand',
   'cardsExhaustedThisTurn',
   'cardsExhaustedThisCombat',
   'lastEffectCount',
@@ -428,6 +434,8 @@ class Combat {
   private panacheCount = 0;
   /** #113: cards drawn while Automation was on (kept across turns). */
   private automationCount = 0;
+  /** #265: cards drawn since the last `draw`/`drawUntil` effect began (Escape Plan's drewMatching). */
+  private lastDrawn: CardInstance[] = [];
   /** #113 Unmovable: the turn's first Block gain from a card has been doubled. */
   private unmovableUsed = false;
   /** #113 Rupture, Inferno: true from the start of the player's turn to the start of the enemy's. */
@@ -663,6 +671,8 @@ class Combat {
     counters.cardsPlayedThisTurn = 0;
     counters.attacksPlayedThisTurn = 0;
     counters.skillsPlayedThisTurn = 0;
+    counters.cardsDiscardedThisTurn = 0;
+    this.lastDrawn = [];
     this.panacheCount = 0;
     this.unmovableUsed = false;
     if (!this.power('barricade')) {
@@ -710,7 +720,12 @@ class Combat {
 
   /** #110: what a card costs right now (Enlightenment, Stomp, Unrelenting); null if unplayable. */
   private costOf(card: CardInstance): number | null {
-    return cardCost(card, this.counters.attacksPlayedThisTurn, this.power('freeAttack') > 0);
+    return cardCost(
+      card,
+      this.counters.attacksPlayedThisTurn,
+      this.power('freeAttack') > 0,
+      this.counters.skillsPlayedThisTurn,
+    );
   }
 
   /** #109: the current amount of a player power (0 when off). */
@@ -1460,12 +1475,13 @@ class Combat {
           break;
         case 'draw':
           if (source !== 'player') throw new Error('Enemies do not draw cards');
+          this.lastDrawn = [];
           this.drawCards(e.amount);
           break;
         case 'drawUntil':
           if (source !== 'player') throw new Error('Enemies do not draw cards');
-          if (e.handSize !== undefined) throw new Error('Effect "drawUntil.handSize" is not simulated yet (#265)');
-          this.drawUntil(e.stopOn);
+          this.lastDrawn = [];
+          this.drawUntil(e.stopOn, e.handSize);
           break;
         case 'applyPower':
           if (source !== 'player' || !SIMULATED_POWER_IDS.includes(e.power)) {
@@ -1532,7 +1548,7 @@ class Combat {
           if (source !== 'player' || !SIMULATED_COUNTERS.includes(e.per)) {
             throw new Error(`Effect "repeat" is not simulated yet (counter "${e.per}")`);
           }
-          const n = this.counter(e.per, lastCount) * (e.times ?? 1);
+          const n = this.counter(e.per, lastCount, card) * (e.times ?? 1);
           for (let i = 0; i < n && !died; i++) died = this.resolveEffects(source, e.effects, x, card);
           break;
         }
@@ -1540,8 +1556,8 @@ class Combat {
           // #111: per hit damage + amount × counter; hits + extra × counter; both read before the attack.
           if (source !== 'player') throw new Error('Effect "attackFrom" is not simulated yet on enemy moves');
           this.checkCounters(e.bonusPer, e.extraHitsPer);
-          const per = e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount);
-          const hits = e.hits + this.perCounter(e.extraHitsPer, lastCount);
+          const per = e.damage + (card?.damageBonus ?? 0) + this.perCounter(e.bonusPer, lastCount, card);
+          const hits = e.hits + this.perCounter(e.extraHitsPer, lastCount, card);
           died = this.attack(source, other, per, Math.max(0, hits), e.allEnemies);
           break;
         }
@@ -1551,7 +1567,7 @@ class Combat {
           // Dexterity and Frail don't change it.
           if (source !== 'player') throw new Error('Effect "gainBlockFrom" is not simulated yet on enemy moves');
           this.checkCounters(e.bonusPer);
-          const raw = e.amount + this.perCounter(e.bonusPer, lastCount);
+          const raw = e.amount + this.perCounter(e.bonusPer, lastCount, card);
           const amt = e.bonusPer.per === 'playerBlock' ? Math.max(0, raw) : card ? this.cardBlock(raw, card) : 0;
           self.block += amt;
           log?.push({ t: 'block', side: source, amount: amt, total: self.block });
@@ -1783,16 +1799,21 @@ class Combat {
   }
 
   /** #111: the value of a counter right now (`lastCount` = cards moved by the previous effect). */
-  private counter(counter: Counter, lastCount = 0): number {
-    return counterValue(counter, this.state, this.counterContext(lastCount));
+  private counter(counter: Counter, lastCount = 0, card?: CardInstance): number {
+    return counterValue(counter, this.state, this.counterContext(lastCount, card));
   }
 
-  private counterContext(lastCount: number): CounterContext {
-    return { lastEffectCount: lastCount, lastAttackDamage: this.lastAttackDamage };
+  private counterContext(lastCount: number, card?: CardInstance): CounterContext {
+    return {
+      lastEffectCount: lastCount,
+      lastAttackDamage: this.lastAttackDamage,
+      playingAttack: card?.type === 'attack',
+      drawnByLastDraw: this.lastDrawn,
+    };
   }
 
-  private perCounter(per: PerCounter | undefined, lastCount: number): number {
-    return perCounterValue(per, this.state, this.counterContext(lastCount));
+  private perCounter(per: PerCounter | undefined, lastCount: number, card?: CardInstance): number {
+    return perCounterValue(per, this.state, this.counterContext(lastCount, card));
   }
 
   /** #111: counters the engine tracks; the cards-played tallies wait for #113. */
@@ -1805,9 +1826,6 @@ class Combat {
   }
 
   private checkCondition(cond: Condition): void {
-    if (cond.kind === 'drewMatching') {
-      throw new Error('Condition "drewMatching" is not simulated yet (#265)');
-    }
     if (cond.kind === 'counter' && !SIMULATED_COUNTERS.includes(cond.counter)) {
       throw new Error(`Counter "${cond.counter}" is not simulated yet`);
     }
@@ -1815,7 +1833,7 @@ class Combat {
 
   /** #111: whether a condition holds for the card being played (the card itself is not in hand). */
   private holds(cond: Condition, card: CardInstance | undefined, lastCount = 0): boolean {
-    return conditionHolds(cond, this.state, matchesFilter, card?.uid, this.counterContext(lastCount));
+    return conditionHolds(cond, this.state, matchesFilter, card?.uid, this.counterContext(lastCount, card));
   }
 
   /** #111: a card with `playableIf` (Clash) can be played only while it holds. */
@@ -1951,6 +1969,9 @@ class Combat {
       if (i < 0) continue;
       pile.splice(i, 1);
       const to = this.placeCard(c, e.to);
+      // #265 Memento Mori: a card moved from the hand to the discard pile is discarded.
+      if (e.from === 'hand' && to === 'discard')
+        this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
       this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: e.from, to });
       count++;
     }
@@ -2058,7 +2079,12 @@ class Combat {
       for (const c of pile) {
         if (c.cost === null || c.xCost) continue;
         if (e.filter && !matchesFilter(c, e.filter)) continue;
-        const current = cardCost(c, this.counters.attacksPlayedThisTurn, false) as number;
+        const current = cardCost(
+          c,
+          this.counters.attacksPlayedThisTurn,
+          false,
+          this.counters.skillsPlayedThisTurn,
+        ) as number;
         if (e.onlyIfHigher && current <= e.cost) continue;
         if (e.duration === 'turn') c.costThisTurn = e.cost;
         else c.costThisCombat = e.cost;
@@ -2605,9 +2631,11 @@ class Combat {
    * matching `stopOn` (Pillage), when nothing is left to draw, or when drawing is blocked.
    * It never draws into a full hand, so it never discards for the hand limit.
    */
-  private drawUntil(stopOn: CardFilter | undefined): void {
+  private drawUntil(stopOn: CardFilter | undefined, handSize?: number): void {
+    const target = Math.min(handSize ?? HAND_LIMIT, HAND_LIMIT);
     for (let i = 0; i < MAX_DRAW_UNTIL; i++) {
-      if (this.drawBlocked() || this.player.hand.length >= HAND_LIMIT || this.won()) return;
+      // #265 Expertise: stop once the hand holds `handSize` cards (a bigger hand draws nothing).
+      if (this.drawBlocked() || this.player.hand.length >= target || this.won()) return;
       const card = this.drawOne();
       if (!card) return;
       if (stopOn && matchesFilter(card, stopOn)) return;
@@ -2775,6 +2803,7 @@ class Combat {
     log?.push({ t: 'draw', uid: card.uid, cardId: card.cardId });
     this.counters.cardsDrawnThisTurn++;
     this.counters.cardsDrawnThisCombat++;
+    this.lastDrawn.push(card);
     // #113 Automation: every 10th card drawn while it is on gains energy.
     const automation = this.power('automation');
     if (automation > 0 && ++this.automationCount % AUTOMATION_CARDS === 0) {
