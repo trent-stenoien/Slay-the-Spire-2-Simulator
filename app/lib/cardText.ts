@@ -119,6 +119,9 @@ export function effectText(e: Effect): string {
       return 'Gain a Random Potion';
     case 'loseEnergy':
       return `Lose ${e.amount} Energy`;
+    case 'spawnEnemies':
+      // #322: declared only.
+      return `Summon ${e.count} ${e.enemyId}${e.stunned ? ' (Stunned)' : ''}`;
     case 'script':
       // #108: Fiend Fire, Thrash.
       if (e.id === 'fiendFire') return `Exhaust your Hand. Deal ${e.values?.[0] ?? 0} damage for each card Exhausted`;

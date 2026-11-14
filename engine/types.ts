@@ -105,6 +105,10 @@
  *                     Fixture JSON fields stay local to engine/golden/golden.test.ts.
  * #226 Once-per-fight — EnemyMove.oncePerFight (Mawler's Roar); simulated in engine/combat.ts.
  *
+ * #322 Summons     — Effect `spawnEnemies`; EnemyDef.onDeath (Phrog Parasite: 4 stunned Wrigglers);
+ *                     RandomPattern.weights / noRepeatMoves (Twig Slime M); CyclePattern.startBySlot
+ *                     (Wriggler). Declared, not simulated yet; validators reject the new fields in data.
+ *
  * #5 Multi-enemy    — CombatConfig.enemyIds / RunConfig.enemyIds; CombatState.enemies (`enemy` is
  *                     the current one); StrategyView.intents; Decision / PotionUse `target`;
  *                     StrategyConfig.target + TargetPriority; `allEnemies` on applyVulnerable /
@@ -326,6 +330,12 @@ export type Effect =
   | { type: 'gainGold'; amount: number }
   /** #104: the player gains one Random Potion (Alchemize). Reward only; the potion has no combat effect. */
   | { type: 'gainPotion' }
+  /**
+   * #322: summon `count` enemies of `enemyId`, appended to the right of the living line-up. With
+   * `stunned` they arrive Stunned and skip their first move (Wrigglers from Phrog Parasite). Enemy
+   * moves and `EnemyDef.onDeath` only; not simulated yet.
+   */
+  | { type: 'spawnEnemies'; enemyId: string; count: number; stunned?: boolean }
   /** #206: the player loses `amount` energy now, never below 0 (Void, as a `drawn` trigger). */
   | { type: 'loseEnergy'; amount: number }
   /**
@@ -907,6 +917,13 @@ export interface CyclePattern {
   start: 'first' | 'random';
   /** #4: move ids played once, in this order, before the cycle starts (Shrinker Beetle: Shrinker). */
   opener?: string[];
+  /**
+   * #322: first move by the enemy's slot among same-id enemies in the fight: the 1st, 3rd ... start
+   * with `odd`, the 2nd, 4th ... with `even` (Wriggler: Bite / Wriggle). Both are move ids. Replaces
+   * the `start` choice for the first move; the cycle then continues from that move's place in `order`.
+   * Declared, not simulated yet.
+   */
+  startBySlot?: { odd: string; even: string };
 }
 
 /**
@@ -920,6 +937,16 @@ export interface RandomPattern {
   moves: string[];
   /** true: never the same move twice in a row. The last opener move counts as the previous move. */
   noRepeat: boolean;
+  /**
+   * #322: relative pick weights by move id (default: every move equally likely; a move left out
+   * has weight 1). Twig Slime (M): Chomp 2, Sticky Shot 1 (67% / 33%). Declared, not simulated yet.
+   */
+  weights?: Record<string, number>;
+  /**
+   * #322: only these moves may not repeat back-to-back; when absent, `noRepeat` applies to every
+   * move as before. Twig Slime (M): ['stickyShot']. Declared, not simulated yet.
+   */
+  noRepeatMoves?: string[];
   /** Move ids played once, in this order, before random picks start (Sludge Spinner: Oil Spray). */
   opener?: string[];
 }
@@ -972,6 +999,8 @@ export interface EnemyDef {
   ascension: Record<string, EnemyAscensionOverride>;
   /** #203/#213: powers the enemy starts combat with (Cubex Construct: 1 artifact; Vantom: 8 slippery). */
   startPowers?: Partial<Record<EnemyPowerId, number>>;
+  /** #322: effects that run when this enemy dies (Phrog Parasite: spawn 4 stunned Wrigglers). Not simulated yet. */
+  onDeath?: Effect[];
   source: string;
   lastUpdateVersion: GameVersion;
 }

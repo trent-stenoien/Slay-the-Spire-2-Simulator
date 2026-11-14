@@ -55,6 +55,7 @@ export const CONTRACT_EFFECTS = [
   'gainGold',
   'gainPotion',
   'loseEnergy',
+  'spawnEnemies',
   'script',
 ] as const;
 
