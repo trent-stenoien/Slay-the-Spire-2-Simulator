@@ -9,13 +9,19 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "masterPlanner",
+      "amount": 1
+    }
+  ],
   "upgraded": {
     "cost": 1
   },
   "description": "When you play a Skill, it gains Sly.",
   "upgradedDescription": "When you play a Skill, it gains Sly.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

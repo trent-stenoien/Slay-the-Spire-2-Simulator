@@ -16,6 +16,17 @@
       "type": "attack",
       "damage": 10,
       "hits": 1
+    },
+    {
+      "type": "conditional",
+      "if": {
+        "kind": "fatal"
+      },
+      "then": [
+        {
+          "type": "gainCardReward"
+        }
+      ]
     }
   ],
   "upgraded": {
@@ -24,12 +35,23 @@
         "type": "attack",
         "damage": 15,
         "hits": 1
+      },
+      {
+        "type": "conditional",
+        "if": {
+          "kind": "fatal"
+        },
+        "then": [
+          {
+            "type": "gainCardReward"
+          }
+        ]
       }
     ]
   },
   "description": "Deal 10 damage. / If Fatal, gain an additional card reward. / Exhaust.",
   "upgradedDescription": "Deal 15 damage. / If Fatal, gain an additional card reward. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

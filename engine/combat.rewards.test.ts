@@ -40,7 +40,7 @@ describe('#104 rewards', () => {
   it('Hand of Greed gains gold when its hit kills the enemy', () => {
     const r = run(20, deckOf(['greed', 5]), ['greed']);
     expect(r.outcome).toBe('win');
-    expect(r.rewards).toEqual({ gold: 20, potions: 0 });
+    expect(r.rewards).toEqual({ gold: 20, potions: 0, cardRewards: 0 });
   });
 
   it('Hand of Greed gains no gold when it does not kill (and rewards is omitted)', () => {
@@ -51,7 +51,7 @@ describe('#104 rewards', () => {
 
   it('Alchemize gains one potion each play, exhausts, and has no other effect', () => {
     const r = run(999, deckOf(['alchemize', 5]), ['alchemize', 'alchemize']);
-    expect(r.rewards).toEqual({ gold: 0, potions: 2 });
+    expect(r.rewards).toEqual({ gold: 0, potions: 2, cardRewards: 0 });
     expect(r.enemyHpRemaining).toBe(999);
   });
 
