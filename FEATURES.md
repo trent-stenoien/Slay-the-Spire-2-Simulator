@@ -410,6 +410,15 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     count each application. Haze (ALL), Mirage (total Poison of living enemies) and Serpent Form (random living
     enemy per card) need no change.
 
+## Act 2 bosses (#24)
+
+59. **Enemy heal and Knowledge Demon (#271, Trent):** every enemy heal is capped at the enemy's Max HP (no enemy
+    overheal); a `heal` effect on an enemy move heals the acting enemy. Knowledge Demon (Act 2, Hive, boss; 379 HP,
+    A8 399) opens Curse of Knowledge, Slap 17 (A9 18), Knowledge Overwhelming 8x3 (9x3), Ponder 11 (13) + heal 30 +
+    2 (3) Strength, three times (the Curse offers Disintegration 6 or Mind Rot, 7 or Sloth, 8 or Waste Away), then
+    repeats Slap, Knowledge Overwhelming, Ponder. Act 2 becomes selectable in the Setup picker. Interim until the
+    per-strategy Curse choice lands: each Curse applies the Disintegration option. The enemy heal is not logged yet.
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

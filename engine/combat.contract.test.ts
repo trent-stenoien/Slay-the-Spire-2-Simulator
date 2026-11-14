@@ -71,10 +71,11 @@ describe('#105 contract effects are not simulated yet', () => {
   );
 
   it('a contract effect on an enemy move also throws', () => {
-    const e = makeEnemy('healer', 50, { mend: { name: 'Mend', effects: [{ type: 'heal', amount: 5 }] } });
+    // #271: `heal` is simulated on enemy moves now (the enemy heals itself); gainMaxHp is not.
+    const e = makeEnemy('grower', 50, { grow: { name: 'Grow', effects: [{ type: 'gainMaxHp', amount: 5 }] } });
     const data = withEnemy(makeGameData(), e);
-    expect(() => simulateCombat(data, cfg({ enemyId: 'healer', deck: [] }), passive)).toThrow(
-      /"heal" is not simulated yet/,
+    expect(() => simulateCombat(data, cfg({ enemyId: 'grower', deck: [] }), passive)).toThrow(
+      /"gainMaxHp" is not simulated yet/,
     );
   });
 

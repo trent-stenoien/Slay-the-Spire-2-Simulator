@@ -1,0 +1,150 @@
+{
+  "id": "knowledge_demon",
+  "code": "KD",
+  "name": "Knowledge Demon",
+  "act": 2,
+  "zone": "hive",
+  "difficulty": "boss",
+  "hp": {
+    "min": 379,
+    "max": 379
+  },
+  "moves": {
+    "curseOfKnowledge1": {
+      "name": "Curse of Knowledge",
+      "effects": [
+        {
+          "type": "applyPower",
+          "power": "disintegration",
+          "amount": 6
+        }
+      ]
+    },
+    "curseOfKnowledge2": {
+      "name": "Curse of Knowledge",
+      "effects": [
+        {
+          "type": "applyPower",
+          "power": "disintegration",
+          "amount": 7
+        }
+      ]
+    },
+    "curseOfKnowledge3": {
+      "name": "Curse of Knowledge",
+      "effects": [
+        {
+          "type": "applyPower",
+          "power": "disintegration",
+          "amount": 8
+        }
+      ]
+    },
+    "slap": {
+      "name": "Slap",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 17,
+          "hits": 1
+        }
+      ]
+    },
+    "knowledgeOverwhelming": {
+      "name": "Knowledge Overwhelming",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 8,
+          "hits": 3
+        }
+      ]
+    },
+    "ponder": {
+      "name": "Ponder",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 11,
+          "hits": 1
+        },
+        {
+          "type": "heal",
+          "amount": 30
+        },
+        {
+          "type": "gainStrength",
+          "amount": 2
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["slap", "knowledgeOverwhelming", "ponder"],
+    "start": "first",
+    "opener": [
+      "curseOfKnowledge1",
+      "slap",
+      "knowledgeOverwhelming",
+      "ponder",
+      "curseOfKnowledge2",
+      "slap",
+      "knowledgeOverwhelming",
+      "ponder",
+      "curseOfKnowledge3",
+      "slap",
+      "knowledgeOverwhelming",
+      "ponder"
+    ]
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 399,
+        "max": 399
+      }
+    },
+    "9": {
+      "moves": {
+        "slap": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 18,
+              "hits": 1
+            }
+          ]
+        },
+        "knowledgeOverwhelming": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 9,
+              "hits": 3
+            }
+          ]
+        },
+        "ponder": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 13,
+              "hits": 1
+            },
+            {
+              "type": "heal",
+              "amount": 30
+            },
+            {
+              "type": "gainStrength",
+              "amount": 3
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

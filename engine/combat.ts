@@ -1967,11 +1967,18 @@ class Combat {
           this.setCost(e);
           break;
         case 'heal':
+          // #271 (Trent): on an enemy move the acting enemy heals itself (Knowledge Demon's Ponder),
+          // capped at its Max HP. Every enemy heal is capped; there is no enemy overheal.
+          if (source !== 'player') {
+            this.enemyHeal(e.amount);
+            break;
+          }
+          this.heal(e.amount);
+          break;
         case 'gainMaxHp':
         case 'loseMaxHp':
           if (source !== 'player') throw new Error(`Effect "${e.type}" is not simulated yet on enemy moves`);
-          if (e.type === 'heal') this.heal(e.amount);
-          else this.changeMaxHp(e.type === 'gainMaxHp' ? e.amount : -e.amount);
+          this.changeMaxHp(e.type === 'gainMaxHp' ? e.amount : -e.amount);
           break;
         case 'exhaustCards':
           if (source !== 'player') throw new Error('Effect "exhaustCards" is not simulated yet on enemy moves');
@@ -3054,6 +3061,16 @@ class Combat {
     this.recordHpLoss(amount);
     this.log?.push({ t: 'loseHp', side: 'player', amount, hpAfter: Math.max(player.hp, 0) });
     return player.hp <= 0;
+  }
+
+  /**
+   * #271 (Trent): the current enemy heals `amount` HP, never past its Max HP (all enemy heals are
+   * capped). Not logged yet: the `heal` GameEvent has no side (contract addition requested).
+   */
+  private enemyHeal(amount: number): void {
+    const { enemy } = this;
+    if (enemy.hp <= 0) return;
+    enemy.hp = Math.min(enemy.maxHp, enemy.hp + amount);
   }
 
   /**

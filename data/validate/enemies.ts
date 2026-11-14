@@ -28,12 +28,14 @@ function checkEnemyOnlyEffects(r: Reporter, list: unknown, path: string): void {
     // #303: an enemy move may buff its own Strength (Bygone Effigy's Wake).
     // #322: an enemy move or onDeath may summon enemies.
     // #270: an enemy move may put a simulated power on the player (Curse of Knowledge's debuffs).
+    // #271: an enemy move may heal the enemy itself (Knowledge Demon's Ponder), capped at its Max HP.
     const playerPower = e.type === 'applyPower' && SIMULATED_POWERS.has(String(e.power));
     if (
       !namedCard &&
       !playerPower &&
       e.type !== 'enemyGainStrength' &&
       e.type !== 'spawnEnemies' &&
+      e.type !== 'heal' &&
       isOneOf(e.type, CONTRACT_EFFECTS)
     ) {
       r.add(`${path}[${i}].type`, `is "${e.type}", which is not simulated on enemy moves`);

@@ -171,10 +171,18 @@ describe('#105 contract shapes', () => {
 
   it('rejects contract effects on enemy moves', () => {
     const d = fixture();
-    d.enemies.nibbit.moves.hiss.effects.push({ type: 'heal', amount: 5 });
+    d.enemies.nibbit.moves.hiss.effects.push({ type: 'gainMaxHp', amount: 5 });
     expect(errorsOf(d)).toContainEqual(
-      expect.stringMatching(/enemies\/nibbit.*moves\.hiss\.effects\[1\]\.type.*"heal".*not simulated on enemy moves/),
+      expect.stringMatching(
+        /enemies\/nibbit.*moves\.hiss\.effects\[1\]\.type.*"gainMaxHp".*not simulated on enemy moves/,
+      ),
     );
+  });
+
+  it('#271: accepts heal on an enemy move (the enemy heals itself)', () => {
+    const d = fixture();
+    d.enemies.nibbit.moves.hiss.effects.push({ type: 'heal', amount: 30 });
+    expect(errorsOf(d)).toEqual([]);
   });
 
   it('#270: accepts applyPower on an enemy move (the power goes on the player)', () => {

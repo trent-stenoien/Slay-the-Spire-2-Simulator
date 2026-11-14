@@ -296,6 +296,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 56 | Master Planner: Skills played after it gain Sly (not earlier ones, not Attacks); The Hunt: card reward only on a kill, 15 damage upgraded, none otherwise | engine/combat.masterPlannerHunt.test.ts (5 tests) | n/a |
 | 57 | Boss player debuffs: enemy-move applyPower on the player (stacks add, validator accepts it), Disintegration end-of-turn damage (Block, Intangible, can kill), Mind Rot smaller draw, Waste Away smaller refill, Sloth hand-play cap (effect plays not counted) | engine/combat.bossDebuffs.test.ts (8 tests); data/data.contract.test.ts > #270: accepts applyPower on an enemy move | n/a |
 | 58 | Echoing Slash repeat per kill, chained kills, no repeat without a kill or with one enemy; Piercing Wail on ALL (Artifact per enemy); Bouncing Flask random per application, seeded, Artifact per application; Haze / Mirage / Serpent Form on several enemies; the three cards' data | engine/combat.silentMultiEnemy.test.ts | n/a |
+| 59 | Enemy heal on an enemy move, capped at Max HP; validator accepts heal on enemy moves; Knowledge Demon data (HP, A8 HP, base and A9 moves), three Curse rounds then the 3-move cycle, Ponder heal capped at 379, Curse applies Disintegration (interim); Act 2 picker selects Knowledge Demon | engine/combat.knowledgeDemon.test.ts (5 tests); data/data.contract.test.ts > #271: accepts heal on an enemy move; app/components/interaction.test.tsx > #271: Act 2 is selectable | n/a |
 
 ## Known failure points
 

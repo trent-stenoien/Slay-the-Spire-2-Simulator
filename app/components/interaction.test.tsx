@@ -6,7 +6,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { gameData } from '../../data';
 import type { Deck, RunResult, StrategyConfig } from '../../engine/types';
 import { App } from '../App';
@@ -678,6 +678,25 @@ describe('UI polish (#254)', () => {
     const potions = [...potionSelect.options].slice(1).map((o) => o.textContent!);
     expect(potions.length).toBeGreaterThan(1);
     expect(potions).toEqual([...potions].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it('#271: Act 2 is selectable once a Hive enemy exists; picking it selects Knowledge Demon', async () => {
+    expect(enemiesIn(gameData, 'hive').map((e) => e.id)).toContain('knowledge_demon');
+    const onEnemy = vi.fn();
+    render(
+      <SetupPanel
+        data={gameData}
+        setup={defaultSetup(gameData)}
+        onCharacter={() => {}}
+        onEnemy={onEnemy}
+        onAscension={() => {}}
+      />,
+    );
+    const act = screen.getByLabelText('Act') as HTMLSelectElement;
+    const act2 = [...act.options].find((o) => o.value === '2')!;
+    expect(act2.disabled).toBe(false);
+    await userEvent.selectOptions(act, '2');
+    expect(onEnemy).toHaveBeenCalledWith('knowledge_demon');
   });
 
   it('the relic remove button is a plain unstyled button, still labelled', () => {
