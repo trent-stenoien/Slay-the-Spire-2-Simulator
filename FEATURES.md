@@ -265,8 +265,9 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Tear, Volley, Ricochet) sends each hit to a random living enemy through the seeded Rng, one draw per hit,
     only while 2+ enemies live (a one-enemy fight draws nothing and is unchanged); hits continue after a kill.
     Juggernaut's damage also picks a random living enemy. Strategies, with 2+ enemies alive, play random-target
-    attacks first and re-plan the rest of the turn on the new board, except that a targeted attack that would
-    kill a living enemy goes first, aimed at it.
+    attacks first and re-plan the rest of the turn on the new board, except (#304) that targeted attacks that
+    together (combined, within the Energy left) kill a living enemy go first, the cheapest set in Energy, aimed
+    at the leftmost enemy they kill. With one enemy there is no special order (energy-to-damage ratio).
 44. **Poison-only cards (#46, Trent):** a card whose only effect is applying Poison (Deadly Poison, Bouncing
     Flask) is played before the Attacks when the enemy will live at least two more turns. Estimate: the Attacks in
     hand deal D a turn (Strength and Vulnerable counted, energy after the Poison card); the enemy lives 2+ turns
