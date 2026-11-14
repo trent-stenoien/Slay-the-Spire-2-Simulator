@@ -20,6 +20,9 @@
  * MAX_POTIONS), e.g. `p=SPFP`. Absent = no potions.
  * Relics (#205): optional `r` after `d`: relic codes joined by "," with Girya's Strength after its
  * code ("BB,Gy3"); an empty `r=` means no relics. Absent = the character's starting relic.
+ * Start HP (#315): optional `h` after `r`: the starting HP the user edited (whole number 1..Max HP).
+ * Written only when it differs from the character's default at the Ascension; absent = the default.
+ * Out-of-range or malformed values are ignored with an error.
  *
  * Deck: concatenated entries of card code (2 chars) + optional "+" (upgraded)
  * + count (decimal, no leading zeros). The "+" is written literally, so the
@@ -37,6 +40,7 @@ import {
   type StrategyConfig,
 } from '../../engine/types';
 import { deckPool, startingDeckFor } from './deck';
+import { setupStartHp } from './startHp';
 import { decodeRelics, encodeRelics, sameRelics, startingRelics } from './relics';
 
 export const URL_VERSION = '1';
@@ -206,7 +210,7 @@ export function decodePotions(data: GameData, text: string): PotionParseResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Build the query string (without "?"). Param order is fixed: v c e a d [p] [r] [s st [k] [n]].
+ * Build the query string (without "?"). Param order is fixed: v c e a d [p] [r] [h] [s st [k] [n]].
  * #5: `e` holds one two-character code per enemy, left to right ("Nb" or "NbSe").
  */
 export function buildQuery(data: GameData, setup: SetupState, log?: LogTarget | null): string {
@@ -228,6 +232,10 @@ export function buildQuery(data: GameData, setup: SetupState, log?: LogTarget | 
   // #205: written only when the relics differ from the starting relic, so older links stay the same.
   if (setup.relics && !sameRelics(setup.relics, startingRelics(data, setup.characterId))) {
     parts.push(`r=${encodeRelics(data, setup.relics)}`);
+  }
+  // #315: written only when edited to something other than the default.
+  if (setup.startHp !== undefined && setup.startHp !== setupStartHp(data, { ...setup, startHp: undefined })) {
+    parts.push(`h=${setup.startHp}`);
   }
   if (log) {
     if (log.strategies.length < 1 || log.strategies.length > MAX_STRATEGIES_PER_RUN) {
@@ -340,6 +348,14 @@ export function parseQuery(data: GameData, search: string): ParsedUrl {
     const r = decodeRelics(data, rl);
     if (r.ok) setup.relics = r.relics;
     else errors.push(r.error);
+  }
+
+  const h = p.get('h');
+  if (h !== undefined && characterOk) {
+    const maxHp = data.characters[setup.characterId]?.maxHp ?? 1;
+    const n = /^[1-9]\d{0,3}$/.test(h) ? Number(h) : null;
+    if (n === null || n > maxHp) errors.push(`Start HP must be a whole number 1–${maxHp}, got "${h}"`);
+    else setup.startHp = n;
   }
 
   return { setup, log: parseLogTarget(p, errors), errors };

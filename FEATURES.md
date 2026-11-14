@@ -322,7 +322,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     the character's start HP at the chosen Ascension (#286). It follows Ascension changes until the user edits
     it; an edited value is kept across Ascension changes (Reset returns to the default) and is dropped when the
     character changes (Max HP differs). Input is rounded and clamped to 1..Max HP; empty input is ignored. A
-    set value is passed as `startHp` to the run and to replayed combats. It is not stored in the URL.
+    set value is passed as `startHp` to the run and to replayed combats. It is stored in the URL as `h` only when edited and different from the default; out-of-range values are ignored with an error.
 
 ## Known failure points
 
