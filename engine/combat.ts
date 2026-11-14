@@ -720,6 +720,11 @@ class Combat {
    * becomes the current enemy in turn; the current enemy is restored after). A dead current enemy
    * is skipped. Returns 'player' or 'enemy' (all enemies dead) when combat ended.
    */
+  /** Number of dead enemies (#269 Echoing Slash counts kills). */
+  private deadCount(): number {
+    return this.enemies.filter((en) => en.hp <= 0).length;
+  }
+
   private onEnemies(all: boolean | undefined, fn: () => Side | null | void): Side | null {
     if (!all || this.enemies.length === 1) {
       if (this.enemy.hp <= 0) return null;
@@ -1796,17 +1801,23 @@ class Combat {
       let died: Side | null = null;
       const target = this.enemy;
       const targetAlive = target.hp > 0;
+      const deadBefore = e.type === 'attack' && e.repeatPerKill ? this.deadCount() : 0;
       switch (e.type) {
-        case 'attack':
-          died = this.attack(
-            source,
-            other,
-            e.damage + (card?.damageBonus ?? 0) + this.relicCardDamage(card),
-            attackHits(e, x),
-            e.allEnemies,
-            e.randomTarget,
-          );
+        case 'attack': {
+          const dmg = e.damage + (card?.damageBonus ?? 0) + this.relicCardDamage(card);
+          died = this.attack(source, other, dmg, attackHits(e, x), e.allEnemies, e.randomTarget);
+          // #269 Echoing Slash: repeat once per enemy killed; kills made by a repeat repeat again.
+          if (e.repeatPerKill && source === 'player') {
+            let repeats = this.deadCount() - deadBefore;
+            while (!died && repeats > 0) {
+              repeats--;
+              const before = this.deadCount();
+              died = this.attack(source, other, dmg, attackHits(e, x), e.allEnemies, e.randomTarget);
+              repeats += this.deadCount() - before;
+            }
+          }
           break;
+        }
         case 'gainBlock': {
           // #109: Block from a card gets Dexterity and Fasten; other Block (enemy moves, triggers) does not.
           const amt = this.unpowered
@@ -1846,6 +1857,18 @@ class Combat {
         case 'applyPoison':
           if (source !== 'player') throw new Error('Poison on the player is not simulated yet');
           let poisoned = 0;
+          if (e.randomTarget) {
+            // #269 Bouncing Flask: each application picks a random living enemy (one Rng draw, only while 2+ live).
+            const keep = this.focus;
+            for (let h = 0; h < (e.hits ?? 1) && !died; h++) {
+              const alive = this.living();
+              if (alive.length === 0) break;
+              this.focusOn(alive.length > 1 ? alive[this.rng.int(0, alive.length - 1)]! : alive[0]!);
+              if (this.poisonCurrent(e.amount) && e.amount > 0 && this.poisonApplied(1)) died = 'enemy';
+            }
+            if (!died) this.focusOn(keep);
+            break;
+          }
           died = this.onEnemies(e.allEnemies, () => {
             if (this.poisonCurrent(e.amount) && e.amount > 0) poisoned++;
           });
@@ -1904,7 +1927,7 @@ class Combat {
           if (source !== 'player' || (e.power !== 'stun' && e.power !== 'strengthLossThisTurn')) {
             throw new Error(`Effect "applyEnemyPower" is not simulated yet (power "${e.power}")`);
           }
-          died = this.onEnemies(false, () => {
+          died = this.onEnemies(e.allEnemies, () => {
             if (e.amount > 0 && this.artifactNegates(e.power)) return;
             this.applyEnemyPower(e.power, e.amount);
           });

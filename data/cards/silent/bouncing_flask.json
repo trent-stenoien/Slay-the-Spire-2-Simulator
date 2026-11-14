@@ -9,11 +9,27 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPoison",
+      "amount": 3,
+      "randomTarget": true,
+      "hits": 3
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPoison",
+        "amount": 3,
+        "randomTarget": true,
+        "hits": 4
+      }
+    ]
+  },
   "description": "Apply 3 Poison to a random enemy 3 times.",
   "upgradedDescription": "Apply 3 Poison to a random enemy 4 times.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

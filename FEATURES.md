@@ -313,7 +313,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Strength, 8 other cards: 13 + 3 − 16 = 0); the strategy's estimate floors the same way. Grand Finale is playable only with
     an empty draw pile. Expose removes the enemy's Block and Artifact before it applies Vulnerable. Malaise takes X
     (X+1 upgraded) Strength from the enemy for good, then applies that much Weak; Artifact negates each separately.
-    Strangle: the enemy loses 2 (3) HP for every card played after it this turn. Piercing Wail hits one enemy.
+    Strangle: the enemy loses 2 (3) HP for every card played after it this turn. Piercing Wail hits ALL enemies (#269).
     Bubble Bubble adds Poison only to an enemy that already has Poison.
 
 ## Silent draw, discard and energy cards (#259)
@@ -399,6 +399,16 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Mind Rot: the start-of-turn draw is [amount] smaller (not below 0). Waste Away: the energy refill is [amount]
     smaller (not below 0; Pyre's energy still comes after). Sloth: once [amount] cards have been played from the
     hand this turn nothing more is playable; cards played by effects, powers or Sly do not count (builder's call).
+
+## Silent multi-enemy cards (#269)
+
+58. **Echoing Slash, Piercing Wail, Bouncing Flask (#269, builder's defaults):** Echoing Slash (10, 13 upgraded, to
+    ALL enemies) repeats once for each enemy it killed; kills made by a repeat also owe a repeat (they chain). With one
+    enemy a kill ends the combat, so no repeat happens. Piercing Wail takes Strength this turn from every living
+    enemy (Artifact negates per enemy). Bouncing Flask applies 3 Poison 3 (4 upgraded) times, each application to a
+    random living enemy (one seeded Rng draw per application, only while 2+ enemies live); Artifact and Outbreak
+    count each application. Haze (ALL), Mirage (total Poison of living enemies) and Serpent Form (random living
+    enemy per card) need no change.
 
 ## Known failure points
 

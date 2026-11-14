@@ -1898,7 +1898,7 @@ export function poisonApplications(card: Card): number {
   const walk = (effects: readonly DeepReadonly<Effect>[], mult: number) => {
     for (const e of effects) {
       if (e.type === 'repeat') walk(e.effects, mult * (e.times ?? 1));
-      else if (e.type === 'applyPoison') n += mult;
+      else if (e.type === 'applyPoison') n += mult * (e.hits ?? 1);
     }
   };
   walk(card.effects, 1);
