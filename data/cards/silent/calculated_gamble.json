@@ -11,24 +11,7 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [
-    {
-      "type": "moveCards",
-      "from": "hand",
-      "to": "discard",
-      "mode": "all"
-    },
-    {
-      "type": "repeat",
-      "per": "lastEffectCount",
-      "effects": [
-        {
-          "type": "draw",
-          "amount": 1
-        }
-      ]
-    }
-  ],
+  "effects": [],
   "upgraded": {
     "keywords": [
       "retain",
@@ -37,7 +20,7 @@
   },
   "description": "Discard your Hand, / then draw that many cards. / Exhaust.",
   "upgradedDescription": "Retain. / Discard your Hand, / then draw that many cards. / Exhaust.",
-  "simulated": true,
+  "simulated": false,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

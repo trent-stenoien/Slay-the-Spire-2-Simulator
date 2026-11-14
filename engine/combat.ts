@@ -771,8 +771,7 @@ class Combat {
 
   /**
    * #259: the one shared hook for a card discarded from the hand by an effect ("Discard N" on Survivor,
-   * Acrobatics, Prepared, Dagger Throw; Calculated Gamble and Storm of Steel's whole hand; Tools of the
-   * Trade). The caller has already taken `c` out of the hand. It goes to the discard pile, is logged
+   * Acrobatics, Prepared, Dagger Throw; Storm of Steel's whole hand; Tools of the Trade). The caller has already taken `c` out of the hand. It goes to the discard pile, is logged
    * as moved hand → discard and counts as discarded this turn (Memento Mori). The end-of-turn hand
    * discard and the full-hand discard of a draw do NOT come here. Sly (#261) attaches here.
    */

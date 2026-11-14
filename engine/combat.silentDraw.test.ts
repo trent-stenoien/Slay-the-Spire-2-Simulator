@@ -1,4 +1,4 @@
-/** #259 Silent draw, discard and energy cards: Survivor, Acrobatics, Prepared, Dagger Throw, Backflip, Adrenaline, Calculated Gamble, Predator, Dodge and Roll. */
+/** #259 Silent draw, discard and energy cards: Survivor, Acrobatics, Prepared, Dagger Throw, Backflip, Adrenaline, Predator, Dodge and Roll. */
 import { describe, expect, it } from 'vitest';
 import { simulateCombat } from './combat';
 import { cfg, deckOf, dummyData, events } from './combatTestHelpers';
@@ -15,7 +15,6 @@ const REAL = [
   'dagger_throw',
   'backflip',
   'adrenaline',
-  'calculated_gamble',
   'predator',
   'dodge_and_roll',
 ];
@@ -264,32 +263,6 @@ describe('#259 Backflip and Adrenaline', () => {
   });
 });
 
-describe('#259 Calculated Gamble', () => {
-  it('discards the whole hand (each through the shared discard), then draws that many, and exhausts', () => {
-    const { r, seen } = run(
-      [
-        ['calculated_gamble', 1],
-        ['pad', 12],
-      ],
-      ['calculated_gamble'],
-      () => ['calculated_gamble'],
-    );
-    expect(discardedMoves(r)).toHaveLength(4);
-    const v = lastView(seen, 1);
-    expect(v.state.player.hand).toHaveLength(4);
-    expect(v.state.player.discardPile).toHaveLength(4);
-    expect(v.state.player.counters?.cardsDiscardedThisTurn).toBe(4);
-    expect(v.state.player.exhaustPile.map((c) => c.cardId)).toEqual(['calculated_gamble']);
-  });
-
-  it('with no other card in hand it discards and draws nothing; Calculated Gamble+ has Retain', () => {
-    const { r, seen } = run([['calculated_gamble', 1]], ['calculated_gamble'], () => ['calculated_gamble']);
-    expect(discardedMoves(r)).toHaveLength(0);
-    expect(lastView(seen, 1).state.player.hand).toHaveLength(0);
-    expect(gameData.cards.calculated_gamble!.upgraded!.keywords).toContain('retain');
-  });
-});
-
 describe('#259 Predator', () => {
   it('deals 15 (20 upgraded) and draws 2 more cards at the start of next turn', () => {
     for (const [up, dmg] of [
@@ -346,47 +319,5 @@ describe('#259 strategies play the cards', () => {
     });
     const played = new Set(events(r.log, 'play').map((e) => e.cardId));
     for (const id of REAL) expect(played.has(id), id).toBe(true);
-  });
-});
-
-describe('#259 strategy: when Calculated Gamble is played', () => {
-  const firstPlay = (deck: [string, number][], innate: string[]) => {
-    const d = data(innate);
-    const r = simulateCombat(
-      d,
-      cfg({ enemyId: 'dummy', deck: deckOf(...deck), seed: 5 }),
-      createStrategy(GREEDY_CONFIG),
-      {
-        log: true,
-      },
-    );
-    return events(r.log, 'play')[0]?.cardId;
-  };
-
-  it('first, when more than half of the rest of the hand would not be played (curses)', () => {
-    expect(
-      firstPlay(
-        [
-          ['calculated_gamble', 1],
-          ['decay', 3],
-          ['dagger_throw', 1],
-          ['pad', 10],
-        ],
-        ['calculated_gamble', 'decay', 'dagger_throw'],
-      ),
-    ).toBe('calculated_gamble');
-  });
-
-  it('not while the turn plan plays most of the hand', () => {
-    expect(
-      firstPlay(
-        [
-          ['calculated_gamble', 1],
-          ['dagger_throw', 4],
-          ['pad', 10],
-        ],
-        ['calculated_gamble', 'dagger_throw'],
-      ),
-    ).not.toBe('calculated_gamble');
   });
 });
