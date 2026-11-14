@@ -258,6 +258,41 @@ describe('pick helpers', () => {
     expect(pickAttack([one, two], 1, 0, view(3).state)!.cardId).toBe('two_hits');
   });
 
+  it('#339: enemy Thorns and Personal Hive cost per hit; Ornamental Fan counts the 3rd Attack', () => {
+    const one = makeCardInstance(
+      { ...cards[S]!, id: 'one_hit', effects: [{ type: 'attack', damage: 5, hits: 1 }] } as CardDef,
+      false,
+      0,
+    );
+    const two = makeCardInstance(
+      { ...cards[S]!, id: 'two_hits', effects: [{ type: 'attack', damage: 3, hits: 2 }] } as CardDef,
+      false,
+      1,
+    );
+    const three = makeCardInstance(
+      { ...cards[S]!, id: 'third', effects: [{ type: 'attack', damage: 2, hits: 1 }] } as CardDef,
+      false,
+      2,
+    );
+    const st = (powers: Record<string, number>, played = 0) =>
+      ({
+        turn: 1,
+        player: { strength: 0, hand: [], debuffs: {}, powers: {}, counters: { attacksPlayedThisTurn: played } },
+        enemy: { hp: 100, debuffs: {}, powers },
+      }) as unknown as StrategyView['state'];
+    expect(pickAttack([one, two], 1, 0, st({}))!.cardId).toBe('two_hits');
+    expect(pickAttack([one, two], 1, 0, st({ thorns: 2 }))!.cardId).toBe('one_hit');
+    expect(pickAttack([one, two], 1, 0, st({ personalHive: 2 }))!.cardId).toBe('one_hit');
+    // Energy 2, two Attacks played: the third gives Ornamental Fan Block (4), so a 2-card set beats one big card.
+    const big = makeCardInstance(
+      { ...cards[S]!, id: 'big', cost: 2, effects: [{ type: 'attack', damage: 8, hits: 1 }] } as CardDef,
+      false,
+      3,
+    );
+    expect(pickAttack([big, one, three], 2, 0, st({}, 2))!.cardId).toBe('big');
+    expect(pickAttack([big, one, three], 2, 0, st({}, 1), ['ornamental_fan'])!.cardId).toBe('one_hit');
+  });
+
   it('#11: Vulnerable first only with no enemy Vulnerable and energy for it plus another attack', () => {
     const us = makeCardInstance(cards.ultimate_strike!, true, 0);
     const bash = makeCardInstance(cards.bash!, false, 1);
