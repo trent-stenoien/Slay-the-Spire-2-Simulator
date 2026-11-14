@@ -261,4 +261,5 @@ export const CONTRACT_EFFECT_SAMPLES: Effect[] = [
   { type: 'gainMaxHp', amount: 3 }, // Feed
   { type: 'loseMaxHp', amount: 2 }, // Brightest Flame
   { type: 'script', id: 'perfectedStrike', values: [2] }, // Perfected Strike (#111)
+  { type: 'spawnEnemies', enemyId: 'wriggler', count: 4, stunned: true }, // Phrog Parasite (#322)
 ];

@@ -128,6 +128,10 @@ function checkPattern(r: Reporter, v: unknown, path: string, moveIds: Set<string
     checkAlternate(r, v, path, moveIds);
     return;
   }
+  // #322: declared in the contract, not simulated yet.
+  for (const f of v.type === 'random' ? ['weights', 'noRepeatMoves'] : ['startBySlot']) {
+    if (v[f] !== undefined) r.add(`${path}.${f}`, 'is declared (#322) but not simulated yet, so data cannot use it');
+  }
   if (v.opener !== undefined) checkMoveList(r, r.arr(v, 'opener', `${path}.opener`), `${path}.opener`, moveIds, true);
   if (v.type === 'random') {
     const moves = checkMoveList(r, r.arr(v, 'moves', `${path}.moves`), `${path}.moves`, moveIds);
@@ -178,6 +182,7 @@ export function checkEnemy(r: Reporter, e: Obj): void {
       r.add('pattern.moves', 'needs at least one move that is not oncePerFight');
   }
   if (e.startPowers !== undefined) checkStartPowers(r, e.startPowers, 'startPowers');
+  if (e.onDeath !== undefined) r.add('onDeath', 'is declared (#322) but not simulated yet, so data cannot use it');
 
   const asc = r.obj(e, 'ascension');
   if (asc) {

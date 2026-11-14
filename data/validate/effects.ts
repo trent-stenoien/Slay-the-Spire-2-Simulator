@@ -161,6 +161,11 @@ const CONTRACT_CHECKS: Record<ContractEffect, EffectCheck> = {
   gainGold: amountOnly,
   gainPotion: () => {},
   loseEnergy: amountOnly,
+  spawnEnemies: (r, e, p) => {
+    r.str(e, 'enemyId', `${p}.enemyId`);
+    r.int(e, 'count', 1, `${p}.count`);
+    optBool(r, e, 'stunned', p);
+  },
   drawUntil: (r, e, p) => {
     optBool(r, e, 'handFull', p);
     optFilter(r, e, 'stopOn', p);

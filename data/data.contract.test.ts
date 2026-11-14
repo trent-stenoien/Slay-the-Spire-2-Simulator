@@ -131,6 +131,20 @@ describe('#105 contract shapes', () => {
     expect(errs).toContainEqual(expect.stringMatching(new RegExp(`effects\\[0\\]\\.${field}\\b`)));
   });
 
+  it('#322: rejects the declared-only summon fields in enemy data', () => {
+    const d = fixture();
+    d.enemies.nibbit.onDeath = [{ type: 'spawnEnemies', enemyId: 'nibbit', count: 1 }];
+    d.enemies.nibbit.pattern = { ...d.enemies.nibbit.pattern, startBySlot: { odd: 'hiss', even: 'hiss' } };
+    const errs = errorsOf(d);
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*onDeath.*not simulated yet/));
+    expect(errs).toContainEqual(expect.stringMatching(/enemies\/nibbit.*pattern\.startBySlot.*not simulated yet/));
+    const r = fixture();
+    r.enemies.nibbit.pattern = { type: 'random', moves: ['hiss', 'hiss'], noRepeat: false, weights: { hiss: 2 } };
+    expect(errorsOf(r)).toContainEqual(expect.stringMatching(/enemies\/nibbit.*pattern\.weights.*not simulated yet/));
+    r.enemies.nibbit.pattern = { type: 'random', moves: ['hiss'], noRepeat: false, noRepeatMoves: ['hiss'] };
+    expect(errorsOf(r)).toContainEqual(expect.stringMatching(/pattern\.noRepeatMoves.*not simulated yet/));
+  });
+
   it('rejects contract effects on enemy moves', () => {
     const d = fixture();
     d.enemies.nibbit.moves.hiss.effects.push({ type: 'heal', amount: 5 });
