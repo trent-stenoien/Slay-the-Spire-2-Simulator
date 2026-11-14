@@ -238,6 +238,11 @@ export const SIMULATED_POWERS = new Set<string>([
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
+  // #270 boss player debuffs
+  'disintegration',
+  'mindRot',
+  'sloth',
+  'wasteAway',
 ]);
 
 /** CardFilter fields the engine matches on (every field of CardFilter since #113 enabled `nameIncludes`). */
@@ -359,7 +364,7 @@ export const POWER_IDS = [
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
-  // #270 boss player debuffs: declared, not simulated
+  // #270 boss player debuffs
   'disintegration',
   'mindRot',
   'sloth',
