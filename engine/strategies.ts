@@ -280,15 +280,27 @@ function shivCountMade(card: Card): number {
   return n;
 }
 
+/** #339: Ornamental Fan's Block (data/relics/ornamental_fan.json) and the Attacks it needs (engine/relics.ts). */
+const FAN_BLOCK = 4;
+const FAN_ATTACKS = 3;
+
 /**
- * #339 (Trent): the per-hit attack factors of an attack's value: each hit gains the player's Strength, counting
- * the Shivs the card makes. Enemy Thorns and Personal Hive (no enemy power type) and the relics Ornamental Fan,
- * Shuriken, Kunai, Kusarigama (not visible to strategies) need a contract change first.
+ * #339 (Trent): the per-hit attack factors of an attack's value, counting the Shivs the card makes: each hit gains
+ * the player's Strength, loses the target's Thorns (damage dealt back) and loses 1 per Personal Hive stack
+ * (a Dazed added to the draw pile; a judgement call). Shuriken, Kunai and Kusarigama are not simulated yet.
  */
 function attackFactors(card: Card, energy: number, state?: State): number {
   if (!state) return 0;
-  const perHit = state.player.strength;
+  const powers = state.enemy.powers;
+  const perHit = state.player.strength - (powers?.thorns ?? 0) - (powers?.personalHive ?? 0);
   return perHit === 0 ? 0 : perHit * (attackHitCount(card, energy) + shivCountMade(card));
+}
+
+/** #339 Ornamental Fan: the Block gained by playing `n` more Attacks this turn (valued 1 Block = 1 damage). */
+function fanValue(n: number, state?: State, relics?: readonly string[]): number {
+  if (!state || !relics?.includes('ornamental_fan')) return 0;
+  const played = state.player.counters?.attacksPlayedThisTurn ?? 0;
+  return FAN_BLOCK * (Math.floor((played + n) / FAN_ATTACKS) - Math.floor(played / FAN_ATTACKS));
 }
 
 /** #284: damage per energy of a Shiv maker (Infinity at cost 0). */
@@ -400,6 +412,7 @@ function withStormRules(view: StrategyView): StrategyView {
     energy,
     view.state.enemy.debuffs.vulnerable,
     view.state,
+    view.relics,
   );
   const costed = atk && (atk.xCost || (atk.cost ?? 0) > 0) ? atk : undefined;
   const stormWins =
@@ -1484,7 +1497,12 @@ function vulnerableFirst(card: Card, attacks: readonly Card[], energy: number, e
  * (highest total damage, then damage per Energy, draws, lowest uid) and the rest follow as the turn is
  * re-planned. Only the first 10 paid attacks are searched. Undefined when no attack is affordable.
  */
-function pickAttackFromBestSet(attacks: readonly Card[], energy: number, state?: State): Card | undefined {
+function pickAttackFromBestSet(
+  attacks: readonly Card[],
+  energy: number,
+  state?: State,
+  relics?: readonly string[],
+): Card | undefined {
   const value = (c: Card) =>
     totalBaseDamage(c, energy, state) + shivDamageMade(c, state) + attackFactors(c, energy, state);
   const byUid = [...attacks].sort((a, b) => a.uid - b.uid);
@@ -1496,7 +1514,7 @@ function pickAttackFromBestSet(attacks: readonly Card[], energy: number, state?:
     if (set.length === 0) continue;
     const cost = set.reduce((n, c) => n + (c.cost ?? 0), 0);
     if (cost > energy) continue;
-    const damage = set.reduce((n, c) => n + value(c), 0);
+    const damage = set.reduce((n, c) => n + value(c), 0) + fanValue(set.length, state, relics);
     const perEnergy = cost > 0 ? damage / cost : Infinity;
     const bestPer = bestSet ? (bestSet.cost > 0 ? bestSet.damage / bestSet.cost : Infinity) : -1;
     if (
@@ -1531,6 +1549,7 @@ export function pickAttack(
   energy = 0,
   enemyVulnerable = 0,
   state?: State,
+  relics?: readonly string[],
 ): Card | undefined {
   const attacks = playable.filter((c) => isAttackCard(c) && xCostPlayable(c, energy));
   const vuln = (c: Card) => (appliesVulnerable(c) && vulnerableFirst(c, attacks, energy, enemyVulnerable) ? 1 : 0);
@@ -1545,7 +1564,7 @@ export function pickAttack(
   const other =
     slippery || attacks.some((c) => vuln(c) > 0)
       ? best(sized, (c) => rank(c, energy))
-      : (pickAttackFromBestSet(sized, energy, state) ?? best(sized, (c) => rank(c, energy)));
+      : (pickAttackFromBestSet(sized, energy, state, relics) ?? best(sized, (c) => rank(c, energy)));
   const x = best(
     attacks.filter((c) => c.xCost),
     (c) => rank(c, 1),
@@ -1722,7 +1741,8 @@ export function cannotFillTopGroup(view: StrategyView, config: StrategyConfig): 
   switch (config.order[0]) {
     case 'attack':
       return (
-        !pickPlayFirst(view) && !pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state)
+        !pickPlayFirst(view) &&
+        !pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state, view.relics)
       );
     case 'powers':
       return !pickPower(view.playable, energy);
@@ -2171,7 +2191,7 @@ function pickFromGroup(
     case 'attack': {
       const first = pickPlayFirst(view);
       if (first) return first;
-      const atk = pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state);
+      const atk = pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state, view.relics);
       const maker = pickShivMaker(
         view,
         pickAttack(
@@ -2179,6 +2199,7 @@ function pickFromGroup(
           energy,
           view.state.enemy.debuffs.vulnerable,
           view.state,
+          view.relics,
         ),
       );
       if (maker) return maker;

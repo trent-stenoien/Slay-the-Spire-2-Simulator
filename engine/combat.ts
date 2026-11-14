@@ -1547,6 +1547,7 @@ class Combat {
       intent: combineIntents(intents, this.enemies),
       intents,
       playable: state.player.hand.filter((c) => isPlayable(c, player.energy) && this.playableNow(c)),
+      relics: this.relics.map((r) => r.def.id),
     };
   }
 
@@ -3530,6 +3531,14 @@ class Combat {
         t.hp -= hpLoss;
         this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount: perHit, blocked, hpLoss });
         this.lastAttackDamage += perHit;
+        // #339 Thorns: each Attack hit on this enemy deals its Thorns back to the player; Personal Hive adds
+        // Dazed to the draw pile (random position) per Attack hit.
+        const thorns = t.powers?.thorns ?? 0;
+        if (thorns > 0 && this.takeDamage(thorns)) return 'player';
+        const hive = t.powers?.personalHive ?? 0;
+        if (hive > 0) {
+          this.addCards({ type: 'addCards', source: { kind: 'card', cardId: 'dazed' }, count: hive, to: 'drawRandom' });
+        }
         // #263 Envenom (Trent: Attack cards only): unblocked damage from this hit poisons the target.
         const envenom = this.power('envenom');
         if (envenom > 0 && perHit - blocked > 0 && t.hp > 0) {
