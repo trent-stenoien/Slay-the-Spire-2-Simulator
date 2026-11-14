@@ -243,6 +243,23 @@ describe('#45 strategy: random-target attacks first', () => {
       expect(first([boomer, stab, bonk], [50, 17], artifact)).toMatchObject({ uid: 1 });
     });
 
+    it('Shrink on the player cuts the set damage, so a kill that needs full damage is not counted', () => {
+      const shrunk = (v: StrategyView) => {
+        (v.state.player as { shrink?: number }).shrink = 50;
+      };
+      expect(first([boomer, stab, poke], [50, 6], shrunk)).toMatchObject({ uid: 1 });
+      expect(first([boomer, stab, poke], [50, 5], shrunk)).toMatchObject({ uid: 2, target: 1 });
+    });
+
+    it('Vigor adds to the first attack card only', () => {
+      const vigor = (v: StrategyView) => {
+        (v.state.player.powers as Record<string, number>).vigor = 5;
+      };
+      // stab 9+5 + poke 3 = 17 kills 17 HP; two vigor bonuses (22) would not be needed
+      expect(first([boomer, stab, poke], [50, 17], vigor)).toMatchObject({ target: 1 });
+      expect(first([boomer, stab, poke], [50, 18], vigor)).toMatchObject({ uid: 1 });
+    });
+
     it('an existing Vulnerable on the enemy counts for every card', () => {
       const vuln = (v: StrategyView) => {
         (v.state.enemies![1]!.debuffs as { vulnerable: number }).vulnerable = 1;

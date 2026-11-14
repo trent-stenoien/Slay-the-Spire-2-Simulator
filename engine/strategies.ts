@@ -2282,6 +2282,9 @@ type KillModel = {
   artifact: number;
   dealt: number;
   direct: number;
+  vigor: number;
+  played: number;
+  slow: boolean;
 };
 
 /** #344: does the card change later damage (Strength for the player, Vulnerable or Weak on the enemy)? */
@@ -2297,19 +2300,24 @@ function changesDamage(card: Card): boolean {
  * negates a Vulnerable or Weak application, one stack each. Block-blockable damage adds to `dealt`; HP-direct
  * loss adds to `direct`. Effects the check cannot predict (area attacks, conditionals, Poison) count for nothing.
  */
-function playInModel(card: Card, state: State, m: KillModel): void {
+function playInModel(card: Card, state: StrategyView['state'], m: KillModel): void {
   const x = card.xCost ? state.player.energy : 0;
+  // Vigor goes to the first attack card played only; Slow grows 10% per card already played this turn.
+  const vigor = card.type === 'attack' ? m.vigor : 0;
+  const slowPercent = m.slow ? m.played * 10 : 0;
   for (const e of card.effects) {
     if (e.type === 'attack' && !e.allEnemies) {
       const per = attackDamage(
-        e.damage + (card.damageBonus ?? 0),
+        e.damage + (card.damageBonus ?? 0) + vigor,
         m.strength,
         state.player.debuffs.weak,
         m.vulnerable,
-        0,
-        0,
+        state.player.powers?.cruelty ?? 0,
+        state.player.shrink ?? 0,
         0,
         (state.player.powers?.tracking ?? 0) > 0 && m.weak > 0,
+        1,
+        slowPercent,
       );
       m.dealt += per * attackHits(e, x);
     } else if (e.type === 'gainStrength') m.strength += e.amount;
@@ -2322,6 +2330,8 @@ function playInModel(card: Card, state: State, m: KillModel): void {
       else m.weak += e.amount;
     }
   }
+  if (card.type === 'attack') m.vigor = 0;
+  m.played++;
 }
 
 /** #344: every ordering of `items` (callers keep it small). */
@@ -2337,7 +2347,7 @@ function permutations<T>(items: readonly T[]): T[][] {
  * (Bash's Vulnerable, a Strength gain) go first, in whichever order among them kills; the rest follow, their
  * order not mattering (Block is chewed through first, so only the total counts).
  */
-function killingOrder(set: readonly Card[], state: State, enemy: State['enemy']): Card[] | undefined {
+function killingOrder(set: readonly Card[], state: StrategyView['state'], enemy: State['enemy']): Card[] | undefined {
   const shapers = set.filter(changesDamage);
   const plain = set.filter((c) => !changesDamage(c));
   const orders = shapers.length > 6 ? [shapers] : permutations(shapers);
@@ -2349,6 +2359,9 @@ function killingOrder(set: readonly Card[], state: State, enemy: State['enemy'])
       artifact: enemy.powers?.artifact ?? 0,
       dealt: 0,
       direct: 0,
+      vigor: state.player.powers?.vigor ?? 0,
+      played: (state as { counters?: { cardsPlayedThisTurn: number } }).counters?.cardsPlayedThisTurn ?? 0,
+      slow: (enemy.powers?.slow ?? 0) > 0,
     };
     const all = [...order, ...plain];
     for (const c of all) playInModel(c, state, m);
