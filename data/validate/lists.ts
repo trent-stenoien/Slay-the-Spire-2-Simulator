@@ -106,6 +106,7 @@ export const SIMULATED_COUNTERS = new Set<string>([
   'playerStrength',
   'enemyVulnerable',
   'enemyUniqueDebuffs',
+  'enemyPoison',
   'handSize',
   'drawPileSize',
   'discardPileSize',
@@ -215,6 +216,12 @@ export const SIMULATED_POWERS = new Set<string>([
   'toolsOfTheTrade',
   'wellLaidPlans',
   'tracking',
+  // #263 Silent Poison powers
+  'accelerant',
+  'envenom',
+  'noxiousFumes',
+  'corrosiveWave',
+  'outbreak',
   'stratagem',
   // #264 Silent temporary and next-turn powers
   'dexterityThisTurn',
@@ -254,6 +261,7 @@ export const COUNTERS = [
   'playerStrength',
   'enemyVulnerable',
   'enemyUniqueDebuffs',
+  'enemyPoison',
   'handSize',
   'drawPileSize',
   'discardPileSize',
@@ -328,6 +336,12 @@ export const POWER_IDS = [
   'toolsOfTheTrade',
   'wellLaidPlans',
   'tracking',
+  // #263 Silent Poison powers
+  'accelerant',
+  'envenom',
+  'noxiousFumes',
+  'corrosiveWave',
+  'outbreak',
   // #264: declared, not simulated
   'dexterityThisTurn',
   'retainBlock',

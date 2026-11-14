@@ -151,6 +151,8 @@ export function counterValue(counter: Counter, state: DeepReadonly<CombatState>,
       return enemy.debuffs.vulnerable;
     case 'enemyUniqueDebuffs':
       return uniqueDebuffs(enemy);
+    case 'enemyPoison':
+      return (state.enemies ?? [enemy]).reduce((sum, e) => sum + (e.hp > 0 ? e.poison : 0), 0);
     case 'handSize':
       return player.hand.length;
     case 'drawPileSize':

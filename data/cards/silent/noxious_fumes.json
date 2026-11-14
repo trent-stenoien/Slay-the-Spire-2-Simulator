@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "noxiousFumes",
+      "amount": 2
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "noxiousFumes",
+        "amount": 3
+      }
+    ]
+  },
   "description": "At the start of your turn, apply 2 Poison to ALL enemies.",
   "upgradedDescription": "At the start of your turn, apply 3 Poison to ALL enemies.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

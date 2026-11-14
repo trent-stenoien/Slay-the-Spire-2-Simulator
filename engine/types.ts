@@ -77,6 +77,8 @@
  *                     `tracking` (Tracking: Weak enemies take double Attack damage; the 50% text is beta V0.108).
  *                     Wiki (main): Well-Laid Plans = Uncommon, "Retain up to 1 (2) card(s)"; the raw
  *                     "no longer discard your Hand" is beta V0.109/V0.110.
+ * #263 Silent Poison — PowerId `accelerant`, `envenom`, `noxiousFumes`, `corrosiveWave` (this turn),
+ *                     `outbreak`; Counter `enemyPoison` (Mirage: total Poison on living enemies).
  * #104 Rewards       — Effect `gainGold`, `gainPotion`; CombatResult.rewards;
  *                     StrategySummary.avgGold / potionRate (Hand of Greed, Alchemize).
  *
@@ -374,6 +376,8 @@ export type Counter =
   | 'enemyVulnerable'
   /** Distinct debuffs on the enemy (Rend). Every modelled debuff counts once (#111). */
   | 'enemyUniqueDebuffs'
+  /** #263: total Poison on the living enemies (Mirage). */
+  | 'enemyPoison'
   | 'handSize'
   | 'drawPileSize'
   | 'discardPileSize'
@@ -591,7 +595,18 @@ export type PowerId =
   /** End of turn: Retain up to [amount] card(s); Strategy.choose picks them (Well-Laid Plans). */
   | 'wellLaidPlans'
   /** Weak enemies take double damage from Attacks (Tracking). Main release; the beta changed it to +50%. */
-  | 'tracking';
+  | 'tracking'
+  // #263 Silent Poison powers
+  /** Poison is triggered [amount] additional time(s); each extra trigger also lowers Poison by 1 (Accelerant). */
+  | 'accelerant'
+  /** Whenever an Attack card deals unblocked damage, apply [amount] Poison to the target (Envenom). */
+  | 'envenom'
+  /** Start of turn: apply [amount] Poison to ALL enemies (Noxious Fumes). */
+  | 'noxiousFumes'
+  /** This turn, whenever you draw a card, apply [amount] Poison to ALL enemies; ends with the turn (Corrosive Wave). */
+  | 'corrosiveWave'
+  /** Every 3rd time you apply Poison, deal [amount] damage to ALL enemies (Outbreak). */
+  | 'outbreak';
 
 /** Enemy powers, stored in EnemyState.powers. */
 export type EnemyPowerId =
