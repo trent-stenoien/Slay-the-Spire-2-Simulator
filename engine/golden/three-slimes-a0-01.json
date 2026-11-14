@@ -1,0 +1,72 @@
+{
+  "combat": "three-slimes-a0-01",
+  "source": "Played by hand in the real game; recorded on issue #179 (Combat 2). Notes, screenshots and reviews on the golden-screenshots branch, combat-02/. A Twig Slime (S) 8 HP, B Twig Slime (M) 27 HP, C Leaf Slime (S) 13 HP (the screenshots show the small blue slime as C; its turn-2 intent was an add-a-card move, which Trent named Sticky Shot; the data names Leaf Slime (S)'s card move Goop). C dies before its turn-2 move. Setup Strike was not upgraded: the game gave 2 Strength. Trent's 7 HP lost is before the +6 Burning Blood heal: final 73 + 6 = 79, so hpLost is 1.",
+  "gameVersion": "v0.107.1",
+  "character": "ironclad",
+  "ascension": 0,
+  "deck": [
+    { "card": "strike", "count": 5 },
+    { "card": "defend", "count": 4 },
+    { "card": "bash", "count": 1 },
+    { "card": "setup_strike", "count": 1 }
+  ],
+  "enemies": [
+    { "id": "twig_slime_s", "startHp": 8, "alias": "A" },
+    { "id": "twig_slime_m", "startHp": 27, "alias": "B" },
+    { "id": "leaf_slime_s", "startHp": 13, "alias": "C" }
+  ],
+  "player": { "startHp": 80, "maxHp": 80 },
+  "relics": [{ "id": "burning_blood" }],
+  "turns": [
+    {
+      "hand": ["strike", "strike", "strike", "defend", "defend"],
+      "enemyMoves": { "A": "tackle", "B": "stickyShot", "C": "tackle" },
+      "atStart": { "player": { "hp": 80, "energy": 3 } },
+      "plays": ["strike", "strike", "defend"],
+      "targets": ["A", "A", null],
+      "enemyHpAfterEachPlay": [2, 0, 0],
+      "afterPlays": { "player": { "block": 5 }, "enemies": { "A": { "hp": 0 }, "B": { "hp": 27 }, "C": { "hp": 13 } } },
+      "afterEnemy": { "player": { "hp": 80 } }
+    },
+    {
+      "hand": ["strike", "strike", "defend", "bash", "setup_strike"],
+      "enemyMoves": { "B": "chomp" },
+      "atStart": { "player": { "hp": 80, "energy": 3 } },
+      "plays": ["defend", "setup_strike", "strike"],
+      "targets": [null, "C", "C"],
+      "enemyHpAfterEachPlay": [0, 6, 0],
+      "afterPlays": { "player": { "block": 5, "strength": 2 }, "enemies": { "C": { "hp": 0 } } },
+      "afterEnemy": { "player": { "hp": 74, "strength": 0 } }
+    },
+    {
+      "hand": ["defend", "strike", "defend", "defend", "slimed"],
+      "drawn": ["strike"],
+      "enemyMoves": { "B": "chomp" },
+      "atStart": { "player": { "hp": 74, "energy": 3 } },
+      "plays": ["slimed", "defend", "defend"],
+      "targets": [null, null, null],
+      "afterPlays": { "player": { "block": 10 }, "enemies": { "B": { "hp": 27 } } },
+      "afterEnemy": { "player": { "hp": 73 } }
+    },
+    {
+      "hand": ["strike", "strike", "defend", "bash", "setup_strike"],
+      "enemyMoves": { "B": "stickyShot" },
+      "atStart": { "player": { "hp": 73, "energy": 3 } },
+      "plays": ["bash", "setup_strike"],
+      "targets": ["B", "B"],
+      "enemyHpAfterEachPlay": [19, 9],
+      "afterPlays": { "player": { "strength": 2 }, "enemies": { "B": { "hp": 9, "vulnerable": 2 } } },
+      "afterEnemy": { "player": { "hp": 73, "strength": 0 }, "enemies": { "B": { "vulnerable": 1 } } }
+    },
+    {
+      "hand": ["strike", "strike", "strike", "defend", "defend"],
+      "enemyMoves": { "B": "chomp" },
+      "atStart": { "player": { "hp": 73, "energy": 3 } },
+      "plays": ["strike"],
+      "targets": ["B"],
+      "enemyHpAfterEachPlay": [0],
+      "afterPlays": {}
+    }
+  ],
+  "result": { "outcome": "win", "turns": 5, "finalHp": 79, "hpLost": 1 }
+}
