@@ -84,6 +84,13 @@
  * #268 Silent Sly / The Hunt — PowerId `masterPlanner` (Master Planner: a Skill the player plays
  *                     gains Sly); Effect `gainCardReward` (The Hunt, inside a `fatal` conditional;
  *                     reward only); CombatResult.rewards.cardRewards.
+ * #267 Silent Shiv powers / Knife Trap — PowerId `accuracy` (Accuracy: each Shiv deals +[amount]),
+ *                     `infiniteBlades` (add [amount] Shiv to hand at turn start), `phantomBlades`
+ *                     (Shivs gain Retain; the first Shiv played each turn deals +[amount]),
+ *                     `fanOfKnives` (Shivs hit ALL enemies; Fan's "Add 4 Shivs" reuses `addCards`);
+ *                     CombatCounters.shivsPlayedThisTurn (Phantom Blades); Effect `playCards`
+ *                     `all` + `upgradeFirst` (Knife Trap: play every Shiv in the Exhaust pile,
+ *                     filter `cardId: 'shiv'`, from 'exhaust'). Declared, not simulated yet.
  *
  * Contract map (#215): v1 relics, potions, enemy powers, Void, golden scripting.
  * Same rule: declared, not simulated; validators list the new ids as valid but unsimulated.
@@ -303,6 +310,10 @@ export type Effect =
       xBonus?: number;
       filter?: CardFilter;
       exhaust?: boolean;
+      /** #267: play EVERY matching card in `from` (ignores `count`), in pile order (Knife Trap: all Shivs in the Exhaust pile). */
+      all?: boolean;
+      /** #267: upgrade each matching card before playing it (upgraded Knife Trap). */
+      upgradeFirst?: boolean;
     }
   /** #114: `amount` Replay on cards picked from `from` (Hidden Gem: a random draw-pile card without Replay). */
   | { type: 'addReplay'; amount: number; from: PileName; mode: SelectMode; filter?: CardFilter }
@@ -625,7 +636,16 @@ export type PowerId =
   /** This turn, whenever you draw a card, apply [amount] Poison to ALL enemies; ends with the turn (Corrosive Wave). */
   | 'corrosiveWave'
   /** Every 3rd time you apply Poison, deal [amount] damage to ALL enemies (Outbreak). */
-  | 'outbreak';
+  | 'outbreak'
+  // #267 Silent Shiv powers (not simulated yet)
+  /** Each Shiv deals [amount] additional damage (Accuracy). Applies to every hit, like Strength (#267). */
+  | 'accuracy'
+  /** Start of turn: add [amount] Shiv(s) into your hand (Infinite Blades). */
+  | 'infiniteBlades'
+  /** Shivs gain Retain; the first Shiv you play each turn deals [amount] additional damage (Phantom Blades). */
+  | 'phantomBlades'
+  /** Shivs hit ALL enemies, as if `attack.allEnemies` (Fan of Knives). The power's amount is 1; stacking changes nothing. */
+  | 'fanOfKnives';
 
 /** Enemy powers, stored in EnemyState.powers. */
 export type EnemyPowerId =
@@ -679,6 +699,8 @@ export interface CombatCounters {
   cardsDrawnThisCombat: number;
   /** #265: cards discarded this turn (optional until the engine tracks it). */
   cardsDiscardedThisTurn?: number;
+  /** #267: Shivs played this turn (optional until the engine tracks it); Phantom Blades' first-Shiv bonus. */
+  shivsPlayedThisTurn?: number;
 }
 
 // ---------------------------------------------------------------------------
