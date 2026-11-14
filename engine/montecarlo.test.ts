@@ -112,8 +112,8 @@ describe('summarize', () => {
 
   it('averages gold over all combats and counts the share of combats with a potion (#104)', () => {
     const s = summarize('x', [
-      { ...result('win', 3, 0), rewards: { gold: 20, potions: 1 } },
-      { ...result('win', 3, 0), rewards: { gold: 0, potions: 2 } },
+      { ...result('win', 3, 0), rewards: { gold: 20, potions: 1, cardRewards: 0 } },
+      { ...result('win', 3, 0), rewards: { gold: 0, potions: 2, cardRewards: 0 } },
       result('win', 3, 0),
       result('loss', 3, 9),
     ]);
