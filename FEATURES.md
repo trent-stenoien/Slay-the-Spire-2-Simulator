@@ -275,6 +275,21 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     keeps a Block card, the best of the group first), unless more than half of the draw pile is cards of that
     group, in which case it keeps other cards first (leftover slots take the demoted ones).
 
+## Silent draw, discard and energy cards (#259)
+
+48. **Discard from the hand (#259, Trent):** "Discard N" (Survivor, Acrobatics, Prepared, Dagger Throw) is a
+    `moveCards` hand → discard pick of exactly N (fewer only when the hand is smaller), resolved after the card's
+    other effects in text order. Every card discarded from the hand by an effect (these, Calculated Gamble, Storm
+    of Steel, Tools of the Trade) goes through one shared discard step that counts it as discarded this turn
+    (Memento Mori); the end-of-turn hand discard and a full-hand draw do not. The strategy discards in the shared
+    order of item 46 (curses/statuses that hurt while kept, then Sly cards, then the exhaust order).
+49. **Silent draw and energy cards (#259):** Backflip gains Block, then draws 2; Adrenaline gains 1 (2) energy
+    and draws 2 (Exhaust); Predator deals 15 (20) and draws 2 more at the start of the next turn (after the
+    normal draw); Calculated Gamble discards the whole hand, then draws that many (Exhaust; upgraded: Retain).
+    Dodge and Roll's next-turn Block gets Dexterity and Frail (#264, tested in combat.silentTemp.test.ts).
+    The strategy plays Calculated Gamble before the groups when cards can be drawn and more than half of the rest
+    of the hand would not be played this turn (junk, Unplayable, or left out of the turn plan); otherwise it waits.
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

@@ -750,7 +750,7 @@ class Combat {
    * Strategy.choose (the shared discard order when it has none; see chooseDiscard).
    */
   private discardFromHand(count: number, sourcePower: PowerId): void {
-    const { player, log } = this;
+    const { player } = this;
     const n = Math.min(count, player.hand.length);
     if (n <= 0) return;
     const options = [...player.hand];
@@ -765,10 +765,21 @@ class Combat {
     };
     for (const c of options.length === n ? options : this.choose(request, options)) {
       player.hand.splice(player.hand.indexOf(c), 1);
-      player.discardPile.push(c);
-      log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: 'hand', to: 'discard' });
-      this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
+      this.discardCard(c);
     }
+  }
+
+  /**
+   * #259: the one shared hook for a card discarded from the hand by an effect ("Discard N" on Survivor,
+   * Acrobatics, Prepared, Dagger Throw; Calculated Gamble and Storm of Steel's whole hand; Tools of the
+   * Trade). The caller has already taken `c` out of the hand. It goes to the discard pile, is logged
+   * as moved hand → discard and counts as discarded this turn (Memento Mori). The end-of-turn hand
+   * discard and the full-hand discard of a draw do NOT come here. Sly (#261) attaches here.
+   */
+  private discardCard(c: CardInstance): void {
+    this.player.discardPile.push(c);
+    this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: 'hand', to: 'discard' });
+    this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
   }
 
   /**
@@ -2124,12 +2135,14 @@ class Combat {
       const i = pile.indexOf(c);
       if (i < 0) continue;
       pile.splice(i, 1);
-      const to = this.placeCard(c, e.to);
-      // #265 Memento Mori: a card moved from the hand to the discard pile is discarded.
-      if (e.from === 'hand' && to === 'discard')
-        this.counters.cardsDiscardedThisTurn = (this.counters.cardsDiscardedThisTurn ?? 0) + 1;
-      this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: e.from, to });
       count++;
+      // #259: a card moved from the hand to the discard pile is discarded (the shared discard hook).
+      if (e.from === 'hand' && e.to === 'discard') {
+        this.discardCard(c);
+        continue;
+      }
+      const to = this.placeCard(c, e.to);
+      this.log?.push({ t: 'moved', uid: c.uid, cardId: c.cardId, from: e.from, to });
     }
     return count;
   }

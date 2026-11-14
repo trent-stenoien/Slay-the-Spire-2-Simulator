@@ -276,6 +276,8 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 45 | Silent counters (#265): Pinpoint cost, Memento Mori discards, Murder draws, Flechettes / Finisher hit counts, Escape Plan Skill check, Expertise hand size; Finisher played after other Attacks | engine/combat.silentCounters.test.ts (19 tests) | n/a |
 | 46 | Afterimage Block per later card (no Dexterity), Serpent Form damage, Speedster per draw (turn-start draw included), Tools of the Trade draw then discard (discard order: hurting junk, Sly, exhaust order), Tracking ×2 on Weak (×3 with Vulnerable), not on power damage | engine/combat.silentTriggers.test.ts > #266 Afterimage / Serpent Form / Speedster / Tools of the Trade / Tracking | n/a |
 | 47 | Well-Laid Plans retains up to 1 (2), the strategy picks by top priority unless the draw pile is more than half that group, never junk | engine/combat.silentTriggers.test.ts > #266 Well-Laid Plans (6 tests) | n/a |
+| 48 | Discard N picked by Strategy.choose (exactly N, none from an empty hand), shared discard counts toward cardsDiscardedThisTurn, fallback order puts Sly before a harmless curse | engine/combat.silentDraw.test.ts > #259 Survivor (3 tests); #259 Acrobatics, Prepared, Dagger Throw (3 tests); #259 Calculated Gamble | n/a |
+| 49 | Backflip, Adrenaline, Calculated Gamble, Predator next-turn draw, Dodge and Roll real data; strategy plays every card and Calculated Gamble only when most of the hand is idle | engine/combat.silentDraw.test.ts > #259 Backflip and Adrenaline; #259 Calculated Gamble; #259 Predator; #259 Dodge and Roll; #259 strategies play the cards; #259 strategy: when Calculated Gamble is played (2 tests) | n/a |
 
 ## Known failure points
 

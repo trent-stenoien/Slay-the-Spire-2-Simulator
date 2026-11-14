@@ -1613,6 +1613,34 @@ function pickZeroCostDraw(view: StrategyView): Card | undefined {
   return trance && zero(trance) ? trance : undefined;
 }
 
+/** #259: a card that discards the whole hand and then draws that many (Calculated Gamble): not a Shiv maker. */
+export function isHandRedraw(card: Card): boolean {
+  return (
+    isStorm(card) &&
+    card.effects.some(
+      (e) => e.type === 'repeat' && e.per === 'lastEffectCount' && e.effects.some((x) => x.type === 'draw'),
+    )
+  );
+}
+
+/**
+ * #259 Calculated Gamble: played before the groups when cards can be drawn and more than half of the
+ * other cards in hand would not be played this turn anyway (curses, statuses, Unplayable cards, or
+ * cards the turn plan without it leaves out). Otherwise it waits (Calculated Gamble+ is Retained).
+ */
+function pickGamble(view: StrategyView, config: StrategyConfig): Card | undefined {
+  if (!canDraw(view)) return undefined;
+  for (const gamble of view.playable.filter(isHandRedraw)) {
+    const others = view.state.player.hand.filter((c) => c.uid !== gamble.uid);
+    if (others.length === 0) continue;
+    const rest = withoutCards(view, [gamble]);
+    const planned = new Set(planTurn(rest, config, rest.state.player.energy - (gamble.cost ?? 0)).map((c) => c.uid));
+    const idle = others.filter((c) => !planned.has(c.uid)).length;
+    if (idle * 2 > others.length) return gamble;
+  }
+  return undefined;
+}
+
 /**
  * #112: a "tutor" (Secret Technique, Secret Weapon, Wish, Anointed) puts draw-pile cards in the
  * hand; Apotheosis upgrades every card. Neither is an Attack or Block card, so no group plays them.
@@ -1652,6 +1680,8 @@ function pickFetchOrUpgrade(view: StrategyView): Card | undefined {
 function pickTop(view: StrategyView, config: StrategyConfig): Card | undefined {
   const zero = pickZeroCostDraw(view);
   if (zero) return zero;
+  const gamble = pickGamble(view, config);
+  if (gamble) return gamble;
   const enlightenment = best(view.playable.filter(isEnlightenment), () => []);
   if (enlightenment) return enlightenment;
   const fetched = pickFetchOrUpgrade(view);

@@ -9,11 +9,37 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "draw",
+      "amount": 1
+    },
+    {
+      "type": "moveCards",
+      "from": "hand",
+      "to": "discard",
+      "count": 1,
+      "mode": "choose"
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "draw",
+        "amount": 2
+      },
+      {
+        "type": "moveCards",
+        "from": "hand",
+        "to": "discard",
+        "count": 2,
+        "mode": "choose"
+      }
+    ]
+  },
   "description": "Draw 1 card. / Discard 1 card.",
   "upgradedDescription": "Draw 2 cards. / Discard 2 cards.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
