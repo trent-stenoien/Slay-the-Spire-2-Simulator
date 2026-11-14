@@ -210,6 +210,18 @@ describe('#105 contract shapes', () => {
     expect(errorsOf(bad)).toContainEqual(expect.stringMatching(/options.*at least 2/));
   });
 
+  it('#276: ally Strength, onAllyDeath and Chains of Binding are declared but rejected on enemy data until simulated', () => {
+    const ally = fixture();
+    ally.enemies.nibbit.moves.hiss.effects.push({ type: 'enemyGainStrength', amount: 1, ally: 'nibbit' });
+    expect(errorsOf(ally)).toContainEqual(expect.stringMatching(/ally.*not simulated yet/));
+    const switcher = fixture();
+    switcher.enemies.nibbit.onAllyDeath = { allyId: 'nibbit', pattern: switcher.enemies.nibbit.pattern };
+    expect(errorsOf(switcher)).toContainEqual(expect.stringMatching(/onAllyDeath.*not simulated yet/));
+    const chains = fixture();
+    chains.enemies.nibbit.moves.hiss.effects.push({ type: 'applyPower', power: 'chainsOfBinding', amount: 3 });
+    expect(errorsOf(chains)).not.toEqual([]);
+  });
+
   it('#273: Withering Presence, upgrade levels, move-use X and upgradeAllCopies are accepted on enemy moves', () => {
     const d = fixture();
     d.enemies.nibbit.startPowers = { witheringPresence: 6 };

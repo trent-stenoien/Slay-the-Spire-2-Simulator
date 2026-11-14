@@ -8,6 +8,7 @@ import {
   PATTERN_TYPES,
   NUMERIC_KEY,
   SIMULATED_POWERS,
+  UNSIMULATED_ENEMY_EFFECT_FIELDS,
 } from './lists';
 import { type Obj, isOneOf, isObj, Reporter, checkTwoCharCode } from './shared';
 import { checkEffects } from './effects';
@@ -46,6 +47,10 @@ function checkEnemyOnlyEffects(r: Reporter, list: unknown, path: string): void {
     }
     if (e.type === 'applyShrink' && typeof e.amount === 'number' && e.amount > 100) {
       r.add(`${path}[${i}].amount`, 'is a percent and must be at most 100');
+    }
+    // #276: declared, not simulated yet.
+    for (const f of UNSIMULATED_ENEMY_EFFECT_FIELDS) {
+      if (f in e) r.add(`${path}[${i}].${f}`, 'is declared but not simulated yet (#276)');
     }
     if (e.xTimes === true) r.add(`${path}[${i}].xTimes`, 'is only allowed on X-cost cards');
     // #271: a choice's options follow the same enemy-move rules.
@@ -232,6 +237,8 @@ export function checkEnemy(r: Reporter, e: Obj): void {
       r.add('pattern.moves', 'needs at least one move that is not oncePerFight');
   }
   if (e.startPowers !== undefined) checkStartPowers(r, e.startPowers, 'startPowers');
+  // #276: declared, not simulated yet.
+  if (e.onAllyDeath !== undefined) r.add('onAllyDeath', 'is declared but not simulated yet (#276)');
   // #322: death effects are spawnEnemies only.
   if (e.onDeath !== undefined) {
     checkMoveEffects(r, e.onDeath, 'onDeath');

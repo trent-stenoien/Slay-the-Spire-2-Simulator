@@ -157,6 +157,7 @@ const CONTRACT_CHECKS: Record<ContractEffect, EffectCheck> = {
   enemyGainStrength: (r, e, p) => {
     amountOnly(r, e, p);
     if (has(e, 'xFromMoveUses')) r.str(e, 'xFromMoveUses', `${p}.xFromMoveUses`);
+    if (has(e, 'ally')) r.str(e, 'ally', `${p}.ally`);
   },
   heal: amountOnly,
   gainMaxHp: amountOnly,

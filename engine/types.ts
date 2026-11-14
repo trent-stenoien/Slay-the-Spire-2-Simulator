@@ -144,6 +144,11 @@
  *                     EnemyState.reviving; GameEvent `revive`; EnemyPowerId `enrage`, `painfulStabs`,
  *                     `nemesis`, `intangible`; Effect `attack.extraHitsPerUse` (Multi-Claw). Declared only.
  *
+ * #276 Queen       — EnemyPowerId `minion` (Torch Head Amalgam: the combat is won once every enemy without
+ *                     it is dead); PowerId `chainsOfBinding` + CardInstance.bound + CombatCounters
+ *                     .boundCardPlayedThisTurn (only 1 Bound card per turn); `enemyGainStrength.ally`
+ *                     (Burn Bright for Me); EnemyDef.onAllyDeath (the Queen's pattern switch). Declared only.
+ *
  * #5 Multi-enemy    — CombatConfig.enemyIds / RunConfig.enemyIds; CombatState.enemies (`enemy` is
  *                     the current one); StrategyView.intents; Decision / PotionUse `target`;
  *                     StrategyConfig.target + TargetPriority; `allEnemies` on applyVulnerable /
@@ -273,7 +278,12 @@ export type Effect =
    * made that move id BEFORE this use (0 on the first use; EnemyState.moveUses). Aeonglass's Increasing
    * Intensity: 2 + X Strength. Simulated.
    */
-  | { type: 'enemyGainStrength'; amount: number; xFromMoveUses?: string }
+  /**
+   * #276: `ally` (enemy moves only): instead of the acting enemy, every living enemy with this enemy id gains
+   * the Strength (the Queen's Burn Bright for Me: 1 Strength to 'torch_head_amalgam'); nothing happens when none
+   * is alive. Declared only.
+   */
+  | { type: 'enemyGainStrength'; amount: number; xFromMoveUses?: string; ally?: string }
   /**
    * #110: set the cost of cards in `piles` to `cost` (Enlightenment) for this
    * turn (CardInstance.costThisTurn) or the rest of combat (costThisCombat).
@@ -730,7 +740,14 @@ export type PowerId =
    * the player's turn; at 0 the combat is lost at the start of The Insatiable's turn, after Poison (so a
    * Poison kill still wins). Fairy in a Bottle and Lizard Tail do not prevent it.
    */
-  | 'sandpit';
+  | 'sandpit'
+  // #276 Queen (declared only)
+  /**
+   * Chains of Binding: the first [amount] cards the player draws each turn (counting every draw that turn, the
+   * start-of-turn draw first) become Bound (CardInstance.bound). Put on the player by the Queen's Puppet Strings
+   * (`applyPower` on an enemy move). Lasts the whole combat. Declared only.
+   */
+  | 'chainsOfBinding';
 
 /** Enemy powers, stored in EnemyState.powers. */
 export type EnemyPowerId =
@@ -775,7 +792,13 @@ export type EnemyPowerId =
    * #274: enemy Intangible: all damage and HP loss the enemy takes becomes 1. Falls off at the end of the
    * player's turn (Trent). Declared only.
    */
-  | 'intangible';
+  | 'intangible'
+  /**
+   * #276 (Torch Head Amalgam): Minion. Minions abandon combat without their leader: the combat is won once every
+   * living enemy without `minion` is dead (a fight of Minions only is won when they are all dead). Distinct from
+   * EnemyDef.difficulty 'minion' (Wriggler has that difficulty but no Minion power). Declared only.
+   */
+  | 'minion';
 
 /** Effects queued by a `schedule` effect. */
 export interface ScheduledEffect {
@@ -807,6 +830,8 @@ export interface CombatCounters {
   cardsDiscardedThisTurn?: number;
   /** #267: Shivs played this turn (optional until the engine tracks it); Phantom Blades' first-Shiv bonus. */
   shivsPlayedThisTurn?: number;
+  /** #276: a Bound card has been played this turn, so no other Bound card is playable until next turn. Declared only. */
+  boundCardPlayedThisTurn?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1147,6 +1172,12 @@ export interface EnemyDef {
   nextPhase?: string;
   /** #322: effects that run when this enemy dies (Phrog Parasite: spawn 4 stunned Wrigglers). Simulated. */
   onDeath?: Effect[];
+  /**
+   * #276: when the last living enemy with id `allyId` dies, this enemy switches to `pattern` from its start
+   * (the Queen: Off with Your Head, Execution, Enrage once the Torch Head Amalgam dies); its next intent is
+   * picked at once. Declared only.
+   */
+  onAllyDeath?: { allyId: string; pattern: MovePattern };
   source: string;
   lastUpdateVersion: GameVersion;
 }
@@ -1212,6 +1243,11 @@ export interface CardInstance {
   upgradeLevel?: number;
   /** #116: true for cards created during combat rather than dealt from the deck. */
   generated?: boolean;
+  /**
+   * #276: Bound (Chains of Binding): only one Bound card can be played per turn
+   * (CombatCounters.boundCardPlayedThisTurn). Comes off at the end of the player's turn (Trent). Declared only.
+   */
+  bound?: boolean;
   /** #112: the card's rarity, for filters (Anointed). */
   rarity?: CardRarity;
   /** Copied from CardDef / CardUpgrade (see there). */
