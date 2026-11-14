@@ -1350,8 +1350,9 @@ function vulnerableFirst(card: Card, attacks: readonly Card[], energy: number, e
 }
 
 /**
- * Best attack to play: Vulnerable-appliers first (only under vulnerableFirst, #11), then highest total base damage
- * (damage × hits), then cards that draw (#107), ties → lowest uid. X-cost attacks (never at 0
+ * Best attack to play: Vulnerable-appliers first (only under vulnerableFirst, #11), then the most base damage
+ * per energy (#12, Trent; a 0-cost attack is free, so first), then the higher total base damage (damage × hits),
+ * then cards that draw (#107), ties → lowest uid. X-cost attacks (never at 0
  * energy; they spend all of it) are compared with the best other attack by damage per energy
  * (#147, single enemy): the X-cost attack goes first only when it applies Vulnerable and the other
  * doesn't, or (same Vulnerable) its damage for 1 energy is higher than the other's damage per
@@ -1371,7 +1372,7 @@ export function pickAttack(
   const rank = (c: Card, x: number) =>
     slippery
       ? [vuln(c), attackHitCount(c, energy), -totalBaseDamage(c, x, state), draws(c)]
-      : [vuln(c), totalBaseDamage(c, x, state), draws(c)];
+      : [vuln(c), attackDamagePerEnergy(c, state), totalBaseDamage(c, x, state), draws(c)];
   const other = best(
     attacks.filter((c) => !c.xCost),
     (c) => rank(c, energy),
@@ -1401,6 +1402,34 @@ function blockTarget(view: StrategyView, config: StrategyConfig): number {
 }
 
 /**
+ * #12 (Trent): the block cards that reach the Block target within the Energy, as the cheapest set in Energy
+ * (then fewest cards, then the most Block). Its first card goes first (the most Block, then a drawing card,
+ * then the lowest uid) and the rest follow as the turn is re-planned. X-cost block cards are left out of the
+ * search. Undefined when no set reaches the target (including Block last): pickBlock then plays the biggest.
+ */
+function pickCheapestBlockSet(blocks: readonly Card[], state: State, target: number): Card | undefined {
+  const need = target - state.player.block;
+  if (!Number.isFinite(need)) return undefined;
+  const cards = blocks.filter((c) => !c.xCost && totalBlock(c, state) > 0).slice(0, 12);
+  let bestSet: { cards: Card[]; cost: number; block: number } | undefined;
+  for (let mask = 1; mask < 1 << cards.length; mask++) {
+    const set = cards.filter((_, i) => mask & (1 << i));
+    const cost = set.reduce((n, c) => n + (c.cost ?? 0), 0);
+    if (cost > state.player.energy) continue;
+    const block = set.reduce((n, c) => n + totalBlock(c, state), 0);
+    if (block < need) continue;
+    if (
+      !bestSet ||
+      cost < bestSet.cost ||
+      (cost === bestSet.cost &&
+        (set.length < bestSet.cards.length || (set.length === bestSet.cards.length && block > bestSet.block)))
+    )
+      bestSet = { cards: set, cost, block };
+  }
+  return bestSet && best(bestSet.cards, (c) => [totalBlock(c, state), draws(c)]);
+}
+
+/**
  * #111 (Trent): the block card to play now. Without an Entrench (a card that doubles your Block)
  * in hand this is pickBlock. With one, the block cards are planned as a set: every combination
  * that fits the energy is tried, the other cards in their usual order and the Entrench last, and
@@ -1413,7 +1442,8 @@ function pickBlockPlanned(view: StrategyView, target: number): Card | undefined 
   const { state } = view;
   const energy = state.player.energy;
   const blocks = view.playable.filter((c) => isBlockCard(c) && xCostPlayable(c, energy));
-  if (!blocks.some(doublesBlock)) return pickBlock(view.playable, energy, state);
+  if (!blocks.some(doublesBlock))
+    return pickCheapestBlockSet(blocks, state, target) ?? pickBlock(view.playable, energy, state);
   const sized = blocks.filter((c) => !c.xCost);
   const plain = sized
     .filter((c) => !doublesBlock(c))

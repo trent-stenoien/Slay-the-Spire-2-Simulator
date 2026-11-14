@@ -240,13 +240,13 @@ describe('#284 Shiv play rule', () => {
 
   it('a Shiv maker is played before an attack that is less energy efficient (3 Shivs = 12 damage for 1 beats Strike)', () => {
     const d = world(['blade_dance', 'strike']);
-    // The Shivs themselves are attacks ranked by damage: Strike (6) goes before them (4 each).
+    // The Shivs themselves are free attacks (#12: most damage per energy, so 0-cost goes first): they go before Strike.
     expect(firstPlays(d, deckOf(['blade_dance', 1], ['strike', 1]), 5)).toEqual([
       'blade_dance',
+      'shiv',
+      'shiv',
+      'shiv',
       'strike',
-      'shiv',
-      'shiv',
-      'shiv',
     ]);
   });
 

@@ -201,7 +201,8 @@ describe('greedy damage strategy', () => {
 
   it('plays a Strike when Bash is unaffordable, then block with leftovers', () => {
     const hand = [card(B), card(S), card(D)];
-    expect(playTurn(GREEDY_CONFIG, hand, 12, 2)).toEqual([B]);
+    // #12: Strike (6 per energy) goes before Bash (4 per energy) when Bash cannot go first (no energy for both).
+    expect(playTurn(GREEDY_CONFIG, hand, 12, 2)).toEqual([S, D]);
     expect(playTurn(GREEDY_CONFIG, [card(B), card(S), card(D)], 12, 1)).toEqual([S]);
     expect(playTurn(GREEDY_CONFIG, [card(S), card(D), card(D)], 12)).toEqual([S, D, D]);
   });
@@ -237,7 +238,8 @@ describe('pick helpers', () => {
     const bash = makeCardInstance(cards.bash!, false, 1);
     const strike = makeCardInstance(cards[S]!, false, 2);
     expect(pickAttack([strike, bash], 3)!.cardId).toBe('bash');
-    expect(pickAttack([strike, bash], 2)!.cardId).toBe('bash');
+    // 2 energy: no energy for Bash plus the Strike, so damage per energy decides (#12): Strike 6 > Bash 4.
+    expect(pickAttack([strike, bash], 2)!.cardId).toBe(S);
     expect(pickAttack([us, bash], 2)!.cardId).toBe(us.cardId);
     expect(pickAttack([us, bash], 3, 1)!.cardId).toBe(us.cardId);
     expect(pickAttack([bash], 2)!.cardId).toBe('bash');
@@ -250,7 +252,7 @@ const B4: StrategyConfig = blockFirstConfig(4);
 
 describe('Tremble first (#1)', () => {
   it('Greedy plays Tremble before Bash and Strikes', () => {
-    expect(playTurn(G, [card(S), card(B), card('tremble'), card(D)], 12)).toEqual(['tremble', B]);
+    expect(playTurn(G, [card(S), card(B), card('tremble'), card(D)], 12)).toEqual(['tremble', S, D]); // #12: after Tremble, Strike (6/energy) beats Bash (4/energy)
   });
 
   it('#130: Tremble is first within the Attack group, so block-first strategies block before it', () => {
@@ -428,5 +430,45 @@ describe('strategy codes (#130)', () => {
 
   it('createStrategy rejects an invalid config', () => {
     expect(() => createStrategy(cfg('aab'))).toThrow(/Invalid strategy config/);
+  });
+});
+
+describe('#12 cheapest set of block and attack cards', () => {
+  const big = (cost: number, amount: number, uid: number) =>
+    makeCardInstance({ ...cards[D]!, cost, effects: [{ type: 'gainBlock', amount }] }, false, uid);
+  const B0c: StrategyConfig = blockFirstConfig(0);
+
+  const uids = (hand: CardInstance[], incoming: number) => playTurnCards(B0c, hand, incoming, 3).map((c) => c.uid);
+
+  it('block: the cheapest set that reaches the target, not the biggest card first', () => {
+    // 10 incoming, 3 energy: the 8-Block card (2) then a Defend would cost 3; two Defends reach 10 for 2.
+    const hand = [big(2, 8, 0), makeCardInstance(cards[D]!, false, 1), makeCardInstance(cards[D]!, false, 2)];
+    expect(uids(hand, 10)).toEqual([1, 2]);
+  });
+
+  it('block: a tie in Energy goes to the set with fewer cards', () => {
+    const hand = [makeCardInstance(cards[D]!, false, 1), makeCardInstance(cards[D]!, false, 2), big(2, 10, 0)];
+    expect(uids(hand, 10).slice(0, 1)).toEqual([0]);
+  });
+
+  it('block: when no set reaches the target, the biggest block card still goes first', () => {
+    const hand = [makeCardInstance(cards[D]!, false, 0), big(2, 8, 1)];
+    expect(uids(hand, 30)).toEqual([1, 0]);
+  });
+
+  it('attack: most damage per energy first, a 0-cost attack before the rest', () => {
+    const cheap = makeCardInstance(cards[S]!, false, 0);
+    const fat = makeCardInstance(
+      { ...cards[S]!, cost: 2, effects: [{ type: 'attack', damage: 10, hits: 1 }] },
+      false,
+      1,
+    );
+    expect(pickAttack([fat, cheap], 3)!.uid).toBe(0);
+    const free = makeCardInstance(
+      { ...cards[S]!, cost: 0, effects: [{ type: 'attack', damage: 1, hits: 1 }] },
+      false,
+      2,
+    );
+    expect(pickAttack([fat, cheap, free], 3)!.uid).toBe(2);
   });
 });

@@ -176,6 +176,8 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | S20a | Vulnerable-applier first only when the enemy has no Vulnerable | engine/strategies.test.ts > pick helpers > #11: Vulnerable first only with no enemy Vulnerable and energy for it plus another attack | caught |
 | S20b | ...and there is energy for it plus another attack | same test | caught |
 | S20c | X-cost attack compared at damage for 1 energy; ties go to the other attack | engine/strategies.deckGuard.test.ts > #147 X-cost attacks in play order > un-upgraded Whirlwind (5) after Strike (6); upgraded Whirlwind (8) before Strike; a tie goes to the other attack | caught (`>` -> `>=`) |
+| S20e | Attacks: most damage per energy after Vulnerable, 0-cost first | engine/strategies.test.ts > #12 cheapest set of block and attack cards > attack: most damage per energy first, a 0-cost attack before the rest | caught |
+| S20f | Block: cheapest set (Energy, then fewer cards) that reaches the target; biggest card when none does | engine/strategies.test.ts > #12 cheapest set of block and attack cards > block: (3 tests) | caught |
 | S20d | Cascade played with the X-cost attacks | engine/strategies.playCards.test.ts > #114 Cascade is played with the X-cost attacks, last | caught |
 | S21a | Temporary Strength / Rage / One-Two Punch only when an Attack follows | engine/strategies.temporary.test.ts > #110 strategy defaults > plays temporary Strength first when an Attack follows, never alone; One-Two Punch needs energy left for the Attack | caught |
 | S21b | Setup Strike counts as a 7-damage Attack | engine/strategies.temporary.test.ts > Setup Strike is ranked as a 7-damage Attack before a 6-damage Strike | caught (attack damage ignored in ranking) |
