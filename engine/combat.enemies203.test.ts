@@ -210,3 +210,21 @@ describe('Mawler, Byrdonis, Cubex Construct, Vantom data (#203)', () => {
     expect(wounds.length % 3).toBe(0);
   });
 });
+
+describe('Bygone Effigy (#303)', () => {
+  it('sleeps, wakes (+10 Strength), then Slashes for 13 + 10 (A9: 15 + 10)', () => {
+    for (const [asc, slash] of [
+      [0, 13],
+      [9, 15],
+    ] as const) {
+      const data: GameData = { ...makeGameData(), enemies: { bygone_effigy: gameData.enemies.bygone_effigy! } };
+      const r = logged(data, passive, { enemyId: 'bygone_effigy', ascension: asc });
+      const moves = events(r.log, 'enemyMove').map((m) => m.moveId);
+      expect(moves.slice(0, 4)).toEqual(['sleep', 'wake', 'slashes', 'slashes']);
+      expect(events(r.log, 'strength').find((s) => s.side === 'enemy')).toMatchObject({ amount: 10, total: 10 });
+      const hits = events(r.log, 'damage').filter((d) => d.target === 'player');
+      expect(hits[0]?.amount).toBe(slash + 10);
+      expect(hits[hits.length - 1]?.amount).toBe(slash + 10);
+    }
+  });
+});

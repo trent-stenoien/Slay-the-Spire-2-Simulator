@@ -1,0 +1,12 @@
+{
+  "id": "poison_potion",
+  "code": "PP",
+  "name": "Poison Potion",
+  "rarity": "common",
+  "character": "S",
+  "effects": [{ "type": "applyPoison", "amount": 6 }],
+  "description": "Apply 6 Poison.",
+  "simulated": true,
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

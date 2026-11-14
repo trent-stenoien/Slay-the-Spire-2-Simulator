@@ -1669,7 +1669,12 @@ class Combat {
           if (this.enemyLoseHp(e.amount)) died = 'enemy';
           break;
         case 'enemyGainStrength':
-          if (source !== 'player') throw new Error('Effect "enemyGainStrength" is not simulated yet on enemy moves');
+          // #303: on an enemy move it is a self-buff (Bygone Effigy's Wake: +10 Strength), applied to the acting enemy.
+          if (source !== 'player') {
+            this.enemy.strength += e.amount;
+            log?.push({ t: 'strength', side: 'enemy', amount: e.amount, total: this.enemy.strength });
+            break;
+          }
           died = this.onEnemies(false, () => {
             this.enemy.strength += e.amount;
             log?.push({ t: 'strength', side: 'enemy', amount: e.amount, total: this.enemy.strength });

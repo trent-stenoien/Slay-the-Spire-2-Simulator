@@ -53,3 +53,4 @@ wiki): none changes these relics' text, so the list text is main-release. Indivi
 | Happy Flower??? | Every 5 turns, gain 1 Energy. | yes | Setup sets the starting turn count (0–4). |
 | Orichalcum??? | If you end your turn without Block, gain 3 Block. | yes |  |
 | Byrdpip | Upon pickup, gain the card Byrd Swoop. A Byrdpip will accompany you in battles. | not entered | Companion attacker; no type for it. |
+| Fishing Rod | Every 3 normal combats, Upgrade a random card in your Deck. | yes | Run-level effect between combats; no combat effect (#303), so the data has no hooks. |
