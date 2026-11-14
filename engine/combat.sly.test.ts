@@ -413,6 +413,24 @@ describe('#261 Sly: targets and the discarding card', () => {
     expect(playerHits(late.log)).toEqual([8]);
   });
 
+  it('a Sly play counts for Slow on later hits (#314)', () => {
+    // Survivor (0 before), the Sly Untouchable (1), then hitThenDiscard has 2 before it: 5 x 1.2 = 6.
+    const { r } = run(
+      [
+        ['survivor', 1],
+        ['untouchable', 1],
+        ['hitThenDiscard', 1],
+        ['pad', 10],
+      ],
+      ['survivor', 'untouchable', 'hitThenDiscard'],
+      () => ['survivor', 'hitThenDiscard'],
+      ['untouchable'],
+      { enemyId: 'slowpoke' },
+    );
+    expect(plays(r.log).slice(0, 3)).toEqual(['survivor', 'untouchable', 'hitThenDiscard']);
+    expect(playerHits(r.log)).toEqual([6]);
+  });
+
   it('Vigor goes to the first Attack played: an Attack that discards a Sly Attack uses it (#314)', () => {
     const { r, last } = run(
       [

@@ -4,15 +4,29 @@
  */
 import { describe, expect, it } from 'vitest';
 import { simulateCombat } from './combat';
-import { cfg, deckOf, dummyData, events } from './combatTestHelpers';
+import { cfg, deckOf, dummy, dummyData, events, withEnemy } from './combatTestHelpers';
 import { createStrategy, GREEDY_CONFIG } from './strategies';
 import { gameData } from '../data';
 
-const REAL = ['survivor', 'untouchable', 'tactician', 'reflex', 'ricochet', 'dagger_throw', 'strike', 'defend'];
+const REAL = [
+  'survivor',
+  'untouchable',
+  'tactician',
+  'reflex',
+  'ricochet',
+  'haze',
+  'abrasive',
+  'dagger_throw',
+  'strike',
+  'defend',
+];
 
 /** The plays of turn 1 with `deck` (`innate` cards are in the opening hand); `sly: false` strips the keyword. */
-function turnOne(deck: [string, number][], { energy = 3, sly = true, draw = 5, innate = [] as string[] } = {}) {
-  const d = dummyData();
+function turnOne(
+  deck: [string, number][],
+  { energy = 3, sly = true, draw = 5, innate = [] as string[], artifact = 0 } = {},
+) {
+  const d = withEnemy(dummyData(), artifact ? { ...dummy(), startPowers: { artifact } } : dummy());
   for (const id of REAL) d.cards[id] = structuredClone(gameData.cards[id]!);
   if (!sly) for (const id of REAL) d.cards[id]!.keywords = d.cards[id]!.keywords.filter((k) => k !== 'sly');
   for (const id of innate) d.cards[id]!.keywords.push('innate');
@@ -91,5 +105,37 @@ describe('#314 strategies with a Sly card in hand', () => {
       { energy: 3 },
     );
     expect(plays.map((p) => p.cardId)).toEqual(['strike', 'strike', 'strike']);
+  });
+
+  it('Survivor + Haze: Survivor is played first to discard Haze (free Poison to all, the enemy outlives the Attacks)', () => {
+    const plays = turnOne([
+      ['survivor', 1],
+      ['haze', 1],
+      ['strike', 3],
+    ]);
+    expect(plays[0]!.cardId).toBe('survivor');
+    expect(plays[1]).toMatchObject({ cardId: 'haze', by: 'effect' });
+  });
+
+  it('Survivor + Haze: not pulled to the front when Artifact would negate the Poison (#46 estimate)', () => {
+    const plays = turnOne(
+      [
+        ['survivor', 1],
+        ['haze', 1],
+        ['strike', 3],
+      ],
+      { artifact: 1 },
+    );
+    expect(plays[0]!.cardId).toBe('strike');
+  });
+
+  it('Survivor + Abrasive: a free Power is worth its cost, so Survivor goes first', () => {
+    const plays = turnOne([
+      ['survivor', 1],
+      ['abrasive', 1],
+      ['strike', 3],
+    ]);
+    expect(plays[0]!.cardId).toBe('survivor');
+    expect(plays[1]).toMatchObject({ cardId: 'abrasive', by: 'effect' });
   });
 });

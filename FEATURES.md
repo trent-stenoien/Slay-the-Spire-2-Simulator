@@ -200,7 +200,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     once, after the Strength Potion and before the Fire Potion.
     Slow (#303, Bygone Effigy starts with it): each Attack the player deals to that enemy takes +10% per
     card played earlier this turn (the card itself and potions do not count; every played card counts,
-    cards played by other cards included, #314: Sly, Havoc, ...; Strike 6 -> 7 after 2 cards,
+    cards played by other cards included, #314: Sly, Havoc, ..., also for the later hits; Strike 6 -> 7 after 2 cards,
     Strike+ 9 -> 10, 8 after 4). One multiplier with Vulnerable (floored once); resets each player turn;
     Poison and fixed HP loss are unaffected. Built-in kill checks count it. Sleep is a no-effect opener move.
 38. **Golden combats (#177, #210):** every fixture in `engine/golden/` replays through the engine
@@ -322,8 +322,11 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     weighed with the free effects of the Sly card(s) it would discard (the discard order of item 49) added to
     its own, against its Energy cost, like other plays (Survivor + Untouchable is 14 Block for 1, Survivor +
     Ricochet is a 12-damage Attack for 1). It is played before the groups when the Sly energy pays for it
-    and another card wants energy (Survivor + Tactician + Strike + Defend: Survivor, then Strike and Defend),
-    or when a Sly card draws (Reflex) and energy is left afterwards to play the drawn cards.
+    and another card wants energy (Survivor + Tactician + Strike + Defend: Survivor, then Strike and Defend);
+    when a Sly card costing at least the discard card has a free effect no group weighs: Poison when the
+    Poison-only estimate of #46 says it pays off and Artifact does not negate it (Survivor +
+    Haze), or a Power / other effect (Survivor + Abrasive); or when a Sly card draws (Reflex) and energy is
+    left afterwards to play the drawn cards.
 
 ## Known failure points
 

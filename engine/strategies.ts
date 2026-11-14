@@ -217,6 +217,8 @@ function withSlyEffects(view: StrategyView, config: StrategyConfig): StrategyVie
  * #314 Sly: a discard card played before the groups (cheapest first, ties to the lowest uid) when
  * - the Sly cards' energy pays for it (Survivor + Tactician: free Block) and another card in the hand
  *   wants energy, or
+ * - a Sly card's free effect is worth its Energy cost (at least the discard card's cost) but no group weighs
+ *   it: Poison when the #46 estimate says it pays off (Haze), a Power or other effect (Abrasive), or
  * - a Sly card draws (Reflex) and energy is left afterwards to play what it draws.
  * Otherwise the discard card is played in its group like any card, with the Sly effects counted (withSlyEffects).
  */
@@ -230,6 +232,7 @@ function pickSlyDiscarder(view: StrategyView): Card | undefined {
       const gain = energyGain(c, hand);
       const others = hand.filter((o) => o.uid !== c.uid && !sly.some((s) => s.uid === o.uid));
       if (sly.some((s) => energyGain(s) > 0) && gain >= cost && others.some(wantsEnergy)) return true;
+      if (sly.some((s) => (s.cost ?? 0) >= cost && slyWorthOutsideGroups(s, view, energy - cost + gain))) return true;
       return sly.some(isDrawCard) && canDraw(view) && energy - cost + gain > 0;
     }),
     (c) => [-(c.cost ?? 0)],
@@ -1851,9 +1854,28 @@ function pickPoison(view: StrategyView): Card | undefined {
   const live = view.playable.filter((c) => isPoisonOnly(c) && poisonApplications(c) > (e.powers?.artifact ?? 0));
   const card = best(live, (c) => [-(c.cost ?? 0), damagePerEnergy(c)]);
   if (!card) return undefined;
-  const d = attackDamageThisTurn(view, Math.max(0, energy - (card.cost ?? 0)));
-  const through = Math.max(0, d - e.block);
-  return e.hp - e.poison - 2 * through > 0 ? card : undefined;
+  return enemyOutlivesAttacks(view, Math.max(0, energy - (card.cost ?? 0))) ? card : undefined;
+}
+
+/** #46: the enemy lives 2+ more turns against the Attacks in hand with `energy`: HP - Poison - 2 x max(0, D - Block) > 0. */
+function enemyOutlivesAttacks(view: StrategyView, energy: number): boolean {
+  const e = view.state.enemy;
+  const through = Math.max(0, attackDamageThisTurn(view, energy) - e.block);
+  return e.hp - e.poison - 2 * through > 0;
+}
+
+/**
+ * #314: a Sly card whose free play is worth its normal Energy cost outside the groups: a Poison card
+ * (Haze) when the #46 estimate says Poison pays off (the enemy outlives the Attacks with the energy left,
+ * and Artifact does not absorb it), or a Power or a card with effects the groups do not weigh (Abrasive).
+ */
+function slyWorthOutsideGroups(sly: Card, view: StrategyView, energyLeft: number): boolean {
+  if (poisonApplications(sly) > 0) {
+    return poisonApplications(sly) > (view.state.enemy.powers?.artifact ?? 0) && enemyOutlivesAttacks(view, energyLeft);
+  }
+  if (sly.type === 'power') return true;
+  const weighed = ['attack', 'attackFrom', 'gainBlock', 'draw', 'gainEnergy', 'applyPoison'];
+  return sly.effects.some((e) => !weighed.includes(e.type));
 }
 
 /**
