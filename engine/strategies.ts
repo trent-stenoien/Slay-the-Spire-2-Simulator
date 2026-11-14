@@ -171,24 +171,72 @@ function isStorm(card: Card): boolean {
   return card.effects.some((e) => e.type === 'moveCards' && e.from === 'hand' && e.mode === 'all');
 }
 
-/** #261: a card that discards N chosen cards from the hand (Survivor, Acrobatics, Prepared, Dagger Throw), not the whole hand. */
-function discardsFromHand(card: Card): boolean {
-  return card.effects.some(
-    (e) => e.type === 'moveCards' && e.from === 'hand' && e.to === 'discard' && e.mode !== 'all',
+/**
+ * #314: the Sly cards in the hand that `card`'s "discard N" (by choice) would discard now, in
+ * chooseDiscard's order (a card that hurts in the hand goes first, so it may leave no room for them).
+ */
+function slyDiscardedBy(card: Card, view: StrategyView, config: StrategyConfig): Card[] {
+  const e = card.effects.find(
+    (x): x is Extract<Effect, { type: 'moveCards' }> =>
+      x.type === 'moveCards' && x.from === 'hand' && x.to === 'discard' && x.mode === 'choose',
   );
+  if (!e) return [];
+  const options = view.state.player.hand.filter((c) => c.uid !== card.uid) as CardInstance[];
+  if (options.length === 0 || !options.some((c) => c.keywords.includes('sly'))) return [];
+  const max = Math.min(e.count ?? 1, options.length);
+  const request: ChoiceRequest = { purpose: 'move', from: 'hand', to: 'discard', options, min: max, max };
+  const picked = new Set(chooseDiscard(view, request, config).uids);
+  return options.filter((c) => picked.has(c.uid) && c.keywords.includes('sly'));
+}
+
+/** #314: the Sly cards a stand-in card (withSlyEffects) discards, by stand-in. */
+const SLY_PARTS = new WeakMap<Card, readonly Card[]>();
+
+/**
+ * #314 Sly (Trent, Nov 13 round 3): a card that discards from the hand is weighed with the free effect
+ * of the Sly card(s) it would discard added to its own, the same way other plays are weighed: in the
+ * view, the card stands in (same uid, in the hand and in `playable`) with the Sly cards' effects
+ * appended (Survivor + Untouchable is a 14-Block card for 1; Survivor + Tactician gains 1 energy).
+ */
+function withSlyEffects(view: StrategyView, config: StrategyConfig): StrategyView {
+  const swap = new Map<number, Card>();
+  for (const c of view.playable) {
+    const sly = slyDiscardedBy(c, view, config);
+    if (sly.length === 0) continue;
+    const stand: Card = { ...c, effects: [...c.effects, ...sly.flatMap((o) => o.effects)] };
+    SLY_PARTS.set(stand, sly);
+    swap.set(c.uid, stand);
+  }
+  if (swap.size === 0) return view;
+  const sub = (c: Card) => swap.get(c.uid) ?? c;
+  const player = { ...view.state.player, hand: view.state.player.hand.map(sub) };
+  return { ...view, state: { ...view.state, player }, playable: view.playable.map(sub) };
 }
 
 /**
- * #261 Sly (orchestrator's default, not a rule from Trent): while a Sly card that does not hurt is in the hand,
- * a playable card that discards from the hand is played first (the cheapest, ties to the lowest uid), so the
- * Sly card is discarded (chooseDiscard puts it first) and played for free instead of paid for.
+ * #314 Sly: a discard card played before the groups (cheapest first, ties to the lowest uid) when
+ * - the Sly cards' energy pays for it (Survivor + Tactician: free Block) and another card in the hand
+ *   wants energy, or
+ * - a Sly card's free effect is worth its Energy cost (at least the discard card's cost) but no group weighs
+ *   it: Poison when the #46 estimate says it pays off (Haze), a Power or other effect (Abrasive), or
+ * - a Sly card draws (Reflex) and energy is left afterwards to play what it draws.
+ * Otherwise the discard card is played in its group like any card, with the Sly effects counted (withSlyEffects).
  */
 function pickSlyDiscarder(view: StrategyView): Card | undefined {
-  const hand = view.state.player.hand;
-  const discarders = view.playable.filter(
-    (c) => discardsFromHand(c) && hand.some((o) => o.uid !== c.uid && o.keywords.includes('sly') && !hurtsInHand(o)),
+  const { hand, energy } = view.state.player;
+  return best(
+    view.playable.filter((c) => {
+      const sly = SLY_PARTS.get(c);
+      if (!sly || c.xCost) return false;
+      const cost = c.cost ?? 0;
+      const gain = energyGain(c, hand);
+      const others = hand.filter((o) => o.uid !== c.uid && !sly.some((s) => s.uid === o.uid));
+      if (sly.some((s) => energyGain(s) > 0) && gain >= cost && others.some(wantsEnergy)) return true;
+      if (sly.some((s) => (s.cost ?? 0) >= cost && slyWorthOutsideGroups(s, view, energy - cost + gain))) return true;
+      return sly.some(isDrawCard) && canDraw(view) && energy - cost + gain > 0;
+    }),
+    (c) => [-(c.cost ?? 0)],
   );
-  return best(discarders, (c) => [-(c.cost ?? 0)]);
 }
 
 /** #262: a Shiv maker for the Attack group: the cheapest first (ties to the lowest uid), never Storm of Steel. */
@@ -264,14 +312,18 @@ function appliesVulnerable(card: Card): boolean {
  * Total base damage (damage × hits), including the card's own damage bonus (Thrash, #108).
  * For X-cost cards, X is `energy` (all of it gets spent).
  */
-function totalBaseDamage(card: Card, energy: number, state?: State): number {
+export function totalBaseDamage(card: Card, energy: number, state?: State): number {
   const x = card.xCost ? energy : 0;
   let sum = 0;
   for (const e of activeEffects(card, state)) {
     if (e.type === 'attack') sum += (e.damage + (card.damageBonus ?? 0)) * attackHits(e, x);
     // #111: scaling attacks count what they would deal now (the base alone without a state).
     else if (e.type === 'attackFrom') {
-      const per = Math.max(0, e.damage + (card.damageBonus ?? 0) + (state ? perCounterValue(e.bonusPer, state) : 0));
+      // #314 Precise Cut: the floor at 0 comes after Strength (max(0, base + Strength − penalty)); the value
+      // stays without Strength (callers add Strength × hits), so it can be −Strength at worst.
+      const str = state?.player.strength ?? 0;
+      const raw = e.damage + (card.damageBonus ?? 0) + (state ? perCounterValue(e.bonusPer, state) : 0);
+      const per = Math.max(0, raw + str) - str;
       sum += per * (e.hits + (state ? perCounterValue(e.extraHitsPer, state) : 0));
     } else if (e.type === 'script' && e.id === 'perfectedStrike') {
       const [base = 0, per = 0] = e.values ?? [];
@@ -1802,9 +1854,28 @@ function pickPoison(view: StrategyView): Card | undefined {
   const live = view.playable.filter((c) => isPoisonOnly(c) && poisonApplications(c) > (e.powers?.artifact ?? 0));
   const card = best(live, (c) => [-(c.cost ?? 0), damagePerEnergy(c)]);
   if (!card) return undefined;
-  const d = attackDamageThisTurn(view, Math.max(0, energy - (card.cost ?? 0)));
-  const through = Math.max(0, d - e.block);
-  return e.hp - e.poison - 2 * through > 0 ? card : undefined;
+  return enemyOutlivesAttacks(view, Math.max(0, energy - (card.cost ?? 0))) ? card : undefined;
+}
+
+/** #46: the enemy lives 2+ more turns against the Attacks in hand with `energy`: HP - Poison - 2 x max(0, D - Block) > 0. */
+function enemyOutlivesAttacks(view: StrategyView, energy: number): boolean {
+  const e = view.state.enemy;
+  const through = Math.max(0, attackDamageThisTurn(view, energy) - e.block);
+  return e.hp - e.poison - 2 * through > 0;
+}
+
+/**
+ * #314: a Sly card whose free play is worth its normal Energy cost outside the groups: a Poison card
+ * (Haze) when the #46 estimate says Poison pays off (the enemy outlives the Attacks with the energy left,
+ * and Artifact does not absorb it), or a Power or a card with effects the groups do not weigh (Abrasive).
+ */
+function slyWorthOutsideGroups(sly: Card, view: StrategyView, energyLeft: number): boolean {
+  if (poisonApplications(sly) > 0) {
+    return poisonApplications(sly) > (view.state.enemy.powers?.artifact ?? 0) && enemyOutlivesAttacks(view, energyLeft);
+  }
+  if (sly.type === 'power') return true;
+  const weighed = ['attack', 'attackFrom', 'gainBlock', 'draw', 'gainEnergy', 'applyPoison'];
+  return sly.effects.some((e) => !weighed.includes(e.type));
 }
 
 /**
@@ -1967,11 +2038,14 @@ export function blockIsLast(config: StrategyConfig): boolean {
  * when Attack ranks above Block). A self-damage card that would kill is never played (#106).
  */
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
-  const view = withoutWaitingForAttacks(
-    withoutWaitingForBlock(
-      withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config),
-      config,
+  const view = withSlyEffects(
+    withoutWaitingForAttacks(
+      withoutWaitingForBlock(
+        withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(raw)))), config),
+        config,
+      ),
     ),
+    config,
   );
   const d = decideWith(view, config, false);
   if (d.kind !== 'endTurn') return d;
