@@ -364,6 +364,11 @@ export const POWER_IDS = [
   'freeNextSkill',
   'doubleAttackNextTurn',
   'dexterityLossPerTurn',
+  // #267: declared, not simulated
+  'accuracy',
+  'infiniteBlades',
+  'phantomBlades',
+  'fanOfKnives',
   // #270 boss player debuffs
   'disintegration',
   'mindRot',
