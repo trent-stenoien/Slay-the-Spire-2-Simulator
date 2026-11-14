@@ -12,6 +12,7 @@
     "slashes": { "name": "Slashes", "effects": [{ "type": "attack", "damage": 13, "hits": 1 }] }
   },
   "pattern": { "type": "cycle", "opener": ["sleep", "wake"], "order": ["slashes"], "start": "first" },
+  "startPowers": { "slow": 1 },
   "ascension": {
     "8": { "hp": { "min": 132, "max": 132 } },
     "9": { "moves": { "slashes": { "effects": [{ "type": "attack", "damage": 15, "hits": 1 }] } } }

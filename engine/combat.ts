@@ -704,6 +704,9 @@ class Combat {
    * normal draw, then the start-of-turn powers (#109). Returns the outcome if a power ended combat
    * (Crimson Mantle's HP loss, Rolling Boulder's damage).
    */
+  /** #303 Slow: cards played before the current one this turn (resets each player turn). */
+  private slowCards = 0;
+
   private startPlayerTurn(): Outcome | null {
     const { player, log, counters } = this;
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'player' });
@@ -712,6 +715,7 @@ class Combat {
     counters.cardsDrawnThisTurn = 0;
     counters.cardsExhaustedThisTurn = 0;
     counters.cardsPlayedThisTurn = 0;
+    this.slowCards = 0;
     counters.attacksPlayedThisTurn = 0;
     counters.skillsPlayedThisTurn = 0;
     counters.cardsDiscardedThisTurn = 0;
@@ -1123,6 +1127,8 @@ class Combat {
     const firstAttackOrSkill =
       (card.type === 'attack' || card.type === 'skill') &&
       counters.attacksPlayedThisTurn + counters.skillsPlayedThisTurn === 0;
+    // #303 Slow counts the cards played BEFORE this one (the card being played is not counted for its own hits).
+    this.slowCards = counters.cardsPlayedThisTurn;
     counters.cardsPlayedThisTurn++;
     counters.cardsPlayedThisCombat++;
     if (card.type === 'attack') counters.attacksPlayedThisTurn++;
@@ -2933,6 +2939,7 @@ class Combat {
           0,
           tracking && t.debuffs.weak > 0,
           double,
+          (t.powers?.slow ?? 0) > 0 ? this.slowCards * 10 : 0,
         );
         const blocked = Math.min(t.block, perHit);
         t.block -= blocked;
