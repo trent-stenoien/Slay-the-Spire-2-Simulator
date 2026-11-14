@@ -11,13 +11,22 @@
   "keywords": [
     "exhaust"
   ],
-  "effects": [],
+  "effects": [
+    {
+      "type": "gainBlockFrom",
+      "amount": 0,
+      "bonusPer": {
+        "per": "enemyPoison",
+        "amount": 1
+      }
+    }
+  ],
   "upgraded": {
     "cost": 0
   },
   "description": "Gain Block equal to Poison on ALL enemies. / Exhaust.",
   "upgradedDescription": "Gain Block equal to Poison on ALL enemies. / Exhaust.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

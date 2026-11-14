@@ -326,6 +326,20 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     character changes (Max HP differs). Input is rounded and clamped to 1..Max HP; empty input is ignored. A
     set value is passed as `startHp` to the run and to replayed combats. It is stored in the URL as `h` only when edited and different from the default; out-of-range values are ignored with an error.
 
+## Silent Poison powers (#263)
+
+54. **Silent Poison powers and counters (#263, Trent):** Accelerant: Poison triggers 1 (2) extra times at the
+    start of the enemy's turn, and every extra trigger also lowers Poison by 1 (Poison 5 with one extra trigger
+    deals 5 + 4 and leaves 3); triggers stop once Poison reaches 0 or the enemy dies. Envenom: each hit of an
+    Attack card that deals unblocked damage applies 1 (2) Poison to that enemy; Thorns, power damage, fixed damage
+    (Fire Potion) and Poison itself do not. Noxious Fumes: at the start of each of your turns (after the draw)
+    apply 2 (3) Poison to ALL enemies. Corrosive Wave: for the rest of this turn, every card you draw applies
+    2 (3) Poison to ALL enemies. Outbreak (main v0.107.1, Uncommon Power): every 3rd time you apply Poison deals
+    11 damage to ALL enemies (power damage, Block absorbs). Builder's rule: one Poison effect or trigger is one
+    application however many enemies it hits, an Artifact-negated application does not count, and applications
+    are counted only while Outbreak is in play. Mirage: Block equal to the total Poison on all living enemies
+    (Dexterity and Frail apply; Exhaust).
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at

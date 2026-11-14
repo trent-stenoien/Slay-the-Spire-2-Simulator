@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "envenom",
+      "amount": 1
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "envenom",
+        "amount": 2
+      }
+    ]
+  },
   "description": "Whenever an Attack deals unblocked damage, apply 1 Poison.",
   "upgradedDescription": "Whenever an Attack deals unblocked damage, apply 2 Poison.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }

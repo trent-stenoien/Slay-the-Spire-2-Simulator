@@ -9,11 +9,25 @@
   "xCost": false,
   "starCost": null,
   "keywords": [],
-  "effects": [],
-  "upgraded": {},
+  "effects": [
+    {
+      "type": "applyPower",
+      "power": "corrosiveWave",
+      "amount": 2
+    }
+  ],
+  "upgraded": {
+    "effects": [
+      {
+        "type": "applyPower",
+        "power": "corrosiveWave",
+        "amount": 3
+      }
+    ]
+  },
   "description": "Whenever you draw a card this turn, apply 2 Poison to ALL enemies.",
   "upgradedDescription": "Whenever you draw a card this turn, apply 3 Poison to ALL enemies.",
-  "simulated": false,
+  "simulated": true,
   "multiplayerOnly": false,
   "lastUpdateVersion": "v0.107.1"
 }
