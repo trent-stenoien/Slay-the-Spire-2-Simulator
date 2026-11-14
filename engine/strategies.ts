@@ -305,6 +305,97 @@ function pickStorm(view: StrategyView): Card | undefined {
   );
 }
 
+/**
+ * #339 (Trent): how many Shivs Storm of Steel would make: the cards in the hand it would discard. Shivs are
+ * played first and are not counted; the cards the strategy can still afford to play with the Energy left after
+ * Storm are not discarded either (cheapest first, an estimate).
+ */
+function stormShivCount(view: StrategyView, storm: Card): number {
+  const { hand, energy } = view.state.player;
+  let spare = energy - (storm.cost ?? 0);
+  let count = 0;
+  const others = hand.filter((c) => c.uid !== storm.uid && !isShivCard(c));
+  for (const c of [...others].sort((a, b) => (a.cost ?? Infinity) - (b.cost ?? Infinity))) {
+    if (c.cost !== null && !c.xCost && c.cost <= spare) spare -= c.cost;
+    else count++;
+  }
+  return count;
+}
+
+/**
+ * #339 (Trent): Storm of Steel is an attack worth the total damage of the Shivs it makes, Accuracy,
+ * Phantom Blades (first Shiv of the turn) and Fan of Knives (every living enemy) included.
+ */
+function stormDamage(view: StrategyView, storm: Card): number {
+  const count = stormShivCount(view, storm);
+  if (count === 0) return 0;
+  const upgraded = storm.effects.some(
+    (e) => e.type === 'repeat' && e.effects.some((x) => makesShiv(x) && x.type === 'addCards' && x.upgraded),
+  );
+  const { powers, counters } = view.state.player;
+  let sum = count * ((upgraded ? SHIV_DAMAGE_UPGRADED : SHIV_DAMAGE) + (powers?.accuracy ?? 0));
+  if ((counters?.shivsPlayedThisTurn ?? 0) === 0) sum += powers?.phantomBlades ?? 0;
+  if ((powers?.fanOfKnives ?? 0) > 0) {
+    const alive = view.state.enemies ? view.state.enemies.filter((en) => en.hp > 0).length : 1;
+    sum *= Math.max(1, alive);
+  }
+  return sum;
+}
+
+/** #339: Shiv synergy for Storm of Steel: Accuracy, Phantom Blades or Fan of Knives is on. */
+function hasShivSynergy(state: State): boolean {
+  const p = state.player.powers;
+  return (p?.accuracy ?? 0) > 0 || (p?.phantomBlades ?? 0) > 0 || (p?.fanOfKnives ?? 0) > 0;
+}
+
+/**
+ * #339 (Trent): Storm of Steel and Shadow Step both discard the hand. With Energy for only one, Storm is
+ * chosen with Shiv synergies (or when its Shivs out-damage the attacks in the hand), Shadow Step when the
+ * hand has strong attacks (their base damage stands for the next turn's doubled attacks).
+ */
+function stormBeatsShadowStep(view: StrategyView, storm: Card): boolean {
+  if (hasShivSynergy(view.state)) return true;
+  const attacks = view.state.player.hand
+    .filter((c) => isAttackCard(c) && !isShivCard(c))
+    .reduce((n, c) => n + totalBaseDamage(c, 0, view.state), 0);
+  return stormDamage(view, storm) >= attacks;
+}
+
+/**
+ * #339 (Trent): applies the Storm of Steel rules to the playable cards. Shadow Step and Storm of Steel left
+ * with Energy for one only: the loser is not played. When Storm of Steel is the best attack (its Shivs'
+ * damage per Energy at least that of the best attack), every other card is played before it, but only those
+ * that leave Energy for it.
+ */
+function withStormRules(view: StrategyView): StrategyView {
+  const storm = view.playable.find((c) => isShivMaker(c) && isStorm(c) && stormShivCount(view, c) > 0);
+  if (!storm) return view;
+  const energy = view.state.player.energy;
+  const stormCost = storm.cost ?? 0;
+  const shadows = view.playable.filter(isShadowStep);
+  if (shadows.length > 0 && energy < stormCost + Math.min(...shadows.map((c) => c.cost ?? 0))) {
+    if (!stormBeatsShadowStep(view, storm))
+      return { ...view, playable: view.playable.filter((c) => c.uid !== storm.uid) };
+  }
+  const atk = pickAttack(
+    view.playable.filter((c) => !isShivCard(c) && (c.xCost || (c.cost ?? 0) > 0)),
+    energy,
+    view.state.enemy.debuffs.vulnerable,
+    view.state,
+  );
+  const costed = atk && (atk.xCost || (atk.cost ?? 0) > 0) ? atk : undefined;
+  const stormWins =
+    !costed || stormDamage(view, storm) / Math.max(1, stormCost) >= attackDamagePerEnergy(costed, view.state);
+  if (!stormWins) return view;
+  // Shadow Step competing for the same Energy loses to the best-attack Storm (it plays after it if Energy is left).
+  return {
+    ...view,
+    playable: view.playable.filter(
+      (c) => c.uid === storm.uid || isShadowStep(c) || (!c.xCost && (c.cost ?? 0) <= energy - stormCost),
+    ),
+  };
+}
+
 function pileOf(view: StrategyView, name: PileName): readonly Card[] {
   const p = view.state.player;
   return name === 'hand' ? p.hand : name === 'draw' ? p.drawPile : name === 'discard' ? p.discardPile : p.exhaustPile;
@@ -1446,7 +1537,12 @@ export function pickAttack(
  */
 export function pickBlock(playable: readonly Card[], energy = 0, state?: State): Card | undefined {
   const blocks = playable.filter((c) => isBlockCard(c) && xCostPlayable(c, energy));
-  return best(blocks, (c) => [notXCost(c), totalBlock(c, state), draws(c)]);
+  return best(blocks, (c) => [notXCost(c), makesShivCard(c), totalBlock(c, state), draws(c)]);
+}
+
+/** #339 (Trent): a block card that also makes Shivs (Cloak and Dagger) is preferred over other Block: Block plus an attack. */
+function makesShivCard(c: Card): number {
+  return isBlockCard(c) && c.effects.some((e) => makesShiv(e)) ? 1 : 0;
 }
 
 /** The Block still wanted to satisfy the strategy: `Infinity` when Block is last (it spends leftover energy). */
@@ -2162,14 +2258,16 @@ function decide(raw: StrategyView, config: StrategyConfig): Decision {
   // #356: the Shiv kept for Phantom Blades is not played by any other rule either.
   const held = heldShiv(raw);
   const kept = held ? { ...raw, playable: raw.playable.filter((c) => c.uid !== held.uid) } : raw;
-  const view = withSlyEffects(
-    withoutWaitingForAttacks(
-      withoutWaitingForBlock(
-        withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(kept)))), config),
-        config,
+  const view = withStormRules(
+    withSlyEffects(
+      withoutWaitingForAttacks(
+        withoutWaitingForBlock(
+          withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(kept)))), config),
+          config,
+        ),
       ),
+      config,
     ),
-    config,
   );
   // #272 (Trent): Sandpit at 2 or below: escape first.
   const escape = pickSandpitEscape(raw, true);
@@ -2344,7 +2442,7 @@ function decideCore(view: StrategyView, config: StrategyConfig, planning: boolea
   const preferBlock = config.order.indexOf('block') < config.order.indexOf('attack');
   const last = pickLast(view, preferBlock);
   if (last) return play(last);
-  // #284: Storm of Steel goes after all other energy is spent (the last play before Shadow Step).
+  // #284/#339: Storm of Steel goes after all other cards (the last play before Shadow Step).
   const storm = pickStorm(view);
   if (storm) return play(storm);
   // #264: Shadow Step goes last: it discards what is left in the hand for double Attacks next turn.
