@@ -2112,10 +2112,10 @@ function pickPoison(view: StrategyView): Card | undefined {
 }
 
 /** #46: the enemy lives 2+ more turns against the Attacks in hand with `energy`: HP - Poison - 2 x max(0, D - Block) > 0. */
-function enemyOutlivesAttacks(view: StrategyView, energy: number): boolean {
+function enemyOutlivesAttacks(view: StrategyView, energy: number, turns = 2): boolean {
   const e = view.state.enemy;
   const through = Math.max(0, attackDamageThisTurn(view, energy) - e.block);
-  return e.hp - e.poison - 2 * through > 0;
+  return e.hp - e.poison - turns * through > 0;
 }
 
 /**
@@ -2124,8 +2124,19 @@ function enemyOutlivesAttacks(view: StrategyView, energy: number): boolean {
  * and Artifact does not absorb it), or a Power or a card with effects the groups do not weigh (Abrasive).
  */
 function slyWorthOutsideGroups(sly: Card, view: StrategyView, energyLeft: number): boolean {
+  const powers = view.state.player.powers;
+  const artifact = view.state.enemy.powers?.artifact ?? 0;
+  // #323: Accelerant (Poison ticks extra times) and Outbreak (damage to all every 3rd application) make Poison
+  // worth more: the enemy only needs to outlive this turn's Attacks once, not two more turns of them.
+  const poisonPower = (powers?.accelerant ?? 0) > 0 || (powers?.outbreak ?? 0) > 0;
   if (poisonApplications(sly) > 0) {
-    return poisonApplications(sly) > (view.state.enemy.powers?.artifact ?? 0) && enemyOutlivesAttacks(view, energyLeft);
+    if (poisonApplications(sly) <= artifact) return false;
+    return poisonPower ? enemyOutlivesAttacks(view, energyLeft, 1) : enemyOutlivesAttacks(view, energyLeft);
+  }
+  // #323 Envenom: a free Attack (Flick-Flack, Ricochet) also poisons on every unblocked hit; the Poison is
+  // an effect the groups do not weigh, so the Sly card is worth its cost when Artifact leaves a hit to land.
+  if ((powers?.envenom ?? 0) > 0 && sly.type === 'attack' && sly.effects.some((e) => e.type === 'attack')) {
+    return artifact === 0 && enemyOutlivesAttacks(view, energyLeft, 1);
   }
   if (sly.type === 'power') return true;
   const weighed = ['attack', 'attackFrom', 'gainBlock', 'draw', 'gainEnergy', 'applyPoison'];
