@@ -16,6 +16,7 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
 - `enemies` (instead of `enemy`, multi-enemy fights): `[{ "id", "startHp", "alias" }]`, left to right. The
   alias (`"A"`, `"B"`, ...) names the enemy in `targets`, `enemies` states and `enemyMoves`. Each
   enemy's HP is forced like a single enemy's.
+- `spawned` (optional, multi-enemy): enemies that appear mid-fight, in spawn order (Phrog Parasite's Wrigglers): `[{ "id", "startHp", "alias" }]`. Their HP rolls are forced like the starting enemies' and the alias names them in `enemies` states. Their moves are not forced (they use their own pattern).
 - `player`: `{ "startHp", "maxHp" }`. The engine starts at `startHp` (`CombatConfig.startHp`), so
   player HP is compared directly.
 - `relics` (optional): `[{ "id", "choice"? }]` in pick order. `choice` is the relic's setup value
