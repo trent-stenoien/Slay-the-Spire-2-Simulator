@@ -256,7 +256,8 @@ function enemyMoveProblem(fx: Fixture, data: GameData): string | null {
     } else {
       if (!pattern.moves.includes(id)) return `turn ${i + 1}: ${id} is not in ${fx.enemy!.id}'s move pool`;
       if (used.has(id)) return `turn ${i + 1}: ${id} is once per fight and was already made`;
-      if (pattern.noRepeat && id === last) return `turn ${i + 1}: ${id} repeats the previous move (no-repeat)`;
+      if (pattern.noRepeat && id === last && (!pattern.noRepeatMoves || pattern.noRepeatMoves.includes(id)))
+        return `turn ${i + 1}: ${id} repeats the previous move (no-repeat)`;
     }
     if (moves[id]?.oncePerFight) used.add(id);
     last = id;

@@ -487,6 +487,10 @@ class Combat {
   private readonly usedOnce: Set<string>[];
   /** #4/#5: index of the enemy whose Shrink is on the player; Shrink ends when it dies. */
   private shrinkSource: number | null = null;
+  /** #322: some enemy has `onDeath` effects. */
+  private deathHooks: boolean;
+  /** #322: indexes of enemies whose death effects already ran. */
+  private readonly deathDone = new Set<number>();
 
   constructor(
     private readonly data: GameData,
@@ -509,27 +513,8 @@ class Combat {
     // random pick (when there is no opener); then (3) shuffle. Later random picks happen right after each enemy move.
     this.rng = createRng(config.seed);
     this.usedOnce = enemyDefs.map(() => new Set<string>());
-    this.enemies = enemyDefs.map((enemyDef, i) => {
-      const enemyHp = this.rng.int(enemyDef.hp.min, enemyDef.hp.max);
-      const { pattern } = enemyDef;
-      const startIndex =
-        pattern.type === 'cycle' && pattern.start === 'random' ? this.rng.int(0, pattern.order.length - 1) : 0;
-      const firstMove =
-        (pattern.type === 'alternate' ? undefined : pattern.opener?.[0]) ?? this.poolMove(i, startIndex, null);
-      return {
-        enemyId: enemyDef.id,
-        name: enemyDef.name,
-        hp: enemyHp,
-        maxHp: enemyHp,
-        block: 0,
-        strength: 0,
-        debuffs: emptyDebuffs(),
-        poison: 0,
-        patternIndex: startIndex,
-        movesMade: 0,
-        nextMoveId: firstMove,
-      };
-    });
+    this.deathHooks = enemyDefs.some((d) => d.onDeath !== undefined);
+    this.enemies = enemyDefs.map((enemyDef, i) => this.makeEnemy(enemyDef, i));
     this.rng.shuffle(deck);
     this.state = {
       turn: 0,
@@ -614,8 +599,80 @@ class Combat {
     if (this.enemies.length > 1) this.log?.push({ t: 'target', enemy: i });
   }
 
-  /** #5: the combat is won when every enemy is dead. */
+  /**
+   * The enemy state for definition `i` (HP roll, then the start index, then the first move, in that Rng order).
+   * #322 startBySlot: the 1st, 3rd ... enemy with this id starts with `odd`, the 2nd, 4th ... with `even`
+   * (no Rng draw, so it replaces a random `start`).
+   */
+  private makeEnemy(enemyDef: EnemyDef, i: number): EnemyState {
+    const enemyHp = this.rng.int(enemyDef.hp.min, enemyDef.hp.max);
+    const { pattern } = enemyDef;
+    let startIndex = 0;
+    if (pattern.type === 'cycle') {
+      if (pattern.startBySlot) {
+        const slot = this.enemyDefs.slice(0, i).filter((d) => d.id === enemyDef.id).length + 1;
+        const first = slot % 2 === 1 ? pattern.startBySlot.odd : pattern.startBySlot.even;
+        startIndex = Math.max(0, pattern.order.indexOf(first));
+      } else if (pattern.start === 'random') {
+        startIndex = this.rng.int(0, pattern.order.length - 1);
+      }
+    }
+    const firstMove =
+      (pattern.type === 'alternate' ? undefined : pattern.opener?.[0]) ?? this.poolMove(i, startIndex, null);
+    return {
+      enemyId: enemyDef.id,
+      name: enemyDef.name,
+      hp: enemyHp,
+      maxHp: enemyHp,
+      block: 0,
+      strength: 0,
+      debuffs: emptyDebuffs(),
+      poison: 0,
+      patternIndex: startIndex,
+      movesMade: 0,
+      nextMoveId: firstMove,
+    };
+  }
+
+  /**
+   * #322 spawnEnemies: `count` enemies of `enemyId` join on the right (HP rolled with the seeded Rng, start powers
+   * applied, Stunned on arrival when asked). They take no turn in the enemy phase that is already under way
+   * (its line-up is fixed when it starts); a Stunned one skips its first move after that, then acts normally.
+   * The current enemy is unchanged.
+   */
+  private spawn(e: { enemyId: string; count: number; stunned?: boolean }): void {
+    const keep = this.focus;
+    for (let n = 0; n < e.count; n++) {
+      const def = resolveCheckedEnemy(this.data, e.enemyId, this.config.ascension);
+      this.enemyDefs.push(def);
+      this.usedOnce.push(new Set<string>());
+      this.deathHooks ||= def.onDeath !== undefined;
+      const i = this.enemyDefs.length - 1;
+      this.enemies.push(this.makeEnemy(def, i));
+      this.focusOn(i);
+      for (const [power, amount] of Object.entries(def.startPowers ?? {}) as [EnemyPowerId, number][]) {
+        if (amount > 0) this.applyEnemyPower(power, amount);
+      }
+      if (e.stunned) this.applyEnemyPower('stun', 1);
+    }
+    this.focusOn(keep);
+  }
+
+  /** #322 onDeath: run the death effects (spawnEnemies only) of every enemy that died and has not run them yet. */
+  private runDeathHooks(): void {
+    for (let i = 0; i < this.enemies.length; i++) {
+      if (this.enemies[i]!.hp > 0 || this.deathDone.has(i)) continue;
+      this.deathDone.add(i);
+      for (const e of this.enemyDefs[i]!.onDeath ?? []) {
+        if (e.type !== 'spawnEnemies') throw new Error(`Effect "${e.type}" is not simulated yet in onDeath`);
+        this.spawn(e);
+      }
+    }
+  }
+
+  /** #5: the combat is won when every enemy is dead. #322: death effects (spawns) run first, so a spawn keeps the fight going. */
   private won(): boolean {
+    if (this.deathHooks) this.runDeathHooks();
     return this.enemies.every((e) => e.hp <= 0);
   }
 
@@ -1631,8 +1688,21 @@ class Combat {
     // #226: a once-per-fight move that was already made is out of the pool for good.
     const fresh = pattern.moves.filter((id) => !usedOnce.has(id));
     const pool = fresh.length > 0 ? fresh : pattern.moves;
-    const notLast = pattern.noRepeat && last !== null ? pool.filter((id) => id !== last) : pool;
+    // #322: noRepeatMoves limits the no-repeat rule to the listed moves.
+    const barred =
+      pattern.noRepeat && last !== null && (!pattern.noRepeatMoves || pattern.noRepeatMoves.includes(last));
+    const notLast = barred ? pool.filter((id) => id !== last) : pool;
     const options = notLast.length > 0 ? notLast : pool;
+    if (pattern.weights) {
+      // #322: weighted pick (a move left out has weight 1), one Rng draw.
+      const weightOf = (id: string) => pattern.weights![id] ?? 1;
+      let roll = this.rng.int(0, options.reduce((sum, id) => sum + weightOf(id), 0) - 1);
+      for (const id of options) {
+        if (roll < weightOf(id)) return id;
+        roll -= weightOf(id);
+      }
+      return options[options.length - 1] as string;
+    }
     return options[this.rng.int(0, options.length - 1)] as string;
   }
 
@@ -1741,6 +1811,10 @@ class Combat {
           if (source !== 'player') throw new Error('Enemies have no energy');
           player.energy += e.amount;
           log?.push({ t: 'energy', amount: e.amount, total: player.energy });
+          break;
+        case 'spawnEnemies':
+          if (source !== 'enemy') throw new Error('Effect "spawnEnemies" is only simulated on enemy moves');
+          this.spawn(e);
           break;
         case 'loseEnergy': {
           if (source !== 'player') throw new Error('Enemies have no energy');

@@ -42,7 +42,11 @@
   "pattern": {
     "type": "cycle",
     "order": ["nastyBite", "wriggle"],
-    "start": "first"
+    "start": "first",
+    "startBySlot": {
+      "odd": "nastyBite",
+      "even": "wriggle"
+    }
   },
   "ascension": {
     "8": {
