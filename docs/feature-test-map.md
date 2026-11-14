@@ -294,6 +294,7 @@ Break-it edits are in `engine/strategies.ts` unless stated.
 | 54 | Accelerant extra triggers lower Poison; Envenom per unblocked Attack hit only; Noxious Fumes; Corrosive Wave this turn only; Outbreak every 3rd application; Mirage Block from Poison | engine/combat.silentPoison.test.ts | n/a |
 | 55 | Hand Trick: Sly to the costliest Skill this turn only (Survivor then plays it free), no Skill no effect; Nightmare: 3 copies next turn before the draw, upgrade kept, temporary Sly copied and expiring, hand-limit overflow discarded, Exhaust, empty hand | engine/combat.dynamicSly.test.ts (10 tests) | n/a |
 | 56 | Master Planner: Skills played after it gain Sly (not earlier ones, not Attacks); The Hunt: card reward only on a kill, 15 damage upgraded, none otherwise | engine/combat.masterPlannerHunt.test.ts (5 tests) | n/a |
+| 57 | Echoing Slash repeat per kill, chained kills, no repeat without a kill or with one enemy; Piercing Wail on ALL (Artifact per enemy); Bouncing Flask random per application, seeded, Artifact per application; Haze / Mirage / Serpent Form on several enemies; the three cards' data | engine/combat.silentMultiEnemy.test.ts | n/a |
 
 ## Known failure points
 
