@@ -1,0 +1,66 @@
+{
+  "id": "leaf_slime_s",
+  "code": "LS",
+  "name": "Leaf Slime (S)",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "easy",
+  "hp": {
+    "min": 11,
+    "max": 15
+  },
+  "moves": {
+    "tackle": {
+      "name": "Tackle",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 3,
+          "hits": 1
+        }
+      ]
+    },
+    "goop": {
+      "name": "Goop",
+      "effects": [
+        {
+          "type": "addCards",
+          "source": {
+            "kind": "card",
+            "cardId": "slimed"
+          },
+          "count": 1,
+          "to": "discard"
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "random",
+    "moves": ["tackle", "goop"],
+    "noRepeat": true
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 12,
+        "max": 16
+      }
+    },
+    "9": {
+      "moves": {
+        "tackle": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 4,
+              "hits": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

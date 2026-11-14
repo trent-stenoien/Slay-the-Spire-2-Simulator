@@ -1,0 +1,66 @@
+{
+  "id": "phrog_parasite",
+  "code": "PP",
+  "name": "Phrog Parasite",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "elite",
+  "hp": {
+    "min": 61,
+    "max": 64
+  },
+  "moves": {
+    "infect": {
+      "name": "Infect",
+      "effects": [
+        {
+          "type": "addCards",
+          "source": {
+            "kind": "card",
+            "cardId": "infection"
+          },
+          "count": 3,
+          "to": "discard"
+        }
+      ]
+    },
+    "lash": {
+      "name": "Lash",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 4,
+          "hits": 4
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["infect", "lash"],
+    "start": "first"
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 66,
+        "max": 68
+      }
+    },
+    "9": {
+      "moves": {
+        "lash": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 5,
+              "hits": 4
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

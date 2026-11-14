@@ -1,0 +1,52 @@
+{
+  "id": "twig_slime_s",
+  "code": "TS",
+  "name": "Twig Slime (S)",
+  "act": 1,
+  "zone": "overgrowth",
+  "difficulty": "easy",
+  "hp": {
+    "min": 7,
+    "max": 11
+  },
+  "moves": {
+    "tackle": {
+      "name": "Tackle",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 4,
+          "hits": 1
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["tackle"],
+    "start": "first"
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 8,
+        "max": 12
+      }
+    },
+    "9": {
+      "moves": {
+        "tackle": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 5,
+              "hits": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}
