@@ -362,6 +362,7 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'toolsOfTheTrade',
   'wellLaidPlans',
   'tracking',
+  'masterPlanner',
   // #263 Silent Poison powers
   'accelerant',
   'envenom',
@@ -804,7 +805,7 @@ class Combat {
   /** #268 uids of cards that have Sly only this turn (Hand Trick). */
   private slyTemp = new Set<number>();
   /** #268 Nightmare: the chosen cards, by the id the scheduled effect carries. */
-  private nightmareSnaps: CardInstance[] = [];
+  private nightmareDue: { turn: number; snap: CardInstance; count: number; tempSly: boolean }[] = [];
 
   private startPlayerTurn(): Outcome | null {
     const { player, log, counters } = this;
@@ -833,6 +834,8 @@ class Combat {
     const refill = this.character.energyPerTurn + modifierTotal(this.relics, 'energyPerTurn');
     player.energy = (modifiersOf(this.relics, 'conserveEnergy').length > 0 ? player.energy : 0) + refill;
     this.returnCards();
+    // #268 Nightmare: its copies arrive before the draw.
+    this.nightmareArrive();
     // #205 Snecko Eye: extra cards in the normal draw.
     const draw = this.character.drawPerTurn + modifierTotal(this.relics, 'drawPerTurn');
     for (let i = 0; i < draw; i++) {
@@ -1324,6 +1327,10 @@ class Combat {
     counters.cardsPlayedThisCombat++;
     if (card.type === 'attack') counters.attacksPlayedThisTurn++;
     if (card.type === 'skill') counters.skillsPlayedThisTurn++;
+    // #268 Master Planner: a Skill played while it is in play gains Sly for the rest of the combat.
+    if (card.type === 'skill' && this.power('masterPlanner') > 0 && !card.keywords.includes('sly')) {
+      card.keywords.push('sly');
+    }
     // #113 Panache counts only cards played after it was on (not the Panache card itself).
     const panacheOn = this.power('panache') > 0;
     // #266 Afterimage and Serpent Form react to cards played after they were on (not their own card).
@@ -2008,6 +2015,10 @@ class Combat {
           // #205 Sozu: no potions can be obtained.
           if (modifiersOf(this.relics, 'noPotions').length === 0) this.potions++;
           break;
+        case 'gainCardReward':
+          if (source !== 'player') throw new Error('Enemies do not gain card rewards');
+          this.cardRewards++;
+          break;
         case 'conditional': {
           if (source !== 'player') throw new Error('Effect "conditional" is not simulated yet on enemy moves');
           if (e.if.kind === 'fatal') {
@@ -2043,7 +2054,6 @@ class Combat {
           else if (source === 'player' && e.id === 'expose') died = this.expose();
           else if (source === 'player' && e.id === 'handTrick') this.handTrick();
           else if (source === 'player' && e.id === 'nightmare') this.nightmare(e.values?.[0] ?? 3);
-          else if (source === 'player' && e.id === 'nightmareAdd') this.nightmareAdd(e.values);
           else if (source === 'player' && e.id === 'malaise') died = this.malaise(x + (e.values?.[0] ?? 0));
           else throw new Error(`Effect "script" is not simulated yet (id "${e.id}")`);
           break;
@@ -2541,7 +2551,7 @@ class Combat {
 
   /**
    * #268 Nightmare: choose a card in the hand (Strategy.choose, purpose 'copy'); at the start of next turn
-   * (after the draw) `count` copies of it are added to the hand. The copy is a snapshot taken now (upgrade,
+   * (before the draw) `count` copies of it are added to the hand. The copy is a snapshot taken now (upgrade,
    * damage bonus, Replay and cost for the rest of combat kept, like Dual Wield). An empty hand: no effect.
    */
   private nightmare(count: number): void {
@@ -2557,21 +2567,19 @@ class Combat {
       effects: picked.effects.map((fx) => ({ ...fx })),
     };
     if (picked.triggers) snap.triggers = picked.triggers.map((t) => ({ when: t.when, effects: [...t.effects] }));
-    // Sly that was only given for this turn (Hand Trick) is not part of the copy.
-    const i = snap.keywords.lastIndexOf('sly');
-    if (this.slyTemp.has(picked.uid) && i >= 0) snap.keywords.splice(i, 1);
-    const id = this.nightmareSnaps.push(snap) - 1;
-    (this.player.scheduled ??= []).push({
-      turn: this.state.turn + 1,
-      at: 'turnStart',
-      effects: [{ type: 'script', id: 'nightmareAdd', values: [id, count] }],
-    });
+    // Trent: the copies carry every modifier the card has now, Hand Trick's Sly included (it expires at the end of the turn the copies arrive).
+    this.nightmareDue.push({ turn: this.state.turn + 1, snap, count, tempSly: this.slyTemp.has(picked.uid) });
   }
 
-  private nightmareAdd(values: readonly number[] | undefined): void {
-    const [id = -1, count = 0] = values ?? [];
-    const snap = this.nightmareSnaps[id];
-    if (!snap) return;
+  /** #268 Nightmare (Trent): the copies due this turn arrive in the hand at the start of the turn, BEFORE the draw. */
+  private nightmareArrive(): void {
+    const due = this.nightmareDue.filter((d) => d.turn === this.state.turn);
+    if (due.length === 0) return;
+    this.nightmareDue = this.nightmareDue.filter((d) => !due.includes(d));
+    for (const { snap, count, tempSly } of due) this.nightmareAdd(snap, count, tempSly);
+  }
+
+  private nightmareAdd(snap: CardInstance, count: number, tempSly: boolean): void {
     for (let n = 0; n < count; n++) {
       const copy: CardInstance = {
         ...snap,
@@ -2584,6 +2592,7 @@ class Combat {
       delete copy.costThisTurn;
       delete copy.freeThisTurn;
       const to = this.placeCard(copy, 'hand');
+      if (tempSly) this.slyTemp.add(copy.uid);
       this.log?.push({ t: 'generated', uid: copy.uid, cardId: copy.cardId, to, source: 'copyOf' });
     }
   }

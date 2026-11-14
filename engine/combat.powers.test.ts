@@ -235,6 +235,7 @@ describe('#109 played Power cards', () => {
         'toolsOfTheTrade',
         'wellLaidPlans',
         'tracking',
+        'masterPlanner',
         // #263
         'accelerant',
         'envenom',

@@ -83,6 +83,7 @@ export const SIMULATED_CONTRACT_EFFECTS = new Set<string>([
   'loseMaxHp',
   'gainGold',
   'gainPotion',
+  'gainCardReward',
   'attackFrom',
   'gainBlockFrom',
   'growDamage',
@@ -144,7 +145,6 @@ export const SIMULATED_SCRIPTS = new Set<string>([
   'malaise',
   'handTrick',
   'nightmare',
-  'nightmareAdd',
 ]);
 
 /** Card triggers the engine runs (#108 exhausted, #115 drawn and turnEndInHand, #114 turnEndInExhaust). */
@@ -221,6 +221,8 @@ export const SIMULATED_POWERS = new Set<string>([
   'toolsOfTheTrade',
   'wellLaidPlans',
   'tracking',
+  // #268 Master Planner
+  'masterPlanner',
   // #263 Silent Poison powers
   'accelerant',
   'envenom',
@@ -341,7 +343,7 @@ export const POWER_IDS = [
   'toolsOfTheTrade',
   'wellLaidPlans',
   'tracking',
-  // #268 (not simulated yet)
+  // #268 (simulated)
   'masterPlanner',
   // #263 Silent Poison powers
   'accelerant',
