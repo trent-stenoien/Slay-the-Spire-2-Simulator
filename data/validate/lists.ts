@@ -394,6 +394,8 @@ export const POWER_IDS = [
   'wasteAway',
   // #272 The Insatiable: declared, not simulated
   'sandpit',
+  // #276 Queen: declared, not simulated
+  'chainsOfBinding',
 ] as const;
 
 /** #215 adds artifact, strengthPerTurn, slippery; #303 adds slow (enemy start power, simulated in engine/combat.ts; not applicable by cards, so not in SIMULATED_ENEMY_POWERS). */
@@ -411,10 +413,15 @@ export const ENEMY_POWER_IDS = [
   'painfulStabs',
   'nemesis',
   'intangible',
+  // #276 Torch Head Amalgam: declared, not simulated
+  'minion',
 ] as const;
 
 /** #273/#274: `xFromMoveUses` and `extraHitsPerUse` read an enemy's move uses, so a simulated card may not use it. */
 export const UNSIMULATED_EFFECT_FIELDS = ['xFromMoveUses', 'extraHitsPerUse'] as const;
+
+/** #276: enemy-move effect fields declared in the contract but not simulated yet; the validator rejects them. */
+export const UNSIMULATED_ENEMY_EFFECT_FIELDS = ['ally'] as const;
 
 export const TRIGGER_WHENS = ['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust'] as const;
 
