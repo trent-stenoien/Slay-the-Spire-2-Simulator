@@ -1,0 +1,12 @@
+{
+  "id": "energy_potion",
+  "code": "EP",
+  "name": "Energy Potion",
+  "rarity": "common",
+  "character": "any",
+  "effects": [{ "type": "gainEnergy", "amount": 2 }],
+  "description": "Gain 2 Energy.",
+  "simulated": true,
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}
