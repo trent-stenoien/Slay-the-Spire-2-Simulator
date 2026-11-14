@@ -23,6 +23,18 @@ function world(): GameData {
   const add = (c: CardDef) => (data.cards[c.id] = c);
   add(card('boomer', [{ type: 'attack', damage: 3, hits: 6, randomTarget: true }]));
   add(card('poke', [{ type: 'attack', damage: 3, hits: 1 }]));
+  add(
+    card('bonk', [
+      { type: 'attack', damage: 4, hits: 1 },
+      { type: 'applyVulnerable', amount: 2 },
+    ]),
+  );
+  add(
+    card('flex', [
+      { type: 'attack', damage: 1, hits: 1 },
+      { type: 'gainStrength', amount: 3 },
+    ]),
+  );
   add(card('stab', [{ type: 'attack', damage: 9, hits: 1 }]));
   add(card('wall', [{ type: 'gainBlock', amount: 5 }], { type: 'skill' }));
   add(card('jugger', [{ type: 'applyPower', power: 'juggernaut', amount: 4 }], { type: 'power' }));
@@ -182,6 +194,78 @@ describe('#45 strategy: random-target attacks first', () => {
     const d = createStrategy(GREEDY_CONFIG).decide(view([stab, boomer], [8]));
     expect(d).toMatchObject({ kind: 'play' });
     expect((d as { target?: number }).target).toBeUndefined();
+  });
+
+  describe('#344 targeted kill counts all modifiers', () => {
+    const boomer = world().cards.boomer!;
+    const poke = world().cards.poke!;
+    const stab = world().cards.stab!;
+    const bonk = world().cards.bonk!;
+    const flex = world().cards.flex!;
+    const first = (hand: CardDef[], hps: number[], tweak?: (v: StrategyView) => void, energy = 3) => {
+      const v = view(hand, hps, energy);
+      tweak?.(v);
+      return createStrategy(GREEDY_CONFIG).decide(v);
+    };
+
+    it('Vulnerable from a card in the set counts for the later card, which is played second', () => {
+      // bonk 4 + stab 9 x1.5 (13) = 17 kills 17 HP; without the modifier 13 would not.
+      expect(first([boomer, stab, bonk], [50, 17])).toMatchObject({ kind: 'play', uid: 3, target: 1 });
+    });
+
+    it('the card applying the debuff goes first even when it is later in hand', () => {
+      expect(first([boomer, stab, poke, bonk], [50, 17])).toMatchObject({ uid: 4, target: 1 });
+    });
+
+    it('Vulnerable does not help the card that applies it (damage lands first)', () => {
+      expect(first([boomer, bonk], [50, 7])).toMatchObject({ uid: 1 });
+      expect((first([boomer, bonk], [50, 7]) as { target?: number }).target).toBeUndefined();
+    });
+
+    it('Strength gained from a card in the set counts for the later cards', () => {
+      // flex 1 then stab 9+3 = 12 -> 13 total
+      expect(first([boomer, stab, flex], [50, 13])).toMatchObject({ uid: 3, target: 1 });
+      expect(first([boomer, stab, flex], [50, 14])).toMatchObject({ uid: 1 });
+    });
+
+    it('enemy Block still has to be chewed through', () => {
+      const withBlock = (v: StrategyView) => {
+        (v.state.enemies![1] as { block: number }).block = 5;
+      };
+      expect(first([boomer, stab, bonk], [50, 12], withBlock)).toMatchObject({ uid: 3, target: 1 });
+      expect(first([boomer, stab, bonk], [50, 13], withBlock)).toMatchObject({ uid: 1 });
+    });
+
+    it('Artifact on the enemy negates the Vulnerable, so the kill is not counted', () => {
+      const artifact = (v: StrategyView) => {
+        (v.state.enemies![1] as { powers: object }).powers = { artifact: 1 };
+      };
+      expect(first([boomer, stab, bonk], [50, 17], artifact)).toMatchObject({ uid: 1 });
+    });
+
+    it('Shrink on the player cuts the set damage, so a kill that needs full damage is not counted', () => {
+      const shrunk = (v: StrategyView) => {
+        (v.state.player as { shrink?: number }).shrink = 50;
+      };
+      expect(first([boomer, stab, poke], [50, 6], shrunk)).toMatchObject({ uid: 1 });
+      expect(first([boomer, stab, poke], [50, 5], shrunk)).toMatchObject({ uid: 2, target: 1 });
+    });
+
+    it('Vigor adds to the first attack card only', () => {
+      const vigor = (v: StrategyView) => {
+        (v.state.player.powers as Record<string, number>).vigor = 5;
+      };
+      // stab 9+5 + poke 3 = 17 kills 17 HP; two vigor bonuses (22) would not be needed
+      expect(first([boomer, stab, poke], [50, 17], vigor)).toMatchObject({ target: 1 });
+      expect(first([boomer, stab, poke], [50, 18], vigor)).toMatchObject({ uid: 1 });
+    });
+
+    it('an existing Vulnerable on the enemy counts for every card', () => {
+      const vuln = (v: StrategyView) => {
+        (v.state.enemies![1]!.debuffs as { vulnerable: number }).vulnerable = 1;
+      };
+      expect(first([boomer, stab], [50, 13], vuln)).toMatchObject({ uid: 2, target: 1 });
+    });
   });
 });
 void passive;
