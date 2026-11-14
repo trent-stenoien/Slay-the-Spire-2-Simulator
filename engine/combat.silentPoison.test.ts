@@ -223,7 +223,7 @@ describe('Corrosive Wave', () => {
 });
 
 describe('Outbreak', () => {
-  it('deals its damage to ALL enemies on every 3rd Poison application (one effect = one application)', () => {
+  it('deals its damage to ALL enemies on every 3rd Poison application (each poisoned enemy = one application)', () => {
     const r = run(
       [
         ['outbreak', 1],
@@ -233,9 +233,23 @@ describe('Outbreak', () => {
       (t) => (t === 1 ? ['outbreak', 'haze', 'haze', 'haze'] : []),
       { enemyIds: ['idle', 'idle2'] },
     );
-    // 3 Hazes poison both enemies (2 events each) = 3 applications: Outbreak fires once, 11 to each enemy.
+    // #332: 3 Hazes poison both enemies = 6 applications: Outbreak fires twice, 11 to each enemy each time.
     const hits = events(r.log, 'damage').filter((e) => e.source === 'player');
-    expect(hits.map((e) => e.hpLoss)).toEqual([11, 11]);
+    expect(hits.map((e) => e.hpLoss)).toEqual([11, 11, 11, 11]);
+  });
+
+  it('counts ALL-enemies Poison on 3 enemies as 3 applications', () => {
+    const r = run(
+      [
+        ['outbreak', 1],
+        ['haze', 3],
+        ['blocker', 3],
+      ],
+      (t) => (t === 1 ? ['outbreak', 'haze'] : []),
+      { enemyIds: ['idle', 'idle2', 'idle'] },
+    );
+    const hits = events(r.log, 'damage').filter((e) => e.source === 'player');
+    expect(hits.map((e) => e.hpLoss)).toEqual([11, 11, 11]);
   });
 
   it('counts only while it is in play and does not count an Artifact-negated application', () => {
