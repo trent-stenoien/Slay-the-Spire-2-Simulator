@@ -396,7 +396,7 @@ export const POWER_IDS = [
   'wasteAway',
   // #272 The Insatiable: declared, not simulated
   'sandpit',
-  // #276 Queen: declared, not simulated
+  // #276 Queen (simulated)
   'chainsOfBinding',
 ] as const;
 
@@ -415,7 +415,7 @@ export const ENEMY_POWER_IDS = [
   'painfulStabs',
   'nemesis',
   'intangible',
-  // #276 Torch Head Amalgam: declared, not simulated
+  // #276 Torch Head Amalgam (simulated)
   'minion',
   // #339 attack factors: declared, not simulated
   'thorns',
