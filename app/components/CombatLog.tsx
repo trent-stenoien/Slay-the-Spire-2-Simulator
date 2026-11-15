@@ -5,6 +5,7 @@ import { defaultName, describeConfig } from '../lib/strategyLibrary';
 import { useSavedLibrary } from '../useStrategies';
 import {
   ascensionLabel,
+  BOUND_MARK,
   describeEvent,
   enemyIntentLabel,
   hpLostPhrase,
@@ -313,7 +314,10 @@ function RoundBody({
       <div className={`phase phase-you phase-${characterId}`}>
         <h4>Your Turn</h4>
         <p className="small">
-          <strong>Drew:</strong> {round.drawn.length ? round.drawn.map(name).join(', ') : 'nothing'}
+          <strong>Drew:</strong>{' '}
+          {round.drawn.length
+            ? round.drawn.map((c, i) => name(c) + (round.drawnBound[i] ? BOUND_MARK : '')).join(', ')
+            : 'nothing'}
         </p>
         <EventList lines={playerLines} empty="No cards played." />
       </div>

@@ -3827,11 +3827,15 @@ class Combat {
     // #113 Stratagem can take the last card of a fresh draw pile into the hand.
     if (player.drawPile.length === 0) return null;
     const card = player.drawPile.pop() as CardInstance;
-    log?.push({ t: 'draw', uid: card.uid, cardId: card.cardId });
     this.counters.cardsDrawnThisTurn++;
     this.counters.cardsDrawnThisCombat++;
     // #276 Chains of Binding: the first [amount] cards drawn each turn become Bound.
     if (this.counters.cardsDrawnThisTurn <= this.power('chainsOfBinding')) card.bound = true;
+    log?.push(
+      card.bound
+        ? { t: 'draw', uid: card.uid, cardId: card.cardId, bound: true }
+        : { t: 'draw', uid: card.uid, cardId: card.cardId },
+    );
     this.lastDrawn.push(card);
     // #266 Speedster: a card drawn during the player's turn hurts every enemy (power damage, Block absorbs it).
     const speedster = this.playerTurn ? this.power('speedster') : 0;

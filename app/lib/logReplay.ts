@@ -30,6 +30,8 @@ export interface Round {
   end: RoundSnapshot;
   /** Card ids drawn at the start of this round's player turn, in order. Mid-turn draws are events. */
   drawn: string[];
+  /** #383: `drawn[i]` came in Bound (Chains of Binding). */
+  drawnBound: boolean[];
   /** Player phase events (after turnStart player, up to the enemy turnStart). */
   playerEvents: GameEvent[];
   /** Enemy move name, or null if the combat ended first. #5: several enemies' moves joined by " + ". */
@@ -113,6 +115,7 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
             start: snap,
             end: snap,
             drawn: [],
+            drawnBound: [],
             playerEvents: [],
             enemyMove: null,
             enemyMoveId: null,
@@ -182,6 +185,7 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
         // The turn-start draw is summarised in `drawn`; draws from cards are listed as events.
         if (!played) {
           cur?.drawn.push(ev.cardId);
+          cur?.drawnBound.push(ev.bound === true);
           continue;
         }
         break;
@@ -237,6 +241,9 @@ export function relicIdName(id: string): string {
     .join(' ');
 }
 
+/** #383: shown after a card's name when it is Bound (only 1 Bound card playable per turn). */
+export const BOUND_MARK = ' (Bound)';
+
 export function describeEvent(
   ev: GameEvent,
   name: (cardId: string) => string,
@@ -285,7 +292,7 @@ export function describeEvent(
     case 'enemySkip':
       return 'Enemy is Stunned and skips its move';
     case 'draw':
-      return `You draw ${name(ev.cardId)}`;
+      return `You draw ${name(ev.cardId)}${ev.bound ? BOUND_MARK : ''}`;
     case 'powerApplied':
       return powerAppliedText(ev);
     case 'powerRemoved':
