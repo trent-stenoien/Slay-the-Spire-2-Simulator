@@ -295,8 +295,7 @@ function RoundBody({
   round: Round;
   name: (id: string) => string;
 }) {
-  const lines = (evs: GameEvent[]) =>
-    evs.map((e) => describeEvent(e, name, undefined, round.boundDraws)).filter((s): s is string => s !== null);
+  const lines = (evs: GameEvent[]) => evs.map((e) => describeEvent(e, name)).filter((s): s is string => s !== null);
   const playerLines = lines(round.playerEvents);
   const enemyLines = lines(round.enemyEvents).filter((l) => !l.startsWith('Enemy uses'));
   return (

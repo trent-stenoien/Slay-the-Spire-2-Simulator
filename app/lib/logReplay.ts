@@ -32,8 +32,6 @@ export interface Round {
   drawn: string[];
   /** #383: `drawn[i]` came in Bound (Chains of Binding). */
   drawnBound: boolean[];
-  /** #383: draw events (in `playerEvents`) that came in Bound. */
-  boundDraws: Set<GameEvent>;
   /** Player phase events (after turnStart player, up to the enemy turnStart). */
   playerEvents: GameEvent[];
   /** Enemy move name, or null if the combat ended first. #5: several enemies' moves joined by " + ". */
@@ -101,9 +99,6 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
   let hpLost: number | null = null;
   /** True once a card has been played this round: later draws come from card effects. */
   let played = false;
-  /** #383: Chains of Binding amount and cards drawn this turn: the first `amount` draws are Bound. */
-  let chains = 0;
-  let drawCount = 0;
 
   const closeRound = () => {
     if (cur) cur.end = snapshot();
@@ -121,7 +116,6 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
             end: snap,
             drawn: [],
             drawnBound: [],
-            boundDraws: new Set(),
             playerEvents: [],
             enemyMove: null,
             enemyMoveId: null,
@@ -132,7 +126,6 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
           rounds.push(cur);
           phase = 'player';
           played = false;
-          drawCount = 0;
           continue;
         }
         phase = 'enemy';
@@ -188,24 +181,14 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
       case 'play':
         played = true;
         break;
-      case 'powerApplied':
-        if (ev.side === 'player' && ev.power === 'chainsOfBinding') chains = ev.total;
-        break;
-      case 'powerRemoved':
-        if (ev.side === 'player' && ev.power === 'chainsOfBinding') chains = 0;
-        break;
-      case 'draw': {
-        drawCount++;
-        const bound = drawCount <= chains;
+      case 'draw':
         // The turn-start draw is summarised in `drawn`; draws from cards are listed as events.
         if (!played) {
           cur?.drawn.push(ev.cardId);
-          cur?.drawnBound.push(bound);
+          cur?.drawnBound.push(ev.bound === true);
           continue;
         }
-        if (bound) cur?.boundDraws.add(ev);
         break;
-      }
       case 'loseHp':
         side(ev.side).hp = ev.hpAfter;
         break;
@@ -265,7 +248,6 @@ export function describeEvent(
   ev: GameEvent,
   name: (cardId: string) => string,
   relicName: (relicId: string) => string = relicIdName,
-  boundDraws?: ReadonlySet<GameEvent>,
 ): string | null {
   const gains = (s: 'player' | 'enemy') => (s === 'player' ? 'You gain' : 'Enemy gains');
   switch (ev.t) {
@@ -310,7 +292,7 @@ export function describeEvent(
     case 'enemySkip':
       return 'Enemy is Stunned and skips its move';
     case 'draw':
-      return `You draw ${name(ev.cardId)}${boundDraws?.has(ev) ? BOUND_MARK : ''}`;
+      return `You draw ${name(ev.cardId)}${ev.bound ? BOUND_MARK : ''}`;
     case 'powerApplied':
       return powerAppliedText(ev);
     case 'powerRemoved':

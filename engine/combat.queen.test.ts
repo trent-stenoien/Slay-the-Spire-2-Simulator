@@ -291,6 +291,12 @@ describe('#276 Chains of Binding and Bound', () => {
     expect(bound).toBe(5);
   });
 
+  it('flags Bound draws in the event log (#383)', () => {
+    const r = simulateCombat(dummyData(), cfg({ ...base, playerStart: chains(2) }), passive, { log: true });
+    const first = events(r.log, 'draw').slice(0, 5);
+    expect(first.map((e) => e.t === 'draw' && e.bound === true)).toEqual([true, true, false, false, false]);
+  });
+
   it('playing a second Bound card in the same turn is illegal', () => {
     const s: Strategy = {
       decide(view) {
