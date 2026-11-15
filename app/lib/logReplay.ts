@@ -140,6 +140,10 @@ export function buildReplay(log: readonly GameEvent[]): Replay {
           poison: 0,
         };
         break;
+      case 'revive':
+        // #274: the current enemy comes back as its next phase with every status cleared.
+        Object.assign(enemy, { hp: ev.hp, maxHp: ev.hp, block: 0, strength: 0, debuffs: emptyDebuffs(), poison: 0 });
+        break;
       case 'blockReset':
         side(ev.side).block = 0;
         break;
@@ -300,6 +304,9 @@ export function describeEvent(
     case 'target':
       // #5: the following lines are about this enemy (1-based, left to right).
       return `Enemy ${ev.enemy + 1}:`;
+    case 'revive':
+      // #274: a multi-phase enemy (Test Subject) comes back as its next phase.
+      return `The enemy revives as ${ev.enemyId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} (${ev.hp} HP)`;
     case 'spawn':
       // #333: an enemy joined mid-fight (1-based slot, left to right).
       return `${ev.enemyId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} appears as Enemy ${ev.index + 1} (${ev.hp} HP${ev.stunned ? ', Stunned' : ''})`;

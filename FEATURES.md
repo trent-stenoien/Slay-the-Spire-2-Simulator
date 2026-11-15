@@ -454,7 +454,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     A8 399) opens Curse of Knowledge, Slap 17 (A9 18), Knowledge Overwhelming 8x3 (9x3), Ponder 11 (13) + heal 30 +
     2 (3) Strength, three times, then repeats Slap, Knowledge Overwhelming, Ponder. Act 2 becomes selectable in the
     Setup picker. The enemy heal is logged as a `heal` event with side 'enemy' and the HP actually restored.
-61. **Curse of Knowledge choice (#271, Trent):** an enemy move's `playerChoice` gives the player one of its options.
+62. **Curse of Knowledge choice (#271, Trent):** an enemy move's `playerChoice` gives the player one of its options.
     The three uses offer Disintegration 6 or Mind Rot 1, Disintegration 7 or Sloth 3, Disintegration 8 or Waste
     Away 1 (Mind Rot / Sloth / Waste Away amounts from the status cards' text, builder's call until Trent confirms).
     Each strategy takes the option in `StrategyConfig.optionChoices[id]`; no pick, or an invalid one, takes option 0
@@ -462,7 +462,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     (Done saves, Cancel keeps); the row shows "Takes: ..." with a Change button. Picks are stored with the
     selection, apply only in fights with that choice, and go into the strategy code as "~<id>.<n>" per non-zero
     pick (sorted by id), so log links reproduce them.
-62. **The Insatiable, Sandpit and Frantic Escape (#272, Trent):** The Insatiable (Act 2, Hive, boss, 321 HP, A8 341) opens Liquify Ground (4 Sandpit on the player; shuffles 6 Frantic Escape into the deck: 3 at random places in
+63. **The Insatiable, Sandpit and Frantic Escape (#272, Trent):** The Insatiable (Act 2, Hive, boss, 321 HP, A8 341) opens Liquify Ground (4 Sandpit on the player; shuffles 6 Frantic Escape into the deck: 3 at random places in
     the draw pile, 3 into the discard pile), then cycles Thrash 8x2 (A9 9x2), Lunging Bite 28 (31), Salivate +2 (3)
     Strength, Thrash. Sandpit goes down by 1 at the end of the player's turn; when it reaches 0 the player is eaten
     (all HP lost, combat lost, nothing prevents it) at the start of the enemy's turn, after Poison, so a Poison kill
@@ -482,7 +482,6 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     first repeats the first upgrade's step). Imported although the wiki marks it beta (Trent: it is in the full
     release; raw v0.107.1 numbers win). Act 3 becomes selectable in the Setup picker. Builder calls pending
     Trent: +3 per Wither level, X starts at 0, "upgrade all" raises to at least +X, Ebb 22 (raw).
-
 64. **Queen and Torch Head Amalgam (#276, Trent):** Act 3, Glory boss fight; the Amalgam stands left (acts
     first), the Queen right. Queen: boss, 400 HP (A8 419); Puppet Strings (3 Chains of Binding), You're Mine (99
     Frail, 99 Weak, 99 Vulnerable on the player), then Burn Bright for Me (Amalgam +1 Strength, Queen 20 Block)
@@ -495,6 +494,20 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     fight is won once every non-Minion enemy is dead; a fight of Minions only is won when they are all dead.
     Chains of Binding: the first [amount] cards drawn each turn (every draw counts) are Bound; only 1 Bound card
     can be played per turn; every card is un-Bound at the end of the player's turn.
+65. **Test Subject and multi-phase enemies (#274, Trent):** Act 3, Glory, boss in three phases, each its own enemy
+    record linked by `nextPhase` (later phases are not offered in the picker). Phase 1: 100 HP (A8 111), Enrage 2
+    (A9 3: gains that much Strength whenever the player plays a Skill), Bite 20 (22) and Skull Bash 14 (16) + 1
+    Vulnerable alternating, Bite first. Phase 2: 200 HP (212), Painful Stabs (each enemy attack hit that does HP
+    damage shuffles 1 Wound into the discard pile), Multi-Claw 10x3 (11x3) every turn, +1 hit per earlier use (the
+    intent shows the grown count). Phase 3: 300 HP (313), revives with 1 Intangible and Nemesis, cycles Lacerate 10x3
+    (11x3), Big Pounce 45, Burning Growl (3 Burn into the discard pile, +2 Strength; A9 5, +3). Revive: killed during
+    the player's turn it revives at the start of its own turn, which it spends reviving (no move); killed during its
+    own turn (Poison, Thorns) it stays dead through the player's next turn and revives at the start of the turn
+    after. While dead it cannot be targeted (attacks deal nothing, other effects still apply); the fight is won
+    only when the last phase dies. On revive all its Strength, debuffs, Poison, Block, powers and move counts clear;
+    the player's buffs and debuffs carry over, and Wounds and Burns stay in the deck. Enemy Intangible: each hit and
+    HP loss it takes is 1; it falls off at the end of the player's turn. Nemesis gains 1 Intangible at the end of
+    its 2nd, 4th ... turn, so phase 3 is Intangible on the 1st, 3rd, 5th ... player turns after its revive.
 
 ## Known failure points
 

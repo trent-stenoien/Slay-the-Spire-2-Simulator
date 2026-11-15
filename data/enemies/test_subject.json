@@ -1,0 +1,86 @@
+{
+  "id": "test_subject",
+  "code": "T1",
+  "name": "Test Subject",
+  "act": 3,
+  "zone": "glory",
+  "difficulty": "boss",
+  "hp": {
+    "min": 100,
+    "max": 100
+  },
+  "startPowers": {
+    "enrage": 2
+  },
+  "nextPhase": "test_subject_phase_2",
+  "moves": {
+    "bite": {
+      "name": "Bite",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 20,
+          "hits": 1
+        }
+      ]
+    },
+    "skullBash": {
+      "name": "Skull Bash",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 14,
+          "hits": 1
+        },
+        {
+          "type": "applyVulnerable",
+          "amount": 1
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["bite", "skullBash"],
+    "start": "first"
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 111,
+        "max": 111
+      }
+    },
+    "9": {
+      "startPowers": {
+        "enrage": 3
+      },
+      "moves": {
+        "bite": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 22,
+              "hits": 1
+            }
+          ]
+        },
+        "skullBash": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 16,
+              "hits": 1
+            },
+            {
+              "type": "applyVulnerable",
+              "amount": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

@@ -1,0 +1,101 @@
+{
+  "id": "test_subject_phase_3",
+  "code": "T3",
+  "name": "Test Subject (Phase 3)",
+  "act": 3,
+  "zone": "glory",
+  "difficulty": "boss",
+  "hp": {
+    "min": 300,
+    "max": 300
+  },
+  "startPowers": {
+    "nemesis": 1,
+    "intangible": 1
+  },
+  "moves": {
+    "lacerate": {
+      "name": "Lacerate",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 10,
+          "hits": 3
+        }
+      ]
+    },
+    "bigPounce": {
+      "name": "Big Pounce",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 45,
+          "hits": 1
+        }
+      ]
+    },
+    "burningGrowl": {
+      "name": "Burning Growl",
+      "effects": [
+        {
+          "type": "addCards",
+          "source": {
+            "kind": "card",
+            "cardId": "burn"
+          },
+          "count": 3,
+          "to": "discard"
+        },
+        {
+          "type": "gainStrength",
+          "amount": 2
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["lacerate", "bigPounce", "burningGrowl"],
+    "start": "first"
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 313,
+        "max": 313
+      }
+    },
+    "9": {
+      "moves": {
+        "lacerate": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 11,
+              "hits": 3
+            }
+          ]
+        },
+        "burningGrowl": {
+          "effects": [
+            {
+              "type": "addCards",
+              "source": {
+                "kind": "card",
+                "cardId": "burn"
+              },
+              "count": 5,
+              "to": "discard"
+            },
+            {
+              "type": "gainStrength",
+              "amount": 3
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}

@@ -33,6 +33,8 @@ export function checkEffects(r: Reporter, list: unknown, path: string): void {
       optBool(r, e, 'xTimes', p);
       optBool(r, e, 'randomTarget', p);
       checkXBonus(r, e, p);
+      // #274 Multi-Claw: extra hits per earlier use of the move (enemy moves only; cards reject it).
+      if (has(e, 'extraHitsPerUse')) r.int(e, 'extraHitsPerUse', 1, `${p}.extraHitsPerUse`);
     } else if (isOneOf(e.type, AMOUNT_EFFECTS)) {
       r.int(e, 'amount', 0, `${p}.amount`);
       // #5: debuffs on enemies may hit every enemy.
