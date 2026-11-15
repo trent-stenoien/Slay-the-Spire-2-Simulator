@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { gameData } from '../data/index';
 import { makeCardInstance } from './combat';
 import {
   createStrategy,
@@ -332,11 +333,34 @@ describe('pick helpers', () => {
       };
       return createStrategy(GREEDY_CONFIG).decide(view);
     };
-    it('Aeonglass: a Shiv that would be the 6th card is held back; other Shivs go first', () => {
+    it('Aeonglass: the Withers a Shiv maker adds are charged against it; created Shivs are always played', () => {
       const shiv = makeCardInstance(shivDef, false, 0);
-      const defend = makeCardInstance(cards[D]!, false, 1);
-      expect(decideWith([shiv, defend], { witheringPresence: 6 }, 5)).not.toEqual({ kind: 'play', uid: 0 });
-      expect(decideWith([shiv, defend], { witheringPresence: 6 }, 3)).toEqual({ kind: 'play', uid: 0 });
+      expect(decideWith([shiv], { witheringPresence: 6 }, 5)).toEqual({ kind: 'play', uid: 0 });
+      const maker = makeCardInstance(
+        {
+          ...cards[D]!,
+          id: 'two_shivs',
+          cost: 1,
+          effects: [{ type: 'addCards', source: { kind: 'card', cardId: 'shiv' }, count: 2, to: 'hand' }],
+        } as CardDef,
+        false,
+        1,
+      );
+      const strike = makeCardInstance(cards[S]!, false, 2);
+      // 2 Shivs = 8 damage beats a Strike (6); at 3 cards played, maker + 2 Shivs is the 6th card: a Wither (-3).
+      expect(decideWith([maker, strike], { witheringPresence: 6 }, 0, 1)).toEqual({ kind: 'play', uid: 1 });
+      expect(decideWith([maker, strike], { witheringPresence: 6 }, 3, 1)).toEqual({ kind: 'play', uid: 2 });
+      expect(decideWith([maker, strike], {}, 3, 1)).toEqual({ kind: 'play', uid: 1 });
+    });
+    it('Aeonglass: Storm of Steel is charged the Withers its Shivs add', () => {
+      const storm = makeCardInstance(gameData.cards.storm_of_steel!, false, 0);
+      const strike = makeCardInstance(cards[S]!, false, 1);
+      const d1 = makeCardInstance(cards[D]!, false, 2);
+      const d2 = makeCardInstance(cards[D]!, false, 3);
+      // 3 discarded cards = 3 Shivs (12) beats a Strike (6) ...
+      expect(decideWith([storm, strike, d1, d2], {}, 0, 1)).toEqual({ kind: 'play', uid: 0 });
+      // ... but a Wither on every card (4 cards: -12) leaves it worth 0.
+      expect(decideWith([storm, strike, d1, d2], { witheringPresence: 1 }, 0, 1)).toEqual({ kind: 'play', uid: 1 });
     });
     it('Bygone Effigy: Attacks wait for other cards that leave Energy for them', () => {
       const strike = makeCardInstance(cards[S]!, false, 0);

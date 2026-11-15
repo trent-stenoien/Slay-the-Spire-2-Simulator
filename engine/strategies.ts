@@ -306,7 +306,23 @@ function fanValue(n: number, state?: State, relics?: readonly string[]): number 
 /** #284: damage per energy of a Shiv maker (Infinity at cost 0). */
 function makerEfficiency(card: Card, state?: State): number {
   const cost = card.cost ?? 0;
-  return cost <= 0 ? Infinity : shivDamageMade(card, state) / cost;
+  return cost <= 0 ? Infinity : (shivDamageMade(card, state) - witherCost(shivCountMade(card), state)) / cost;
+}
+
+/** #339 Wither's end-of-turn damage (data/cards/colorless/wither.json: 3, 6 upgraded; +3 per upgrade level). */
+const WITHER_DAMAGE = 3;
+
+/**
+ * #339 (Trent): against Aeonglass (Withering Presence: a Wither every N cards played) every created Shiv is
+ * played, so what counts is the Withers the maker's cards add: the maker and its Shivs are 1 + n more cards.
+ * Each Wither is charged its damage (3 per level of EnemyState.createdCardLevels.wither, from 3).
+ */
+function witherCost(shivs: number, state?: State): number {
+  const every = state?.enemy?.powers?.witheringPresence ?? 0;
+  if (!state || every <= 0) return 0;
+  const played = state.player.counters?.cardsPlayedThisCombat ?? 0;
+  const withers = Math.floor((played + 1 + shivs) / every) - Math.floor(played / every);
+  return withers * WITHER_DAMAGE * ((state.enemy.createdCardLevels?.wither ?? 0) + 1);
 }
 
 /**
@@ -354,7 +370,8 @@ function stormShivCount(view: StrategyView, storm: Card): number {
 
 /**
  * #339 (Trent): Storm of Steel is an attack worth the total damage of the Shivs it makes, Accuracy,
- * Phantom Blades (first Shiv of the turn) and Fan of Knives (every living enemy) included.
+ * Phantom Blades (first Shiv of the turn) and Fan of Knives (every living enemy) included, minus the Withers
+ * Aeonglass adds for Storm and its Shivs (witherCost).
  */
 function stormDamage(view: StrategyView, storm: Card): number {
   const count = stormShivCount(view, storm);
@@ -369,7 +386,7 @@ function stormDamage(view: StrategyView, storm: Card): number {
     const alive = view.state.enemies ? view.state.enemies.filter((en) => en.hp > 0).length : 1;
     sum *= Math.max(1, alive);
   }
-  return sum;
+  return sum - witherCost(count, view.state);
 }
 
 /** #339: Shiv synergy for Storm of Steel: Accuracy, Phantom Blades or Fan of Knives is on. */
@@ -2370,11 +2387,7 @@ export function blockIsLast(config: StrategyConfig): boolean {
 function decide(raw: StrategyView, config: StrategyConfig): Decision {
   // #356: the Shiv kept for Phantom Blades is not played by any other rule either.
   const held = heldShiv(raw);
-  const punished = punishedShivs(raw);
-  const kept =
-    held || punished.length > 0
-      ? { ...raw, playable: raw.playable.filter((c) => c.uid !== held?.uid && !punished.some((p) => p.uid === c.uid)) }
-      : raw;
+  const kept = held ? { ...raw, playable: raw.playable.filter((c) => c.uid !== held.uid) } : raw;
   const base = withStormRules(
     withSlyEffects(
       withoutWaitingForAttacks(
@@ -2390,7 +2403,7 @@ function decide(raw: StrategyView, config: StrategyConfig): Decision {
   const escape = pickSandpitEscape(raw, true);
   if (escape) return play(escape);
   // #267 (Trent, Nov 14): Shivs in hand are always played, unless that would kill the player.
-  const shiv = pickShivPlay({ ...raw, playable: raw.playable.filter((c) => !punished.some((p) => p.uid === c.uid)) });
+  const shiv = pickShivPlay(raw);
   if (shiv) return play(shiv);
   const view = withSlowOrder(base);
   let d = decideWith(view, config, false);
@@ -2477,19 +2490,6 @@ function heldShiv(view: StrategyView): Card | undefined {
   const shivs = view.playable.filter(isShivCard);
   if (shivs.length !== 1 || shivKills(view, shivs[0]!)) return undefined;
   return shivs[0];
-}
-
-/**
- * #339 (Trent): the Shivs-first exception: Shivs are not played first when the enemy makes each card play worse.
- * Aeonglass's Withering Presence adds a Wither every N cards played, so a Shiv that would be the Nth card is held
- * back (it is still played when it kills an enemy). Shivs that do not trigger a Wither are played as usual.
- */
-function punishedShivs(view: StrategyView): Card[] {
-  const every = view.state.enemy?.powers?.witheringPresence ?? 0;
-  if (every <= 0) return [];
-  const next = (view.state.player.counters?.cardsPlayedThisCombat ?? 0) + 1;
-  if (next % every !== 0) return [];
-  return view.playable.filter((c) => isShivCard(c) && !shivKills(view, c));
 }
 
 /**
