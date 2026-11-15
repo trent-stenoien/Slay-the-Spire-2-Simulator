@@ -575,6 +575,76 @@ function withoutLethal(view: StrategyView): StrategyView {
   return { ...view, playable: view.playable.filter((c) => selfDamage(c) < hp) };
 }
 
+// ---------------------------------------------------------------------------
+// #382 / #339 Test Subject: revive, enemy Intangible and Enrage.
+// ---------------------------------------------------------------------------
+
+const DAMAGE_EFFECTS: readonly string[] = ['attack', 'attackFrom', 'dealDamage'];
+
+/** #382: a card whose effects are all damage to the enemy (nothing else is lost when it deals none). */
+function isPureDamage(card: Card): boolean {
+  return card.effects.length > 0 && card.effects.every((e) => DAMAGE_EFFECTS.includes(e.type));
+}
+
+/** #382: the enemies a card can target: alive and not waiting to revive. */
+function targetableEnemies(view: StrategyView): readonly DeepReadonly<State['enemy']>[] {
+  return (view.state.enemies ?? [view.state.enemy]).filter((e) => e && e.hp > 0 && !e.reviving);
+}
+
+/** #382 (Trent): while every enemy is reviving (no target) a pure damage card deals nothing, so it is held. */
+function withoutAttacksOnRevive(view: StrategyView): StrategyView {
+  if (!view.state.enemy) return view;
+  if (targetableEnemies(view).length > 0 || !view.playable.some(isPureDamage)) return view;
+  return { ...view, playable: view.playable.filter((c) => !isPureDamage(c)) };
+}
+
+/**
+ * #382 (Trent): while every target is Intangible (each hit is 1), a pure damage card is held unless it
+ * makes more hits than it costs Energy, or its hits would kill. The turn then goes to Block and setup.
+ */
+function withoutAttacksOnIntangible(view: StrategyView): StrategyView {
+  const targets = targetableEnemies(view);
+  if (!view.state.enemy || targets.length === 0 || !targets.every((e) => (e.powers?.intangible ?? 0) > 0)) return view;
+  const energy = view.state.player.energy;
+  const weak = (c: Card) => {
+    if (!isPureDamage(c)) return false;
+    const hits = attackHitCount(c, energy);
+    return hits <= (c.cost ?? 0) && !targets.some((e) => hits >= e.hp + e.block);
+  };
+  if (!view.playable.some(weak)) return view;
+  return { ...view, playable: view.playable.filter((c) => !weak(c)) };
+}
+
+/** Turns of extra enemy attacks that one point of Enrage Strength is weighed against. */
+export const ENRAGE_TURNS = 3;
+
+/**
+ * #339 (Trent): Test Subject's Enrage gives it Strength for every Skill played. A plain Block Skill is held
+ * when the Block it adds (only the part the enemy's next attack gets through) is worth less than the
+ * damage the Strength adds: Enrage x hits of its next attack x ENRAGE_TURNS. Setup Skills (draw, Energy)
+ * are not held; the Skill is always played when the attack would be lethal.
+ */
+function withoutEnrageSkills(view: StrategyView): StrategyView {
+  if (!view.state.enemy) return view;
+  const enraged = targetableEnemies(view).reduce((n, e) => n + (e.powers?.enrage ?? 0), 0);
+  if (enraged <= 0) return view;
+  const { player } = view.state;
+  const incoming = view.intent.totalIncoming;
+  if (incoming - player.block >= player.hp) return view;
+  const hits = Math.max(
+    1,
+    view.intent.attacks.reduce((n, a) => n + a.hits, 0),
+  );
+  const penalty = enraged * hits * ENRAGE_TURNS;
+  const held = (c: Card) => {
+    if (c.type !== 'skill' || c.effects.length === 0 || !c.effects.every((e) => e.type === 'gainBlock')) return false;
+    const useful = Math.min(totalBlock(c, view.state), Math.max(0, incoming - player.block));
+    return useful < penalty;
+  };
+  if (!view.playable.some(held)) return view;
+  return { ...view, playable: view.playable.filter((c) => !held(c)) };
+}
+
 /** Cards a strategy never plays: Mad Science (Improvement) does nothing within one combat (#135 Q7). */
 const NEVER_PLAYED_CARD_IDS: readonly string[] = ['mad_science_improvement'];
 
@@ -2392,7 +2462,12 @@ function decide(raw: StrategyView, config: StrategyConfig): Decision {
     withSlyEffects(
       withoutWaitingForAttacks(
         withoutWaitingForBlock(
-          withoutGuardBroken(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(kept)))), config),
+          withoutGuardBroken(
+            withoutEnrageSkills(
+              withoutAttacksOnRevive(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(kept))))),
+            ),
+            config,
+          ),
           config,
         ),
       ),
@@ -2405,8 +2480,11 @@ function decide(raw: StrategyView, config: StrategyConfig): Decision {
   // #267 (Trent, Nov 14): Shivs in hand are always played, unless that would kill the player.
   const shiv = pickShivPlay(raw);
   if (shiv) return play(shiv);
-  const view = withSlowOrder(base);
+  // #382: Intangible turns hold weak attacks; if that leaves nothing to play they go after all.
+  const soft = withoutAttacksOnIntangible(base);
+  const view = withSlowOrder(soft);
   let d = decideWith(view, config, false);
+  if (d.kind === 'endTurn' && soft !== base) d = decideWith(withSlowOrder(base), config, false);
   // #339: if waiting for Slow left nothing to play, the Attacks go after all.
   if (d.kind === 'endTurn' && view !== base) d = decideWith(base, config, false);
   if (d.kind !== 'endTurn') return d;

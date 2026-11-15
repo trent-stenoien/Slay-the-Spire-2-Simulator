@@ -509,6 +509,13 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     HP loss it takes is 1; it falls off at the end of the player's turn. Nemesis gains 1 Intangible at the end of
     its 2nd, 4th ... turn, so phase 3 is Intangible on the 1st, 3rd, 5th ... player turns after its revive.
 
+66. **Strategies and Test Subject (#382, #339, Trent):** while every enemy is reviving (no target) a card that
+    only deals damage is held, so the turn goes to Block and setup; while every target is Intangible a damage-only
+    card is held unless it makes more hits than it costs Energy or its hits would kill (if that leaves nothing to
+    play, the Attacks are played after all). Enrage: a Block-only Skill is held when the Block it adds (only the
+    part the next attack gets through) is less than Enrage x hits of that attack x 3 turns, and never when the
+    attack would be lethal; setup Skills are still played.
+
 ## Known failure points
 
 - **Scared Block stress deck:** starter + Burning Pact + Purity + True Grit+ vs Nibbit A0 must stay at
