@@ -306,7 +306,7 @@ function fanValue(n: number, state?: State, relics?: readonly string[]): number 
 /** #284: damage per energy of a Shiv maker (Infinity at cost 0). */
 function makerEfficiency(card: Card, state?: State): number {
   const cost = card.cost ?? 0;
-  return cost <= 0 ? Infinity : (shivDamageMade(card, state) - witherCost(card, state)) / cost;
+  return cost <= 0 ? Infinity : (shivDamageMade(card, state) - witherCost(shivCountMade(card), state)) / cost;
 }
 
 /** #339 Wither's end-of-turn damage (data/cards/colorless/wither.json: 3, 6 upgraded; +3 per upgrade level). */
@@ -317,11 +317,11 @@ const WITHER_DAMAGE = 3;
  * played, so what counts is the Withers the maker's cards add: the maker and its Shivs are 1 + n more cards.
  * Each Wither is charged its damage (3 per level of EnemyState.createdCardLevels.wither, from 3).
  */
-function witherCost(card: Card, state?: State): number {
+function witherCost(shivs: number, state?: State): number {
   const every = state?.enemy?.powers?.witheringPresence ?? 0;
   if (!state || every <= 0) return 0;
   const played = state.player.counters?.cardsPlayedThisCombat ?? 0;
-  const withers = Math.floor((played + 1 + shivCountMade(card)) / every) - Math.floor(played / every);
+  const withers = Math.floor((played + 1 + shivs) / every) - Math.floor(played / every);
   return withers * WITHER_DAMAGE * ((state.enemy.createdCardLevels?.wither ?? 0) + 1);
 }
 
@@ -370,7 +370,8 @@ function stormShivCount(view: StrategyView, storm: Card): number {
 
 /**
  * #339 (Trent): Storm of Steel is an attack worth the total damage of the Shivs it makes, Accuracy,
- * Phantom Blades (first Shiv of the turn) and Fan of Knives (every living enemy) included.
+ * Phantom Blades (first Shiv of the turn) and Fan of Knives (every living enemy) included, minus the Withers
+ * Aeonglass adds for Storm and its Shivs (witherCost).
  */
 function stormDamage(view: StrategyView, storm: Card): number {
   const count = stormShivCount(view, storm);
@@ -385,7 +386,7 @@ function stormDamage(view: StrategyView, storm: Card): number {
     const alive = view.state.enemies ? view.state.enemies.filter((en) => en.hp > 0).length : 1;
     sum *= Math.max(1, alive);
   }
-  return sum;
+  return sum - witherCost(count, view.state);
 }
 
 /** #339: Shiv synergy for Storm of Steel: Accuracy, Phantom Blades or Fan of Knives is on. */

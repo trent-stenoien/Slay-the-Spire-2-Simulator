@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { gameData } from '../data/index';
 import { makeCardInstance } from './combat';
 import {
   createStrategy,
@@ -350,6 +351,16 @@ describe('pick helpers', () => {
       expect(decideWith([maker, strike], { witheringPresence: 6 }, 0, 1)).toEqual({ kind: 'play', uid: 1 });
       expect(decideWith([maker, strike], { witheringPresence: 6 }, 3, 1)).toEqual({ kind: 'play', uid: 2 });
       expect(decideWith([maker, strike], {}, 3, 1)).toEqual({ kind: 'play', uid: 1 });
+    });
+    it('Aeonglass: Storm of Steel is charged the Withers its Shivs add', () => {
+      const storm = makeCardInstance(gameData.cards.storm_of_steel!, false, 0);
+      const strike = makeCardInstance(cards[S]!, false, 1);
+      const d1 = makeCardInstance(cards[D]!, false, 2);
+      const d2 = makeCardInstance(cards[D]!, false, 3);
+      // 3 discarded cards = 3 Shivs (12) beats a Strike (6) ...
+      expect(decideWith([storm, strike, d1, d2], {}, 0, 1)).toEqual({ kind: 'play', uid: 0 });
+      // ... but a Wither on every card (4 cards: -12) leaves it worth 0.
+      expect(decideWith([storm, strike, d1, d2], { witheringPresence: 1 }, 0, 1)).toEqual({ kind: 'play', uid: 1 });
     });
     it('Bygone Effigy: Attacks wait for other cards that leave Energy for them', () => {
       const strike = makeCardInstance(cards[S]!, false, 0);
