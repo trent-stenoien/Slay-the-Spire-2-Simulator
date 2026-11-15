@@ -12,6 +12,7 @@ import type { Deck, RunResult, StrategyConfig } from '../../engine/types';
 import { App } from '../App';
 import { replayCombat } from '../lib/compare';
 import { foldersForFilter } from '../lib/deck';
+import { buildReplay, describeEvent } from '../lib/logReplay';
 import { STORAGE_KEY } from '../lib/strategyLibrary';
 import { SELECTION_STORAGE_KEY } from '../lib/selectionStorage';
 import { defaultSetup } from '../lib/url';
@@ -716,6 +717,29 @@ describe('UI polish (#254)', () => {
     expect(act3.disabled).toBe(false);
     await userEvent.selectOptions(act, '3');
     expect(onEnemy).toHaveBeenCalledWith('aeonglass');
+  });
+
+  it('#274: the Act 3 picker offers Test Subject but not its later phases', () => {
+    const ids = enemiesIn(gameData, 'glory').map((e) => e.id);
+    expect(ids).toContain('test_subject');
+    expect(ids).not.toContain('test_subject_phase_2');
+    expect(ids).not.toContain('test_subject_phase_3');
+  });
+
+  it('#274: the log replay resets the enemy on revive and describes it', () => {
+    const replay = buildReplay([
+      { t: 'combatStart', seed: 1, enemyHp: 100, playerHp: 80 },
+      { t: 'turnStart', turn: 1, side: 'player' },
+      { t: 'strength', side: 'enemy', amount: 2, total: 2 },
+      { t: 'damage', source: 'player', target: 'enemy', amount: 100, blocked: 0, hpLoss: 100 },
+      { t: 'turnStart', turn: 1, side: 'enemy' },
+      { t: 'revive', enemyId: 'test_subject_phase_2', hp: 200 },
+      { t: 'turnStart', turn: 2, side: 'player' },
+    ]);
+    expect(replay.rounds[1]!.start.enemy).toMatchObject({ hp: 200, maxHp: 200, strength: 0 });
+    expect(describeEvent({ t: 'revive', enemyId: 'test_subject_phase_2', hp: 200 }, (id) => id)).toBe(
+      'The enemy revives as Test Subject Phase 2 (200 HP)',
+    );
   });
 
   it('the relic remove button is a plain unstyled button, still labelled', () => {

@@ -240,6 +240,8 @@ export function checkEnemy(r: Reporter, e: Obj): void {
       checkPattern(r, e.onAllyDeath.pattern, 'onAllyDeath.pattern', moveIds);
     }
   }
+  // #274: the id of the enemy this one revives as (checked against the loaded enemies in data tests).
+  if (e.nextPhase !== undefined) r.str(e, 'nextPhase');
   // #322: death effects are spawnEnemies only.
   if (e.onDeath !== undefined) {
     checkMoveEffects(r, e.onDeath, 'onDeath');

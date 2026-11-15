@@ -36,8 +36,10 @@ export const WIP_SUFFIX = ' (work in progress)';
 
 /** Enemies in one biome, alphabetical by name. */
 export function enemiesIn(data: GameData, zone: Zone): EnemyDef[] {
+  // #274: later phases of a multi-phase enemy (named by another enemy's nextPhase) are not offered.
+  const phases = new Set(Object.values(data.enemies).flatMap((e) => (e.nextPhase ? [e.nextPhase] : [])));
   return Object.values(data.enemies)
-    .filter((e) => e.zone === zone)
+    .filter((e) => e.zone === zone && !phases.has(e.id))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 

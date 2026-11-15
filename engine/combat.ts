@@ -84,7 +84,12 @@ const DEBUFF_KINDS: readonly DebuffKind[] = ['vulnerable', 'weak', 'frail'];
 export function computeIntent(
   moveId: string,
   move: { name: string; effects: readonly Effect[] },
-  enemy: { strength: number; debuffs: Debuffs; powers?: Partial<Record<EnemyPowerId, number>> },
+  enemy: {
+    strength: number;
+    debuffs: Debuffs;
+    powers?: Partial<Record<EnemyPowerId, number>>;
+    moveUses?: Record<string, number>;
+  },
   player: { debuffs: Debuffs; powers?: Partial<Record<PowerId, number>> },
 ): EnemyIntent {
   const attacks: EnemyIntent['attacks'] = [];
@@ -96,10 +101,16 @@ export function computeIntent(
   for (const e of move.effects) {
     if (e.type !== 'attack') continue;
     const dph = attackDamage(e.damage, strength, enemy.debuffs.weak, player.debuffs.vulnerable, 0, 0, reduce);
-    attacks.push({ damagePerHit: dph, hits: e.hits });
-    totalIncoming += dph * e.hits;
+    const hits = enemyAttackHits(e, enemy.moveUses?.[moveId] ?? 0);
+    attacks.push({ damagePerHit: dph, hits });
+    totalIncoming += dph * hits;
   }
   return { moveId, name: move.name, attacks, totalIncoming };
+}
+
+/** #274 Multi-Claw: an enemy attack's hits plus `extraHitsPerUse` for each earlier use of the move. */
+export function enemyAttackHits(e: { hits: number; extraHitsPerUse?: number }, usesBefore: number): number {
+  return e.hits + (e.extraHitsPerUse ?? 0) * usesBefore;
 }
 
 /**
@@ -557,6 +568,8 @@ class Combat {
   private allyHooks: boolean;
   /** #276: enemies whose onAllyDeath pattern switch already happened. */
   private readonly allySwitched = new Set<number>();
+  /** #274: reviving enemies that died during an enemy turn: they stay dead through the player's next turn. */
+  private readonly reviveWait = new Set<number>();
   /** #329: enemies spawned Stunned whose arrival Stun has not been used up yet (it does not advance their pattern). */
   private readonly arrivalStun = new Set<number>();
 
@@ -739,7 +752,7 @@ class Combat {
   /** #322 onDeath: run the death effects (spawnEnemies only) of every enemy that died and has not run them yet. */
   private runDeathHooks(): void {
     for (let i = 0; i < this.enemies.length; i++) {
-      if (this.enemies[i]!.hp > 0 || this.deathDone.has(i)) continue;
+      if (this.enemies[i]!.hp > 0 || this.enemies[i]!.reviving || this.deathDone.has(i)) continue;
       this.deathDone.add(i);
       for (const e of this.enemyDefs[i]!.onDeath ?? []) {
         if (e.type !== 'spawnEnemies') throw new Error(`Effect "${e.type}" is not simulated yet in onDeath`);
@@ -750,12 +763,13 @@ class Combat {
 
   /** #5: the combat is won when every enemy is dead. #322: death effects (spawns) run first, so a spawn keeps the fight going. */
   private won(): boolean {
+    this.markRevivals();
     if (this.deathHooks) this.runDeathHooks();
     if (this.allyHooks) this.runAllyDeathHooks();
     // #276 Minion (Torch Head Amalgam): Minions abandon combat without their leader, so only non-Minions must
     // die; a fight of Minions only is won when they are all dead.
     const leaders = this.enemies.filter((e) => !e.powers?.minion);
-    return (leaders.length > 0 ? leaders : this.enemies).every((e) => e.hp <= 0);
+    return (leaders.length > 0 ? leaders : this.enemies).every((e) => e.hp <= 0 && !e.reviving);
   }
 
   /**
@@ -782,6 +796,46 @@ class Combat {
       enemy.patternIndex = 0;
       enemy.nextMoveId = (pattern.type === 'alternate' ? undefined : pattern.opener?.[0]) ?? this.poolMove(i, 0, null);
     });
+  }
+
+  /**
+   * #274: a dead multi-phase enemy (EnemyDef.nextPhase) is marked as reviving: it stays untargetable and the
+   * combat is not won. Killed during the player's turn it revives at the start of its own next turn; killed
+   * during an enemy turn (Poison, Thorns) it waits through the player's next turn too.
+   */
+  private markRevivals(): void {
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i]!;
+      if (e.hp > 0 || e.reviving || !this.enemyDefs[i]!.nextPhase) continue;
+      e.reviving = true;
+      if (!this.playerTurn) this.reviveWait.add(i);
+    }
+  }
+
+  /**
+   * #274: enemy `i` revives as its next phase, using up its turn: new HP (rolled), moves, pattern and start
+   * powers; its Strength, debuffs, Poison, Block, powers and move counts all clear. The player keeps everything.
+   */
+  private revive(i: number): void {
+    const next = this.enemyDefs[i]!.nextPhase!;
+    const def = resolveCheckedEnemy(this.data, next, this.config.ascension);
+    this.enemyDefs[i] = def;
+    this.usedOnce[i] = new Set<string>();
+    this.arrivalStun.delete(i);
+    const fresh = this.makeEnemy(def, i);
+    const e = this.enemies[i]!;
+    for (const key of Object.keys(e) as (keyof EnemyState)[]) delete e[key];
+    Object.assign(e, fresh);
+    this.focusOn(i);
+    this.log?.push({ t: 'revive', enemyId: def.id, hp: e.hp });
+    for (const [power, amount] of Object.entries(def.startPowers ?? {}) as [EnemyPowerId, number][]) {
+      if (amount > 0) this.applyEnemyPower(power, amount);
+    }
+  }
+
+  /** #274 enemy Intangible: damage and HP loss the current enemy takes become 1 (0 stays 0). */
+  private enemyIntangibleCap(amount: number): number {
+    return (this.enemy.powers?.intangible ?? 0) > 0 ? Math.min(amount, 1) : amount;
   }
 
   /** #5: indexes of the living enemies, left to right. */
@@ -847,11 +901,12 @@ class Combat {
       if (i === target) continue;
       this.focusOn(i);
       const { enemy } = this;
-      const blocked = Math.min(enemy.block, amount);
+      const dealt = this.enemyIntangibleCap(amount);
+      const blocked = Math.min(enemy.block, dealt);
       enemy.block -= blocked;
-      const hpLoss = this.slipperyLoss(amount - blocked);
+      const hpLoss = this.slipperyLoss(dealt - blocked);
       enemy.hp -= hpLoss;
-      this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
+      this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount: dealt, blocked, hpLoss });
       if (this.won()) return 'enemy';
     }
     this.focusOn(keep);
@@ -1275,11 +1330,12 @@ class Combat {
     }
     const died = this.onEnemies(to === 'all', () => {
       const { enemy } = this;
-      const blocked = Math.min(enemy.block, amount);
+      const dealt = this.enemyIntangibleCap(amount);
+      const blocked = Math.min(enemy.block, dealt);
       enemy.block -= blocked;
-      const hpLoss = this.slipperyLoss(amount - blocked);
+      const hpLoss = this.slipperyLoss(dealt - blocked);
       enemy.hp -= hpLoss;
-      this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount, blocked, hpLoss });
+      this.log?.push({ t: 'damage', source: 'player', target: 'enemy', amount: dealt, blocked, hpLoss });
     });
     if (to === 'any') this.focusOn(keep);
     return died === 'enemy' || this.won();
@@ -1443,6 +1499,7 @@ class Combat {
     counters.cardsPlayedThisCombat++;
     if (card.type === 'attack') counters.attacksPlayedThisTurn++;
     if (card.type === 'skill') counters.skillsPlayedThisTurn++;
+    if (card.type === 'skill') this.enrage();
     // #267: Accuracy on every Shiv, Phantom Blades on the first Shiv each turn (a Replay does not count again), Fan of Knives hits ALL.
     let shivBonus = 0;
     const shivAll = isShivCard(card) && this.power('fanOfKnives') > 0;
@@ -1555,6 +1612,19 @@ class Combat {
     }
     this.witheringPresence();
     return null;
+  }
+
+  /** #274 Enrage (Test Subject phase 1): each living enemy with it gains [amount] Strength when a Skill is played. */
+  private enrage(): void {
+    this.enemies.forEach((enemy, i) => {
+      const amount = enemy.powers?.enrage ?? 0;
+      if (enemy.hp <= 0 || amount <= 0) return;
+      const keep = this.focus;
+      this.focusOn(i);
+      enemy.strength += amount;
+      this.log?.push({ t: 'strength', side: 'enemy', amount, total: enemy.strength });
+      this.focusOn(keep);
+    });
   }
 
   /**
@@ -1705,8 +1775,20 @@ class Combat {
     this.tickSandpit();
     // #276: cards are un-Bound at the end of the player's turn (Retained ones too).
     if (this.power('chainsOfBinding') > 0) this.unbindAll();
+    this.endEnemyIntangible();
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'player' });
     return null;
+  }
+
+  /** #274 (Trent): enemy Intangible falls off at the end of the player's turn. */
+  private endEnemyIntangible(): void {
+    const keep = this.focus;
+    this.enemies.forEach((e, i) => {
+      if ((e.powers?.intangible ?? 0) <= 0) return;
+      this.focusOn(i);
+      this.applyEnemyPower('intangible', -(e.powers?.intangible ?? 0));
+    });
+    this.focusOn(keep);
   }
 
   /**
@@ -1770,6 +1852,7 @@ class Combat {
   private enemyTurn(): Outcome | null {
     const { player, log } = this;
     log?.push({ t: 'turnStart', turn: this.state.turn, side: 'enemy' });
+    this.markRevivals();
     this.playerTurn = false;
     this.relicTurnLoss = 0;
     const last = this.enemies.length - 1;
@@ -1781,6 +1864,11 @@ class Combat {
       this.endEnemyTurnPowers();
     };
     for (let i = 0; i <= last; i++) {
+      // #274: a reviving enemy spends its turn reviving (unless it died during this enemy phase's turns).
+      if (this.enemies[i]!.reviving && !this.reviveWait.has(i)) {
+        this.revive(i);
+        continue;
+      }
       if (this.enemies[i]!.hp <= 0) continue;
       this.focusOn(i);
       this.enemy.block = 0;
@@ -1790,7 +1878,7 @@ class Combat {
       const triggers = 1 + this.power('accelerant');
       for (let k = 0; k < triggers && this.enemy.poison > 0; k++) {
         const { enemy } = this;
-        const amount = this.slipperyLoss(enemy.poison);
+        const amount = this.slipperyLoss(this.enemyIntangibleCap(enemy.poison));
         enemy.hp -= amount;
         enemy.poison--;
         log?.push({ t: 'poisonDamage', amount, hpAfter: Math.max(enemy.hp, 0) });
@@ -1822,6 +1910,7 @@ class Combat {
       this.endEnemyOwnTurn(i);
     }
     if (!playerPowersEnded) endPlayerPowers();
+    this.reviveWait.clear();
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'enemy' });
     return null;
   }
@@ -1855,6 +1944,11 @@ class Combat {
     const { log } = this;
     const e = this.enemies[i]!;
     if (e.hp <= 0) return;
+    // #274 Nemesis: at the end of every other turn of its own (its 2nd, 4th ... move), gains 1 Intangible.
+    if ((e.powers?.nemesis ?? 0) > 0 && (e.movesMade ?? 0) % 2 === 0) {
+      this.focusOn(i);
+      this.applyEnemyPower('intangible', 1);
+    }
     const due =
       e.powers?.strengthLossThisTurn || e.powers?.strengthPerTurn || DEBUFF_KINDS.some((k) => e.debuffs[k] > 0);
     if (!due) return;
@@ -1977,7 +2071,12 @@ class Combat {
       switch (e.type) {
         case 'attack': {
           const dmg = e.damage + (card?.damageBonus ?? 0) + this.relicCardDamage(card);
-          died = this.attack(source, other, dmg, attackHits(e, x), e.allEnemies || this.shivAll, e.randomTarget);
+          // #274 Multi-Claw: an enemy move gains hits per earlier use (moveUses counts uses before this one).
+          const hits =
+            source === 'enemy' && e.extraHitsPerUse
+              ? enemyAttackHits(e, this.enemy.moveUses?.[this.enemy.nextMoveId ?? ''] ?? 0)
+              : attackHits(e, x);
+          died = this.attack(source, other, dmg, hits, e.allEnemies || this.shivAll, e.randomTarget);
           // #269 Echoing Slash: repeat once per enemy killed; kills made by a repeat repeat again.
           if (e.repeatPerKill && source === 'player') {
             let repeats = this.deadCount() - deadBefore;
@@ -2764,7 +2863,7 @@ class Combat {
   private enemyLoseHp(requested: number): boolean {
     const { enemy } = this;
     if (enemy.hp <= 0) return this.won();
-    const amount = this.slipperyLoss(requested);
+    const amount = this.slipperyLoss(this.enemyIntangibleCap(requested));
     enemy.hp -= amount;
     this.log?.push({ t: 'loseHp', side: 'enemy', amount, hpAfter: Math.max(enemy.hp, 0) });
     return this.won();
@@ -3535,6 +3634,11 @@ class Combat {
       // #115 The Gambit: unblocked attack damage from the enemy loses the combat.
       if (hpLoss > 0 && this.power('gambit') > 0) player.hp = 0;
       if (player.hp <= 0) return 'player';
+      // #274 Painful Stabs: each hit that does HP damage shuffles [amount] Wounds into the discard pile.
+      const stabs = enemy.powers?.painfulStabs ?? 0;
+      if (stabs > 0 && hpLoss > 0) {
+        this.addCards({ type: 'addCards', source: { kind: 'card', cardId: 'wound' }, count: stabs, to: 'discard' });
+      }
       // Thorns and #110 Flame Barrier hit back after every hit, even one reduced to 0 damage.
       const thorns = this.power('thorns') + this.power('flameBarrier');
       if (thorns > 0 && this.powerDamage(thorns)) return 'enemy';
@@ -3573,7 +3677,7 @@ class Combat {
       for (const i of targets) {
         this.focusOn(i);
         const t = this.enemy;
-        const perHit = attackDamage(
+        const rawHit = attackDamage(
           base,
           player.strength,
           player.debuffs.weak,
@@ -3585,6 +3689,8 @@ class Combat {
           double,
           (t.powers?.slow ?? 0) > 0 ? this.slowCards * 10 : 0,
         );
+        // #274 enemy Intangible: each hit is 1.
+        const perHit = this.enemyIntangibleCap(rawHit);
         const blocked = Math.min(t.block, perHit);
         t.block -= blocked;
         // #205 The Boot first, then #213 Slippery.

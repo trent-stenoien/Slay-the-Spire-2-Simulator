@@ -1,0 +1,58 @@
+{
+  "id": "test_subject_phase_2",
+  "code": "T2",
+  "name": "Test Subject (Phase 2)",
+  "act": 3,
+  "zone": "glory",
+  "difficulty": "boss",
+  "hp": {
+    "min": 200,
+    "max": 200
+  },
+  "startPowers": {
+    "painfulStabs": 1
+  },
+  "nextPhase": "test_subject_phase_3",
+  "moves": {
+    "multiClaw": {
+      "name": "Multi-Claw",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 10,
+          "hits": 3,
+          "extraHitsPerUse": 1
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["multiClaw"],
+    "start": "first"
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 212,
+        "max": 212
+      }
+    },
+    "9": {
+      "moves": {
+        "multiClaw": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 11,
+              "hits": 3,
+              "extraHitsPerUse": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}
