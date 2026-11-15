@@ -5,6 +5,7 @@ import {
   normalizeConfig,
   parseStrategyCode,
   pickAttack,
+  vulnerableScale,
   pickBlock,
   sameConfig,
   strategyCode,
@@ -399,6 +400,24 @@ describe('#347 Vulnerable valued over the turns it lasts', () => {
     const us = makeCardInstance(cards.ultimate_strike!, true, 0);
     const bash = makeCardInstance(cards.bash!, false, 1);
     expect(pickAttack([us, bash], 2, 1, stateWith(strikes(), 1))!.cardId).toBe('bash');
+  });
+
+  it("#347 the enemy's next move scales the future value: big attack less, not attacking more", () => {
+    const us = makeCardInstance(cards.ultimate_strike!, true, 0);
+    const bash = makeCardInstance(cards.bash!, false, 1);
+    const st = stateWith(strikes());
+    const pick = (scale: number) => pickAttack([us, bash], 2, 0, st, undefined, scale)!.cardId;
+    expect(pick(1)).toBe('bash');
+    expect(pick(0)).toBe(us.cardId);
+    const view = (incoming: number, block = 0): StrategyView => ({
+      state: { ...st, player: { ...st.player, block } },
+      intent: { moveId: 'm', name: 'm', attacks: [], totalIncoming: incoming },
+      playable: [],
+    });
+    expect(vulnerableScale(view(0))).toBe(1.5);
+    expect(vulnerableScale(view(40))).toBe(0.5);
+    expect(vulnerableScale(view(40, 40))).toBe(1);
+    expect(vulnerableScale(view(200))).toBe(0);
   });
 
   it('the value is capped by what the enemy has left', () => {
