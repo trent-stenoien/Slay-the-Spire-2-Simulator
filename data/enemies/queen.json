@@ -1,0 +1,131 @@
+{
+  "id": "queen",
+  "code": "Qn",
+  "name": "Queen",
+  "act": 3,
+  "zone": "glory",
+  "difficulty": "boss",
+  "hp": {
+    "min": 400,
+    "max": 400
+  },
+  "moves": {
+    "puppetStrings": {
+      "name": "Puppet Strings",
+      "effects": [
+        {
+          "type": "applyPower",
+          "power": "chainsOfBinding",
+          "amount": 3
+        }
+      ]
+    },
+    "youreMine": {
+      "name": "You're Mine",
+      "effects": [
+        {
+          "type": "applyFrail",
+          "amount": 99
+        },
+        {
+          "type": "applyWeak",
+          "amount": 99
+        },
+        {
+          "type": "applyVulnerable",
+          "amount": 99
+        }
+      ]
+    },
+    "burnBrightForMe": {
+      "name": "Burn Bright for Me",
+      "effects": [
+        {
+          "type": "enemyGainStrength",
+          "amount": 1,
+          "ally": "torch_head_amalgam"
+        },
+        {
+          "type": "gainBlock",
+          "amount": 20
+        }
+      ]
+    },
+    "offWithYourHead": {
+      "name": "Off with Your Head",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 3,
+          "hits": 5
+        }
+      ]
+    },
+    "execution": {
+      "name": "Execution",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 15,
+          "hits": 1
+        }
+      ]
+    },
+    "enrage": {
+      "name": "Enrage",
+      "effects": [
+        {
+          "type": "gainStrength",
+          "amount": 2
+        }
+      ]
+    }
+  },
+  "pattern": {
+    "type": "cycle",
+    "order": ["burnBrightForMe"],
+    "start": "first",
+    "opener": ["puppetStrings", "youreMine"]
+  },
+  "onAllyDeath": {
+    "allyId": "torch_head_amalgam",
+    "pattern": {
+      "type": "cycle",
+      "order": ["offWithYourHead", "execution", "enrage"],
+      "start": "first",
+      "opener": ["enrage"]
+    }
+  },
+  "ascension": {
+    "8": {
+      "hp": {
+        "min": 419,
+        "max": 419
+      }
+    },
+    "9": {
+      "moves": {
+        "offWithYourHead": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 4,
+              "hits": 5
+            }
+          ]
+        },
+        "execution": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 18,
+              "hits": 1
+            }
+          ]
+        }
+      }
+    }
+  },
+  "source": "slaythespire.wiki.gg",
+  "lastUpdateVersion": "v0.107.1"
+}
