@@ -43,33 +43,33 @@ has a test; new rules agreed on a card are added here. Details live in the linke
    uses one stack, so a multi-hit attack uses one per hit; a fully blocked hit (0 HP loss) uses none;
    Strength and Vulnerable don't matter. Poison counts as a loss (literal reading of the text). While
    it is up, the attack with the most hits is played first and big single hits wait.
-9c. **Alternate pattern (#287, Inklet):** an `alternate` pattern plays a fixed move and a weighted seeded random
-    pick in turn. The first move comes from `openerBySlot` by position (first and last enemy = outer, any other
-    = middle; a lone enemy is outer), else `startWith` (default the fixed move); afterwards the move after the
-    fixed one is a random pick and the move after a pick is the fixed one. Inklet: outer opens Jab, middle opens
-    Whirlwind, then Jab alternates with a 50/50 Piercing Gaze or Whirlwind.
-9e. **Spawn log event (#333):** each enemy added mid-fight logs one `spawn` event (enemy id, slot, rolled HP, `stunned`); the log panel shows "Wriggler appears as Enemy 2 (19 HP, Stunned)" and the replay adds the enemy's HP snapshot.
-9d. **Summons and pattern extras (#322):** `spawnEnemies` (enemy moves and `EnemyDef.onDeath`) appends `count` enemies
-    to the right, HP rolled with the seeded Rng; `stunned` ones skip their first move, and that arrival Stun does not advance the pattern (#329: Wrigglers still open
-    Bite, Wriggle, Bite, Wriggle by slot; an ordinary Stun still advances it, #148).
-    `onDeath` runs once when the enemy dies, whoever or whatever kills it (attack, Poison, effect); the combat is
-    won only when every enemy including spawned ones is dead, and the rest of a card (all-enemy and random-target
-    hits) reaches the new enemies. An enemy phase already under way is not extended: enemies spawned in it act from
-    the next phase on (a Stunned one skips that one), matching the wiki's "Stunned during the player's next turn" for
-    Phrog Parasite killed by Poison (Trent: decision for review). `RandomPattern.weights` (default 1 per move) make
-    the pick weighted, `noRepeatMoves` limits the no-repeat rule to those moves (Twig Slime (M): Sticky Shot never
-    twice in a row, Chomp may), `startBySlot` picks the first cycle move by the enemy's place among same-id enemies
-    (Wriggler: 1st/3rd Nasty Bite, 2nd/4th Wriggle). Patterns without these fields draw the Rng exactly as before.
-9b. **Once-per-fight moves (#226):** an enemy move flagged `oncePerFight` (Mawler's Roar) is never picked again
-    once made; the no-repeat picker still always has a legal move (a pool with no unused move falls back to the
-    whole pool, and a pool of only once-moves is rejected by the validator).
-9a. **Artifact, start powers, Strength per turn (#203):** an enemy's `startPowers` apply at combat start
-    (an Ascension override replaces them from its level). Artifact negates the next debuff applied to the
-    enemy, exactly one stack per application whatever its size (one Poison application of any amount = 1 stack;
-    a multi-bounce Poison effect uses one per bounce); Vulnerable, Weak, Frail, Poison, Stun and temporary Strength loss all
-    count (golden combat 7: Uppercut's Weak is negated, its Vulnerable lands). Strength per turn
-    (Byrdonis) is gained at the end of the enemy's own turn, after its move (Strength 0, 1, 2 on turns
-    1, 2, 3). An enemy move may add a named card to a pile (Vantom's Dismember: 3 Wounds to discard).
+   9c. **Alternate pattern (#287, Inklet):** an `alternate` pattern plays a fixed move and a weighted seeded random
+   pick in turn. The first move comes from `openerBySlot` by position (first and last enemy = outer, any other
+   = middle; a lone enemy is outer), else `startWith` (default the fixed move); afterwards the move after the
+   fixed one is a random pick and the move after a pick is the fixed one. Inklet: outer opens Jab, middle opens
+   Whirlwind, then Jab alternates with a 50/50 Piercing Gaze or Whirlwind.
+   9e. **Spawn log event (#333):** each enemy added mid-fight logs one `spawn` event (enemy id, slot, rolled HP, `stunned`); the log panel shows "Wriggler appears as Enemy 2 (19 HP, Stunned)" and the replay adds the enemy's HP snapshot.
+   9d. **Summons and pattern extras (#322):** `spawnEnemies` (enemy moves and `EnemyDef.onDeath`) appends `count` enemies
+   to the right, HP rolled with the seeded Rng; `stunned` ones skip their first move, and that arrival Stun does not advance the pattern (#329: Wrigglers still open
+   Bite, Wriggle, Bite, Wriggle by slot; an ordinary Stun still advances it, #148).
+   `onDeath` runs once when the enemy dies, whoever or whatever kills it (attack, Poison, effect); the combat is
+   won only when every enemy including spawned ones is dead, and the rest of a card (all-enemy and random-target
+   hits) reaches the new enemies. An enemy phase already under way is not extended: enemies spawned in it act from
+   the next phase on (a Stunned one skips that one), matching the wiki's "Stunned during the player's next turn" for
+   Phrog Parasite killed by Poison (Trent: decision for review). `RandomPattern.weights` (default 1 per move) make
+   the pick weighted, `noRepeatMoves` limits the no-repeat rule to those moves (Twig Slime (M): Sticky Shot never
+   twice in a row, Chomp may), `startBySlot` picks the first cycle move by the enemy's place among same-id enemies
+   (Wriggler: 1st/3rd Nasty Bite, 2nd/4th Wriggle). Patterns without these fields draw the Rng exactly as before.
+   9b. **Once-per-fight moves (#226):** an enemy move flagged `oncePerFight` (Mawler's Roar) is never picked again
+   once made; the no-repeat picker still always has a legal move (a pool with no unused move falls back to the
+   whole pool, and a pool of only once-moves is rejected by the validator).
+   9a. **Artifact, start powers, Strength per turn (#203):** an enemy's `startPowers` apply at combat start
+   (an Ascension override replaces them from its level). Artifact negates the next debuff applied to the
+   enemy, exactly one stack per application whatever its size (one Poison application of any amount = 1 stack;
+   a multi-bounce Poison effect uses one per bounce); Vulnerable, Weak, Frail, Poison, Stun and temporary Strength loss all
+   count (golden combat 7: Uppercut's Weak is negated, its Vulnerable lands). Strength per turn
+   (Byrdonis) is gained at the end of the enemy's own turn, after its move (Strength 0, 1, 2 on turns
+   1, 2, 3). An enemy move may add a named card to a pile (Vantom's Dismember: 3 Wounds to discard).
 10. **Statuses, curses and defensive effects (#115):** "Lose X HP" curses/statuses (Bad Luck, Beckon,
     Regret) ignore Block; "Take X damage" ones (Burn, Decay, Disintegration, Infection, Toxic, Wither)
     are blockable. Intangible makes every hit that turn 1.
@@ -107,7 +107,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 18. **Card coverage:** every main-release Ironclad and Colorless card is simulated and matches its
     wiki text, except Splash (#151), Sovereign Blade (waits for Forge, #20), Sweeping Gaze (waits for Osty, #19), the hidden Mad Science placeholder (its
     `mad_science_*` variants are the simulated cards) and the multiplayer-only cards (#117).
-18a. **Silent Shiv cards (#262):** Blade Dance (3 Shivs, 4 upgraded, Exhaust), Cloak and Dagger (6 Block, 1 Shiv;
+    18a. **Silent Shiv cards (#262):** Blade Dance (3 Shivs, 4 upgraded, Exhaust), Cloak and Dagger (6 Block, 1 Shiv;
     2 upgraded), Leading Strike (3 damage, 6 upgraded, 2 Shivs), Up My Sleeve (3 Shivs, 4 upgraded; this copy costs
     1 less for the rest of the combat, never below 0, each copy on its own) and Storm of Steel (discard the
     hand, not itself; 1 Shiv per discarded card, Shiv+ upgraded) add Shivs to the hand (a full hand sends them to
@@ -122,8 +122,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     4 Block counts when a set of Attacks reaches the 3rd Attack of the turn. Enemy Thorns: every Attack hit deals its
     Thorns to the player (Block absorbs, Intangible caps at 1). Personal Hive: every Attack hit adds that many Dazed to
     a random place in the draw pile. StrategyView.relics lists the relic ids. Shuriken, Kunai, Kusarigama pending Trent.
-    **Enemy-punishment factors (#339 part 4, Trent):** Shivs-first exception: against Aeonglass (Withering Presence) a Shiv
-    that would be the Nth card played this combat (which adds a Wither) is held back unless it kills. Bygone Effigy (Slow,
+    **Enemy-punishment factors (#339 part 4, Trent):** Aeonglass (Trent, Nov 15): every created Shiv is played; instead a Shiv maker is charged the Withers its cards add (maker + its Shivs count as cards toward the Nth; 3 damage each, +3 per Wither level) in its efficiency. Bygone Effigy (Slow,
     +10% damage per card played this turn): Attacks wait for other cards that still leave Energy for the cheapest Attack,
     unless the hand's Attacks already kill it; if that leaves nothing to play, the Attacks go. Infested Prism, Test
     Subject, Globe Head and the toads are not in data yet.
@@ -135,7 +134,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     **Blade of Ink (#285):** adds 2 Inky Shivs to the hand (3 upgraded); the Inky enchantment is "This card
     applies 1 Weak" (Trent), so an Inky Shiv is a Shiv (4 damage, Exhaust, 0 cost) that also applies 1 Weak to the
     target. Modelled as the `inky_shiv` token; strategies treat it like a Shiv.
-17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
+    17a. **Relics (#205):** relic data in `data/relics/`, status per relic in `docs/relics-v1.md`. Hooks fire
     in pick order: combat start (before the first draw), turn start (after the draw and start-of-turn
     powers), turn end (before Plating), after a card is played, combat end (wins only). "Start each
     combat with" Block, Energy, Plating or extra draw happens on turn 1 after the Block reset (Anchor 10
@@ -455,7 +454,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     A8 399) opens Curse of Knowledge, Slap 17 (A9 18), Knowledge Overwhelming 8x3 (9x3), Ponder 11 (13) + heal 30 +
     2 (3) Strength, three times, then repeats Slap, Knowledge Overwhelming, Ponder. Act 2 becomes selectable in the
     Setup picker. The enemy heal is logged as a `heal` event with side 'enemy' and the HP actually restored.
-62. **Curse of Knowledge choice (#271, Trent):** an enemy move's `playerChoice` gives the player one of its options.
+61. **Curse of Knowledge choice (#271, Trent):** an enemy move's `playerChoice` gives the player one of its options.
     The three uses offer Disintegration 6 or Mind Rot 1, Disintegration 7 or Sloth 3, Disintegration 8 or Waste
     Away 1 (Mind Rot / Sloth / Waste Away amounts from the status cards' text, builder's call until Trent confirms).
     Each strategy takes the option in `StrategyConfig.optionChoices[id]`; no pick, or an invalid one, takes option 0
@@ -463,8 +462,7 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     (Done saves, Cancel keeps); the row shows "Takes: ..." with a Change button. Picks are stored with the
     selection, apply only in fights with that choice, and go into the strategy code as "~<id>.<n>" per non-zero
     pick (sorted by id), so log links reproduce them.
-63. **The Insatiable, Sandpit and Frantic Escape (#272, Trent):** The Insatiable (Act 2, Hive, boss, 321 HP, A8
-    341) opens Liquify Ground (4 Sandpit on the player; shuffles 6 Frantic Escape into the deck: 3 at random places in
+62. **The Insatiable, Sandpit and Frantic Escape (#272, Trent):** The Insatiable (Act 2, Hive, boss, 321 HP, A8 341) opens Liquify Ground (4 Sandpit on the player; shuffles 6 Frantic Escape into the deck: 3 at random places in
     the draw pile, 3 into the discard pile), then cycles Thrash 8x2 (A9 9x2), Lunging Bite 28 (31), Salivate +2 (3)
     Strength, Thrash. Sandpit goes down by 1 at the end of the player's turn; when it reaches 0 the player is eaten
     (all HP lost, combat lost, nothing prevents it) at the start of the enemy's turn, after Poison, so a Poison kill
