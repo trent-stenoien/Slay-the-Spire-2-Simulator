@@ -1485,7 +1485,8 @@ export type GameEvent =
   | { t: 'revive'; enemyId: string; hp: number }
   | { t: 'shuffle'; reason: 'start' | 'reshuffle'; count: number }
   | { t: 'turnStart'; turn: number; side: Side }
-  | { t: 'draw'; uid: number; cardId: string }
+  /** #383: `bound` is set when the drawn card came in Bound (Chains of Binding). Declared only. */
+  | { t: 'draw'; uid: number; cardId: string; bound?: boolean }
   /**
    * `x` is present for X-cost cards: the energy spent on it.
    * #113/#114: `by` is present when the card was played automatically rather than
