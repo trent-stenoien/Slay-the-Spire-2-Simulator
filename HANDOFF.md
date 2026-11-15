@@ -28,7 +28,7 @@ PRs #336–#365: #256 docs, #295 golden combat 11, #284 Shiv play rule, #304 + #
 - #274 Test Subject: enemy debuffs and Block clear between phases; player buffs/debuffs carry; enemy Intangible ends at the end of the player's turn, player Intangible at the end of the enemy's turn.
 - #276 once answered (or with a builder call); #275 last; #323 (low priority).
 - #348 closed (not planned): golden combats are the benchmark; no per-enemy stats needed.
-- Possible small cards: golden harness can't check enemy HP after plays on a Poison-kill turn; `npm run shot` can't open modals or pick a boss.
+- Possible small cards: golden harness can't check enemy HP after plays on a Poison-kill turn.
 - After v2's cards: the full quality-review loop (docs/quality-loop.md).
 
 ## Working notes
