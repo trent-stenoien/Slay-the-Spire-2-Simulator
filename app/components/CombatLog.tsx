@@ -5,6 +5,7 @@ import { defaultName, describeConfig } from '../lib/strategyLibrary';
 import { useSavedLibrary } from '../useStrategies';
 import {
   ascensionLabel,
+  BOUND_MARK,
   describeEvent,
   enemyIntentLabel,
   hpLostPhrase,
@@ -294,7 +295,8 @@ function RoundBody({
   round: Round;
   name: (id: string) => string;
 }) {
-  const lines = (evs: GameEvent[]) => evs.map((e) => describeEvent(e, name)).filter((s): s is string => s !== null);
+  const lines = (evs: GameEvent[]) =>
+    evs.map((e) => describeEvent(e, name, undefined, round.boundDraws)).filter((s): s is string => s !== null);
   const playerLines = lines(round.playerEvents);
   const enemyLines = lines(round.enemyEvents).filter((l) => !l.startsWith('Enemy uses'));
   return (
@@ -313,7 +315,10 @@ function RoundBody({
       <div className={`phase phase-you phase-${characterId}`}>
         <h4>Your Turn</h4>
         <p className="small">
-          <strong>Drew:</strong> {round.drawn.length ? round.drawn.map(name).join(', ') : 'nothing'}
+          <strong>Drew:</strong>{' '}
+          {round.drawn.length
+            ? round.drawn.map((c, i) => name(c) + (round.drawnBound[i] ? BOUND_MARK : '')).join(', ')
+            : 'nothing'}
         </p>
         <EventList lines={playerLines} empty="No cards played." />
       </div>

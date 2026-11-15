@@ -199,3 +199,24 @@ describe('log page text', () => {
     expect(enemyIntentLabel({ ...intent, attacks: [], totalIncoming: 0 }, [])).toBe('Enemy Intent: Butt');
   });
 });
+
+describe('Bound cards (#383)', () => {
+  it('marks the first N draws of a turn once Chains of Binding is on the player', () => {
+    const log = [
+      { t: 'combatStart', playerHp: 80, enemyHp: 50 },
+      { t: 'turnStart', side: 'player', turn: 1 },
+      { t: 'powerApplied', side: 'player', power: 'chainsOfBinding', amount: 1, total: 1 },
+      { t: 'draw', uid: 1, cardId: 'a' },
+      { t: 'draw', uid: 2, cardId: 'b' },
+      { t: 'play', uid: 1, cardId: 'a', energyLeft: 2 },
+      { t: 'draw', uid: 3, cardId: 'c' },
+      { t: 'turnStart', side: 'player', turn: 2 },
+      { t: 'draw', uid: 4, cardId: 'd' },
+    ] as unknown as Parameters<typeof buildReplay>[0];
+    const [r1, r2] = buildReplay(log).rounds;
+    expect(r1!.drawnBound).toEqual([true, false]);
+    expect(r1!.boundDraws.size).toBe(0);
+    expect(r2!.drawnBound).toEqual([true]);
+    expect(describeEvent(log[3]!, (c) => c, undefined, new Set([log[3]!]))).toBe('You draw a (Bound)');
+  });
+});
