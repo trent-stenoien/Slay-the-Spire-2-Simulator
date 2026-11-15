@@ -261,6 +261,8 @@ export const SIMULATED_POWERS = new Set<string>([
   'wasteAway',
   // #272 The Insatiable
   'sandpit',
+  // #276 Queen
+  'chainsOfBinding',
 ]);
 
 /** CardFilter fields the engine matches on (every field of CardFilter since #113 enabled `nameIncludes`). */
@@ -422,9 +424,6 @@ export const ENEMY_POWER_IDS = [
 
 /** #273/#274: `xFromMoveUses` and `extraHitsPerUse` read an enemy's move uses, so a simulated card may not use it. */
 export const UNSIMULATED_EFFECT_FIELDS = ['xFromMoveUses', 'extraHitsPerUse'] as const;
-
-/** #276: enemy-move effect fields declared in the contract but not simulated yet; the validator rejects them. */
-export const UNSIMULATED_ENEMY_EFFECT_FIELDS = ['ally'] as const;
 
 export const TRIGGER_WHENS = ['exhausted', 'drawn', 'turnEndInHand', 'turnEndInExhaust'] as const;
 

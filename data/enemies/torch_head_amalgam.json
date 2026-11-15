@@ -5,11 +5,44 @@
   "act": 3,
   "zone": "glory",
   "difficulty": "minion",
-  "hp": { "min": 199, "max": 199 },
+  "hp": {
+    "min": 199,
+    "max": 199
+  },
+  "startPowers": {
+    "minion": 1
+  },
   "moves": {
-    "tackle": { "name": "Tackle", "effects": [{ "type": "attack", "damage": 18, "hits": 1 }] },
-    "beam": { "name": "Beam", "effects": [{ "type": "attack", "damage": 8, "hits": 3 }] },
-    "weakTackle": { "name": "Weak Tackle", "effects": [{ "type": "attack", "damage": 14, "hits": 1 }] }
+    "tackle": {
+      "name": "Tackle",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 18,
+          "hits": 1
+        }
+      ]
+    },
+    "beam": {
+      "name": "Beam",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 8,
+          "hits": 3
+        }
+      ]
+    },
+    "weakTackle": {
+      "name": "Weak Tackle",
+      "effects": [
+        {
+          "type": "attack",
+          "damage": 14,
+          "hits": 1
+        }
+      ]
+    }
   },
   "pattern": {
     "type": "cycle",
@@ -17,11 +50,32 @@
     "start": "first"
   },
   "ascension": {
-    "8": { "hp": { "min": 211, "max": 211 } },
+    "8": {
+      "hp": {
+        "min": 211,
+        "max": 211
+      }
+    },
     "9": {
       "moves": {
-        "tackle": { "effects": [{ "type": "attack", "damage": 22, "hits": 1 }] },
-        "weakTackle": { "effects": [{ "type": "attack", "damage": 16, "hits": 1 }] }
+        "tackle": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 22,
+              "hits": 1
+            }
+          ]
+        },
+        "weakTackle": {
+          "effects": [
+            {
+              "type": "attack",
+              "damage": 16,
+              "hits": 1
+            }
+          ]
+        }
       }
     }
   },

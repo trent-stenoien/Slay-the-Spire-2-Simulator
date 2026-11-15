@@ -424,6 +424,8 @@ export const SIMULATED_POWER_IDS: readonly PowerId[] = [
   'wasteAway',
   // #272 The Insatiable
   'sandpit',
+  // #276 Queen
+  'chainsOfBinding',
 ];
 
 /** #116 Hello World: a random Common card from the player's character. */
@@ -551,6 +553,10 @@ class Combat {
   private deathHooks: boolean;
   /** #322: indexes of enemies whose death effects already ran. */
   private readonly deathDone = new Set<number>();
+  /** #276: some enemy has onAllyDeath (the Queen). */
+  private allyHooks: boolean;
+  /** #276: enemies whose onAllyDeath pattern switch already happened. */
+  private readonly allySwitched = new Set<number>();
   /** #329: enemies spawned Stunned whose arrival Stun has not been used up yet (it does not advance their pattern). */
   private readonly arrivalStun = new Set<number>();
 
@@ -576,6 +582,7 @@ class Combat {
     this.rng = createRng(config.seed);
     this.usedOnce = enemyDefs.map(() => new Set<string>());
     this.deathHooks = enemyDefs.some((d) => d.onDeath !== undefined);
+    this.allyHooks = enemyDefs.some((d) => d.onAllyDeath !== undefined);
     this.enemies = enemyDefs.map((enemyDef, i) => this.makeEnemy(enemyDef, i));
     this.rng.shuffle(deck);
     this.state = {
@@ -744,7 +751,37 @@ class Combat {
   /** #5: the combat is won when every enemy is dead. #322: death effects (spawns) run first, so a spawn keeps the fight going. */
   private won(): boolean {
     if (this.deathHooks) this.runDeathHooks();
-    return this.enemies.every((e) => e.hp <= 0);
+    if (this.allyHooks) this.runAllyDeathHooks();
+    // #276 Minion (Torch Head Amalgam): Minions abandon combat without their leader, so only non-Minions must
+    // die; a fight of Minions only is won when they are all dead.
+    const leaders = this.enemies.filter((e) => !e.powers?.minion);
+    return (leaders.length > 0 ? leaders : this.enemies).every((e) => e.hp <= 0);
+  }
+
+  /**
+   * #276 onAllyDeath (the Queen): once no enemy with id `allyId` is alive, the enemy switches to the new
+   * pattern at once (its next intent changes). When it is still in its own opener (the Queen's Puppet Strings /
+   * You're Mine: the Amalgam died on turn 2 or earlier), it finishes that opener instead of the new pattern's
+   * opener (no Enrage), then starts the new cycle. Otherwise it starts the new pattern from its opener (Burn
+   * Bright for Me becomes Enrage).
+   */
+  private runAllyDeathHooks(): void {
+    this.enemyDefs.forEach((def, i) => {
+      const hook = def.onAllyDeath;
+      const enemy = this.enemies[i]!;
+      if (!hook || this.allySwitched.has(i) || enemy.hp <= 0) return;
+      if (this.enemies.some((e) => e.enemyId === hook.allyId && e.hp > 0)) return;
+      this.allySwitched.add(i);
+      const old = def.pattern;
+      const oldOpener = old.type === 'alternate' ? [] : (old.opener ?? []);
+      const left = oldOpener.slice(enemy.movesMade ?? 0);
+      const next = hook.pattern;
+      const pattern = left.length > 0 && next.type !== 'alternate' ? { ...next, opener: left } : structuredClone(next);
+      this.enemyDefs[i] = { ...def, pattern };
+      enemy.movesMade = 0;
+      enemy.patternIndex = 0;
+      enemy.nextMoveId = (pattern.type === 'alternate' ? undefined : pattern.opener?.[0]) ?? this.poolMove(i, 0, null);
+    });
   }
 
   /** #5: indexes of the living enemies, left to right. */
@@ -886,6 +923,7 @@ class Combat {
     counters.skillsPlayedThisTurn = 0;
     counters.cardsDiscardedThisTurn = 0;
     counters.shivsPlayedThisTurn = 0;
+    if (counters.boundCardPlayedThisTurn) counters.boundCardPlayedThisTurn = false;
     this.lastDrawn = [];
     this.panacheCount = 0;
     this.unmovableUsed = false;
@@ -1316,6 +1354,7 @@ class Combat {
       }
       player.hand.splice(idx, 1);
       this.handPlays++;
+      if (card.bound) this.counters.boundCardPlayedThisTurn = true;
       // #110 Unrelenting: the next Attack played costs 0 (an X-cost Attack still gets X = all the energy, free).
       const free = card.type === 'attack' && this.power('freeAttack') > 0;
       if (free) this.applyPower('freeAttack', -1);
@@ -1664,6 +1703,8 @@ class Combat {
     this.endFreeCosts();
     this.tickDebuffs('player');
     this.tickSandpit();
+    // #276: cards are un-Bound at the end of the player's turn (Retained ones too).
+    if (this.power('chainsOfBinding') > 0) this.unbindAll();
     log?.push({ t: 'turnEnd', turn: this.state.turn, side: 'player' });
     return null;
   }
@@ -1793,6 +1834,12 @@ class Combat {
     if (this.power('sandpit') <= 0) return;
     this.applyPower('sandpit', -1);
     if (this.power('sandpit') <= 0) this.eaten = true;
+  }
+
+  /** #276: remove Bound from every card in every pile. */
+  private unbindAll(): void {
+    const p = this.player;
+    for (const c of [...p.hand, ...p.drawPile, ...p.discardPile, ...p.exhaustPile]) delete c.bound;
   }
 
   /** #272: eaten by The Insatiable: the player loses all remaining HP and the combat. Nothing prevents it. */
@@ -2080,6 +2127,18 @@ class Combat {
           break;
         case 'enemyGainStrength':
           // #303: on an enemy move it is a self-buff (Bygone Effigy's Wake: +10 Strength), applied to the acting enemy.
+          if (source !== 'player' && e.ally !== undefined) {
+            // #276 Burn Bright for Me: every living enemy with id `ally` gains the Strength.
+            const keep = this.focus;
+            this.enemies.forEach((en, j) => {
+              if (en.enemyId !== e.ally || en.hp <= 0) return;
+              this.focusOn(j);
+              en.strength += e.amount;
+              log?.push({ t: 'strength', side: 'enemy', amount: e.amount, total: en.strength });
+            });
+            this.focusOn(keep);
+            break;
+          }
           if (source !== 'player') {
             // #273: Increasing Intensity gains 2 + X Strength.
             const amount = e.amount + this.movesBefore(e.xFromMoveUses);
@@ -2447,6 +2506,8 @@ class Combat {
     // #270 Sloth: at most [amount] cards played from the hand each turn.
     const sloth = this.power('sloth');
     if (sloth > 0 && this.handPlays >= sloth) return false;
+    // #276 Bound: only one Bound card can be played each turn.
+    if (card.bound && this.counters.boundCardPlayedThisTurn) return false;
     return !card.playableIf || this.holds(card.playableIf, card);
   }
 
@@ -3663,6 +3724,8 @@ class Combat {
     log?.push({ t: 'draw', uid: card.uid, cardId: card.cardId });
     this.counters.cardsDrawnThisTurn++;
     this.counters.cardsDrawnThisCombat++;
+    // #276 Chains of Binding: the first [amount] cards drawn each turn become Bound.
+    if (this.counters.cardsDrawnThisTurn <= this.power('chainsOfBinding')) card.bound = true;
     this.lastDrawn.push(card);
     // #266 Speedster: a card drawn during the player's turn hurts every enemy (power damage, Block absorbs it).
     const speedster = this.playerTurn ? this.power('speedster') : 0;
