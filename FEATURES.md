@@ -168,6 +168,11 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     Energy, then fewer cards (#11, #149, #12). The set's biggest attack goes first. X-cost
     attacks are compared at their damage for 1 energy: Strike before Whirlwind, Whirlwind+ before
     Strike; ties go to the other attack (#147). Cascade is played with the X-cost attacks.
+    **Vulnerable over its duration (#347, Trent):** a Vulnerable-applier's attack set is also credited with half of
+    an estimated turn of attacks (5 cards at the deck's average attack damage) for each later turn the Vulnerable
+    lasts, capped at the enemy's HP and Block. That credit is scaled by the enemy's next move (how likely you are free
+    to attack): 1.5 when the enemies deal nothing; else 1 − (incoming damage the Block does not stop) ÷ player HP, so 1 when
+    fully blocked and 0 for a lethal hit; several enemies use their summed attacks.
     **Block choice (#12):** a Block group that is not last plays the cheapest set of block cards (in Energy,
     then fewest cards, then most Block) that reaches the Block target; the biggest card of the set first.
     When no set reaches it (or Block is last), the biggest block card goes first as before.

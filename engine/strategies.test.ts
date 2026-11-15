@@ -5,6 +5,7 @@ import {
   normalizeConfig,
   parseStrategyCode,
   pickAttack,
+  vulnerableScale,
   pickBlock,
   sameConfig,
   strategyCode,
@@ -355,6 +356,74 @@ describe('pick helpers', () => {
     expect(pickAttack([us, bash], 2)!.cardId).toBe(us.cardId);
     expect(pickAttack([us, bash], 3, 1)!.cardId).toBe(us.cardId);
     expect(pickAttack([bash], 2)!.cardId).toBe('bash');
+  });
+});
+
+describe('#347 Vulnerable valued over the turns it lasts', () => {
+  const stateWith = (pile: CardInstance[], vulnerable = 0, hp = 100) =>
+    ({
+      turn: 1,
+      player: {
+        hp: 80,
+        maxHp: 80,
+        block: 0,
+        energy: 2,
+        strength: 0,
+        debuffs: { vulnerable: 0, weak: 0, frail: 0 },
+        drawPile: pile,
+        hand: [],
+        discardPile: [],
+        exhaustPile: [],
+      },
+      enemy: {
+        enemyId: 'x',
+        name: 'x',
+        hp,
+        maxHp: 100,
+        block: 0,
+        strength: 0,
+        debuffs: { vulnerable, weak: 0, frail: 0 },
+        poison: 0,
+        patternIndex: 0,
+      },
+    }) satisfies CombatState;
+  const strikes = () => Array.from({ length: 10 }, () => card(S));
+
+  it('Bash beats a bigger attack when the next turn gets +50% damage from it', () => {
+    const us = makeCardInstance(cards.ultimate_strike!, true, 0);
+    const bash = makeCardInstance(cards.bash!, false, 1);
+    expect(pickAttack([us, bash], 2)!.cardId).toBe(us.cardId);
+    expect(pickAttack([us, bash], 2, 0, stateWith(strikes()))!.cardId).toBe('bash');
+  });
+
+  it('counts the extra turns even when the enemy is already Vulnerable', () => {
+    const us = makeCardInstance(cards.ultimate_strike!, true, 0);
+    const bash = makeCardInstance(cards.bash!, false, 1);
+    expect(pickAttack([us, bash], 2, 1, stateWith(strikes(), 1))!.cardId).toBe('bash');
+  });
+
+  it("#347 the enemy's next move scales the future value: big attack less, not attacking more", () => {
+    const us = makeCardInstance(cards.ultimate_strike!, true, 0);
+    const bash = makeCardInstance(cards.bash!, false, 1);
+    const st = stateWith(strikes());
+    const pick = (scale: number) => pickAttack([us, bash], 2, 0, st, undefined, scale)!.cardId;
+    expect(pick(1)).toBe('bash');
+    expect(pick(0)).toBe(us.cardId);
+    const view = (incoming: number, block = 0): StrategyView => ({
+      state: { ...st, player: { ...st.player, block } },
+      intent: { moveId: 'm', name: 'm', attacks: [], totalIncoming: incoming },
+      playable: [],
+    });
+    expect(vulnerableScale(view(0))).toBe(1.5);
+    expect(vulnerableScale(view(40))).toBe(0.5);
+    expect(vulnerableScale(view(40, 40))).toBe(1);
+    expect(vulnerableScale(view(200))).toBe(0);
+  });
+
+  it('the value is capped by what the enemy has left', () => {
+    const us = makeCardInstance(cards.ultimate_strike!, true, 0);
+    const bash = makeCardInstance(cards.bash!, false, 1);
+    expect(pickAttack([us, bash], 2, 0, stateWith(strikes(), 0, 3))!.cardId).toBe(us.cardId);
   });
 });
 

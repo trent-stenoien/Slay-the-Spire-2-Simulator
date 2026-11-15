@@ -413,6 +413,7 @@ function withStormRules(view: StrategyView): StrategyView {
     view.state.enemy.debuffs.vulnerable,
     view.state,
     view.relics,
+    vulnerableScale(view),
   );
   const costed = atk && (atk.xCost || (atk.cost ?? 0) > 0) ? atk : undefined;
   const stormWins =
@@ -1492,6 +1493,40 @@ function vulnerableFirst(card: Card, attacks: readonly Card[], energy: number, e
 }
 
 /**
+ * #347: the Vulnerable-applier's value is the extra damage later turns get while it lasts: the enemy's
+ * remaining turns of Vulnerable (the applied stacks, minus this turn when the enemy has none yet) times half
+ * of an estimated turn of attacks, capped at the enemy's HP and Block.
+ */
+function vulnerableFutureValue(card: Card, turnDamage: number, state?: State): number {
+  if (!state || turnDamage <= 0) return 0;
+  const amount = card.effects.reduce((n, e) => (e.type === 'applyVulnerable' ? n + e.amount : n), 0);
+  if (amount <= 0) return 0;
+  const turns = state.enemy.debuffs.vulnerable > 0 ? amount : amount - 1;
+  return Math.max(0, Math.min(0.5 * turnDamage * turns, state.enemy.hp + state.enemy.block));
+}
+
+/**
+ * #347 (Trent): the enemy's next move says how likely the player is free to attack while Vulnerable lasts.
+ * Scale on the future-turn value: 1.5 when the enemies deal nothing (Blocking, buffing), otherwise
+ * 1 - (incoming damage the Block does not stop) / player HP, from 1 (fully blocked) down to 0 (a lethal
+ * hit: the turn goes to Block). With several enemies `totalIncoming` is the sum of their attacks.
+ */
+export function vulnerableScale(view: StrategyView): number {
+  const incoming = view.intent.totalIncoming;
+  if (incoming <= 0) return 1.5;
+  const need = Math.max(0, incoming - view.state.player.block);
+  return Math.max(0, 1 - need / Math.max(1, view.state.player.hp));
+}
+
+/** #347: an estimated turn of attack damage later: 5 cards at the deck's average base damage per card. */
+function vulnerableTurnDamage(state: State): number {
+  const cards = [...(state.player.hand ?? []), ...(state.player.drawPile ?? []), ...(state.player.discardPile ?? [])];
+  if (cards.length === 0) return 0;
+  const total = cards.reduce((n, c) => n + (isAttackCard(c) && !c.xCost ? totalBaseDamage(c, 0, state) : 0), 0);
+  return (5 * total) / cards.length;
+}
+
+/**
  * #12 (Trent): the attacks that deal the most total damage within the Energy, free (0-cost) attacks always
  * included. Ties: more damage per Energy, then fewer cards, then the lowest uids. Its first card goes first
  * (highest total damage, then damage per Energy, draws, lowest uid) and the rest follow as the turn is
@@ -1502,9 +1537,14 @@ function pickAttackFromBestSet(
   energy: number,
   state?: State,
   relics?: readonly string[],
+  vulnerableScale = 1,
 ): Card | undefined {
+  const future = state ? vulnerableTurnDamage(state) * vulnerableScale : 0;
   const value = (c: Card) =>
-    totalBaseDamage(c, energy, state) + shivDamageMade(c, state) + attackFactors(c, energy, state);
+    totalBaseDamage(c, energy, state) +
+    shivDamageMade(c, state) +
+    attackFactors(c, energy, state) +
+    vulnerableFutureValue(c, future, state);
   const byUid = [...attacks].sort((a, b) => a.uid - b.uid);
   const free = byUid.filter((c) => (c.cost ?? 0) <= 0);
   const paid = byUid.filter((c) => (c.cost ?? 0) > 0 && (c.cost ?? 0) <= energy).slice(0, 10);
@@ -1550,6 +1590,7 @@ export function pickAttack(
   enemyVulnerable = 0,
   state?: State,
   relics?: readonly string[],
+  vulnerableScale = 1,
 ): Card | undefined {
   const attacks = playable.filter((c) => isAttackCard(c) && xCostPlayable(c, energy));
   const vuln = (c: Card) => (appliesVulnerable(c) && vulnerableFirst(c, attacks, energy, enemyVulnerable) ? 1 : 0);
@@ -1564,7 +1605,7 @@ export function pickAttack(
   const other =
     slippery || attacks.some((c) => vuln(c) > 0)
       ? best(sized, (c) => rank(c, energy))
-      : (pickAttackFromBestSet(sized, energy, state, relics) ?? best(sized, (c) => rank(c, energy)));
+      : (pickAttackFromBestSet(sized, energy, state, relics, vulnerableScale) ?? best(sized, (c) => rank(c, energy)));
   const x = best(
     attacks.filter((c) => c.xCost),
     (c) => rank(c, 1),
@@ -1742,7 +1783,14 @@ export function cannotFillTopGroup(view: StrategyView, config: StrategyConfig): 
     case 'attack':
       return (
         !pickPlayFirst(view) &&
-        !pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state, view.relics)
+        !pickAttack(
+          view.playable,
+          energy,
+          view.state.enemy.debuffs.vulnerable,
+          view.state,
+          view.relics,
+          vulnerableScale(view),
+        )
       );
     case 'powers':
       return !pickPower(view.playable, energy);
@@ -2202,7 +2250,14 @@ function pickFromGroup(
     case 'attack': {
       const first = pickPlayFirst(view);
       if (first) return first;
-      const atk = pickAttack(view.playable, energy, view.state.enemy.debuffs.vulnerable, view.state, view.relics);
+      const atk = pickAttack(
+        view.playable,
+        energy,
+        view.state.enemy.debuffs.vulnerable,
+        view.state,
+        view.relics,
+        vulnerableScale(view),
+      );
       const maker = pickShivMaker(
         view,
         pickAttack(
@@ -2211,6 +2266,7 @@ function pickFromGroup(
           view.state.enemy.debuffs.vulnerable,
           view.state,
           view.relics,
+          vulnerableScale(view),
         ),
       );
       if (maker) return maker;
