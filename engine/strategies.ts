@@ -588,11 +588,12 @@ function isPureDamage(card: Card): boolean {
 
 /** #382: the enemies a card can target: alive and not waiting to revive. */
 function targetableEnemies(view: StrategyView): readonly DeepReadonly<State['enemy']>[] {
-  return (view.state.enemies ?? [view.state.enemy]).filter((e) => e.hp > 0 && !e.reviving);
+  return (view.state.enemies ?? [view.state.enemy]).filter((e) => e && e.hp > 0 && !e.reviving);
 }
 
 /** #382 (Trent): while every enemy is reviving (no target) a pure damage card deals nothing, so it is held. */
 function withoutAttacksOnRevive(view: StrategyView): StrategyView {
+  if (!view.state.enemy) return view;
   if (targetableEnemies(view).length > 0 || !view.playable.some(isPureDamage)) return view;
   return { ...view, playable: view.playable.filter((c) => !isPureDamage(c)) };
 }
@@ -603,7 +604,7 @@ function withoutAttacksOnRevive(view: StrategyView): StrategyView {
  */
 function withoutAttacksOnIntangible(view: StrategyView): StrategyView {
   const targets = targetableEnemies(view);
-  if (targets.length === 0 || !targets.every((e) => (e.powers?.intangible ?? 0) > 0)) return view;
+  if (!view.state.enemy || targets.length === 0 || !targets.every((e) => (e.powers?.intangible ?? 0) > 0)) return view;
   const energy = view.state.player.energy;
   const weak = (c: Card) => {
     if (!isPureDamage(c)) return false;
@@ -624,6 +625,7 @@ export const ENRAGE_TURNS = 3;
  * are not held; the Skill is always played when the attack would be lethal.
  */
 function withoutEnrageSkills(view: StrategyView): StrategyView {
+  if (!view.state.enemy) return view;
   const enraged = targetableEnemies(view).reduce((n, e) => n + (e.powers?.enrage ?? 0), 0);
   if (enraged <= 0) return view;
   const { player } = view.state;
