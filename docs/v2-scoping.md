@@ -1,5 +1,7 @@
 # v2 scoping: #255 The Silent and #24 Act 2/3 bosses
 
+> Historical snapshot, written at the start of v2 (origin/main 216236a). Statuses such as "unsimulated" and "greyed WIP" below were true then, not now; FEATURES.md and the code are current.
+
 Checkout: /home/claude/slay-the-spire-2-simulator at origin/main 216236a ("Handoff note: v1 complete"). Read-only; nothing changed.
 Game version in `data/manifest.json`: v0.107.1. Sources: repo data, `data/raw/*.txt` (Cargo export), slaythespire.wiki.gg pages fetched today.
 Sizes: S = under a day for one agent, M = a normal card, L = engine work touching combat.ts, strategies and validators.

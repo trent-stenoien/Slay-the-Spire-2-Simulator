@@ -2458,22 +2458,21 @@ function decide(raw: StrategyView, config: StrategyConfig): Decision {
   // #356: the Shiv kept for Phantom Blades is not played by any other rule either.
   const held = heldShiv(raw);
   const kept = held ? { ...raw, playable: raw.playable.filter((c) => c.uid !== held.uid) } : raw;
-  const base = withStormRules(
-    withSlyEffects(
-      withoutWaitingForAttacks(
-        withoutWaitingForBlock(
-          withoutGuardBroken(
-            withoutEnrageSkills(
-              withoutAttacksOnRevive(withoutLethal(withoutIdle(withoutNeverPlayed(withoutHeldBack(kept))))),
-            ),
-            config,
-          ),
-          config,
-        ),
-      ),
-      config,
-    ),
-  );
+  // The filters narrow `playable`; the first one listed runs first.
+  const filters: readonly ((view: StrategyView) => StrategyView)[] = [
+    withoutHeldBack,
+    withoutNeverPlayed,
+    withoutIdle,
+    withoutLethal,
+    withoutAttacksOnRevive,
+    withoutEnrageSkills,
+    (v) => withoutGuardBroken(v, config),
+    (v) => withoutWaitingForBlock(v, config),
+    withoutWaitingForAttacks,
+    (v) => withSlyEffects(v, config),
+    withStormRules,
+  ];
+  const base = filters.reduce((view, filter) => filter(view), kept);
   // #272 (Trent): Sandpit at 2 or below: escape first.
   const escape = pickSandpitEscape(raw, true);
   if (escape) return play(escape);

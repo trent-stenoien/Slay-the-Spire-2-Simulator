@@ -66,6 +66,26 @@ describe('Omnislice splash with several enemies (FEATURES 8, #283)', () => {
     expect(hits.slice(-2).map((e) => e.amount)).toEqual([12, 12]);
   });
 
+  it('the splash is absorbed by the other enemy Block first (round-1 addition)', () => {
+    const w = world();
+    const guard = (id: string) =>
+      makeEnemy(id, 50, { guard: { name: 'Guard', effects: [{ type: 'gainBlock', amount: 5 }] } });
+    w.enemies.g1 = guard('g1');
+    w.enemies.g2 = guard('g2');
+    const r = simulateCombat(
+      w,
+      cfg({ enemyIds: ['g1', 'g2'], deck: deckOf(['omnislice', 2]) }),
+      scripted((t) => (t === 2 ? ['omnislice'] : [])),
+      { log: true },
+    );
+    const hits = events(r.log, 'damage').filter((e) => e.target === 'enemy');
+    // Turn 2: both enemies have 5 Block from their move: the target and the splash each lose 3 HP (5 blocked).
+    expect(hits.map((e) => [e.amount, e.blocked, e.hpLoss])).toEqual([
+      [8, 5, 3],
+      [8, 5, 3],
+    ]);
+  });
+
   it('a dead enemy takes no splash; the target is not hit twice', () => {
     const w = world();
     w.enemies.second = makeEnemy('second', 50, { wait: { name: 'Wait', effects: [] } });

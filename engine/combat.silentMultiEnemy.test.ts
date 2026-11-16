@@ -214,6 +214,24 @@ describe('#269 existing ALL / random cards on several enemies', () => {
     expect(events(r.log, 'block')[0]!.amount).toBe(8);
   });
 
+  it('Mirage counts only LIVING enemies: the Poison left on a dead enemy gives no Block (round-1 addition)', () => {
+    const data = world(idle('a', 5), idle('b', 99));
+    data.cards.strike = { ...data.cards.strike!, cost: 0, keywords: ['innate'] };
+    const r = run(
+      data,
+      ['a', 'b'],
+      [
+        ['haze', 1],
+        ['strike', 1],
+        ['mirage', 1],
+        ['defend', 5],
+      ],
+    );
+    // Haze: 4 Poison on a and b. Strike (6) kills a (5 HP). Mirage: only b's 4 Poison counts, a's 4 does not.
+    expect(events(r.log, 'poison').map((e) => e.amount)).toEqual([4, 4]);
+    expect(events(r.log, 'block')[0]!.amount).toBe(4);
+  });
+
   it('Serpent Form hits a random living enemy per later card', () => {
     const r = run(
       world(idle('a', 99), idle('b', 99)),

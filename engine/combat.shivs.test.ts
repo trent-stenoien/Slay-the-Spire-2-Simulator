@@ -257,6 +257,17 @@ describe('#284 Shiv play rule', () => {
     expect(plays).toEqual(['strike', 'blade_dance']);
   });
 
+  it('a tie in damage per energy goes to the maker: Blade Dance (3 Shivs x 4 = 12 for 1) before a 12-damage Strike (round-1 addition)', () => {
+    const tie = world(['blade_dance', 'strike']);
+    tie.cards.strike!.effects = tie.cards.strike!.effects.map((e) => (e.type === 'attack' ? { ...e, damage: 12 } : e));
+    expect(firstPlays(tie, deckOf(['blade_dance', 1], ['strike', 1]), 1)).toEqual(['blade_dance']);
+    const above = world(['blade_dance', 'strike']);
+    above.cards.strike!.effects = above.cards.strike!.effects.map((e) =>
+      e.type === 'attack' ? { ...e, damage: 13 } : e,
+    );
+    expect(firstPlays(above, deckOf(['blade_dance', 1], ['strike', 1]), 1)).toEqual(['strike']);
+  });
+
   it('Shiv makers are ranked by damage per energy with the other attacks (a Strike for 20 goes before Blade Dance)', () => {
     const d = world(['strike', 'blade_dance']);
     d.cards.strike!.effects = d.cards.strike!.effects.map((e) => (e.type === 'attack' ? { ...e, damage: 20 } : e));

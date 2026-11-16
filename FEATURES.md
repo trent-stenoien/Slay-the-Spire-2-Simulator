@@ -454,6 +454,16 @@ has a test; new rules agreed on a card are added here. Details live in the linke
     A8 399) opens Curse of Knowledge, Slap 17 (A9 18), Knowledge Overwhelming 8x3 (9x3), Ponder 11 (13) + heal 30 +
     2 (3) Strength, three times, then repeats Slap, Knowledge Overwhelming, Ponder. Act 2 becomes selectable in the
     Setup picker. The enemy heal is logged as a `heal` event with side 'enemy' and the HP actually restored.
+61. **Aeonglass (#273, Trent):** Act 3, Glory, boss; 512 HP (A8 535), starts with 3 Artifact and Withering Presence.
+    Cycle from turn 1: Ebb 22 (A9 26) + 33 Block, Eye Lasers 11x2 (12x2), Increasing Intensity: shuffle 1 (A9 2)
+    Wither+X into the discard pile, gain 2 (3) + X Strength, upgrade all Withers to at least +X; X = times it was
+    used before (0, 1, 2 ...). Withering Presence: every 6th card the player plays this combat (every card, any way
+    it is played: Shivs, free plays, Powers, Sly, cards that play themselves from the Exhaust pile) adds a Wither to
+    the Hand, at the level Increasing Intensity last reached. Wither: Unplayable, end of turn in Hand take 3 damage
+    (blockable); each upgrade level adds 3 (Wither+ 6, Wither+2 9, Wither+3 12; in general every level past the
+    first repeats the first upgrade's step). Imported although the wiki marks it beta (Trent: it is in the full
+    release; raw v0.107.1 numbers win). Act 3 becomes selectable in the Setup picker. Builder calls pending
+    Trent: +3 per Wither level, X starts at 0, "upgrade all" raises to at least +X, Ebb 22 (raw).
 62. **Curse of Knowledge choice (#271, Trent):** an enemy move's `playerChoice` gives the player one of its options.
     The three uses offer Disintegration 6 or Mind Rot 1, Disintegration 7 or Sloth 3, Disintegration 8 or Waste
     Away 1 (Mind Rot / Sloth / Waste Away amounts from the status cards' text, builder's call until Trent confirms).
@@ -472,16 +482,6 @@ has a test; new rules agreed on a card are added here. Details live in the linke
 
 ## Act 3 bosses (#24)
 
-61. **Aeonglass (#273, Trent):** Act 3, Glory, boss; 512 HP (A8 535), starts with 3 Artifact and Withering Presence.
-    Cycle from turn 1: Ebb 22 (A9 26) + 33 Block, Eye Lasers 11x2 (12x2), Increasing Intensity: shuffle 1 (A9 2)
-    Wither+X into the discard pile, gain 2 (3) + X Strength, upgrade all Withers to at least +X; X = times it was
-    used before (0, 1, 2 ...). Withering Presence: every 6th card the player plays this combat (every card, any way
-    it is played: Shivs, free plays, Powers, Sly, cards that play themselves from the Exhaust pile) adds a Wither to
-    the Hand, at the level Increasing Intensity last reached. Wither: Unplayable, end of turn in Hand take 3 damage
-    (blockable); each upgrade level adds 3 (Wither+ 6, Wither+2 9, Wither+3 12; in general every level past the
-    first repeats the first upgrade's step). Imported although the wiki marks it beta (Trent: it is in the full
-    release; raw v0.107.1 numbers win). Act 3 becomes selectable in the Setup picker. Builder calls pending
-    Trent: +3 per Wither level, X starts at 0, "upgrade all" raises to at least +X, Ebb 22 (raw).
 64. **Queen and Torch Head Amalgam (#276, Trent):** Act 3, Glory boss fight; the Amalgam stands left (acts
     first), the Queen right. Queen: boss, 400 HP (A8 419); Puppet Strings (3 Chains of Binding), You're Mine (99
     Frail, 99 Weak, 99 Vulnerable on the player), then Burn Bright for Me (Amalgam +1 Strength, Queen 20 Block)

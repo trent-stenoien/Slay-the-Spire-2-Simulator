@@ -135,6 +135,17 @@ describe('#356 Phantom Blades: the strategy keeps one Shiv for next turn', () =>
     expect(turns[1]![0]).toBe(13);
   });
 
+  it('with Infinite Blades in play every Shiv is played (a new one comes each turn), none is held (round-1 addition)', () => {
+    const d = world(['phantom_blades', 'infinite_blades', 'blade_dance']);
+    d.enemies.dummy!.hp = { min: 999, max: 999 };
+    const r = run(
+      d,
+      createStrategy(GREEDY_CONFIG),
+      deckOf(['phantom_blades', 1], ['infinite_blades', 1], ['blade_dance', 1]),
+    );
+    expect(byTurn(r.log)[0]).toEqual([13, 4, 4]);
+  });
+
   it('plays the last Shiv when it kills the enemy', () => {
     const r = phantom(21);
     expect(byTurn(r.log)).toEqual([[13, 4, 4]]);
@@ -147,6 +158,20 @@ describe('#267 Infinite Blades', () => {
     const made = events(r.log, 'generated').filter((e) => e.cardId === 'shiv' && e.to === 'hand');
     expect(made.length).toBeGreaterThanOrEqual(2);
     expect(made.every((e) => e.cardId === 'shiv')).toBe(true);
+  });
+
+  it('exactly one Shiv per turn, none on the turn it is played (round-1 addition)', () => {
+    const r = run(world(['infinite_blades']), plan(['infinite_blades'], [], []), deckOf(['infinite_blades', 1]));
+    const perTurn = new Map<number, number>();
+    let turn = 0;
+    for (const e of r.log ?? []) {
+      if (e.t === 'turnStart' && e.side === 'player') turn = e.turn;
+      if (e.t === 'generated' && e.cardId === 'shiv' && e.to === 'hand')
+        perTurn.set(turn, (perTurn.get(turn) ?? 0) + 1);
+    }
+    expect(perTurn.get(1)).toBeUndefined();
+    expect(perTurn.get(2)).toBe(1);
+    expect(perTurn.get(3)).toBe(1);
   });
 
   it('turn 2 starts with one Shiv in the hand to play', () => {
