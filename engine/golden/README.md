@@ -37,8 +37,10 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
   - `choices` (optional): `[{ "source"?: cardId, "pick": [cards] }]`, one per "choose a card"
     prompt this turn, in order (Armaments: which card to upgrade). `source` is checked when given.
   - `atStart`: state when the player's turn begins (after the draw and start-of-turn powers, before potions).
-  - `afterPlays`: state when the player ends the turn. On the turn that wins, only `enemy.hp: 0` is
-    checked, taken from the result.
+  - `afterPlays`: state when the player ends the turn. When the turn wins during the plays, only `enemy.hp: 0` is
+    checked, taken from the result. When the player ends the turn first and Poison then kills the enemy at the
+    start of its turn (before its move), `afterPlays` and `enemyHpAfterEachPlay` are checked against the real
+    state after the plays (enemy HP above 0, `poison` set), not 0 (#394).
   - `afterEnemy`: state after the enemy's move (read at the start of the next turn).
     `player.block` is not allowed here: Block resets at the start of the turn.
   - `enemyMove` (optional): the enemy's move id after this turn's plays (single enemy, random pattern).
