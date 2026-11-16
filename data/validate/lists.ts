@@ -420,7 +420,13 @@ export const ENEMY_POWER_IDS = [
   // #339 attack factors: declared, not simulated
   'thorns',
   'personalHive',
+  // #275 Kaiser Crab: declared, rejected on enemy data until simulated (UNSIMULATED_ENEMY_POWERS)
+  'backAttack',
+  'crabRage',
 ] as const;
+
+/** #275: enemy powers declared in the contract but not simulated yet; the validator rejects them on enemy data. */
+export const UNSIMULATED_ENEMY_POWERS: readonly string[] = ['backAttack', 'crabRage'];
 
 /** #273/#274: `xFromMoveUses` and `extraHitsPerUse` read an enemy's move uses (enemy moves only), so a simulated card may not use them. */
 export const UNSIMULATED_EFFECT_FIELDS = ['xFromMoveUses', 'extraHitsPerUse'] as const;
