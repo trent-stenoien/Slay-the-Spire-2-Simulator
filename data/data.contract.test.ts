@@ -210,6 +210,13 @@ describe('#105 contract shapes', () => {
     expect(errorsOf(bad)).toContainEqual(expect.stringMatching(/options.*at least 2/));
   });
 
+  it('#275: Back Attack and Crab Rage are declared but rejected on enemy data until simulated', () => {
+    const d = fixture();
+    d.enemies.nibbit.startPowers = { backAttack: 1, crabRage: 1 };
+    expect(errorsOf(d)).toContainEqual(expect.stringMatching(/backAttack.*not simulated yet/));
+    expect(errorsOf(d)).toContainEqual(expect.stringMatching(/crabRage.*not simulated yet/));
+  });
+
   it('#276: ally Strength, onAllyDeath and Chains of Binding are accepted on enemy data', () => {
     const d = fixture();
     d.enemies.nibbit.moves.hiss.effects.push(

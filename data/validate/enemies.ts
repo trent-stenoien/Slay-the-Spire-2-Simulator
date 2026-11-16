@@ -2,6 +2,7 @@
 import {
   CONTRACT_EFFECTS,
   ENEMY_POWER_IDS,
+  UNSIMULATED_ENEMY_POWERS,
   ZONES,
   DIFFICULTIES,
   PATTERN_STARTS,
@@ -71,6 +72,7 @@ function checkStartPowers(r: Reporter, v: unknown, path: string): void {
   for (const [id, amount] of Object.entries(v)) {
     if (!isOneOf(id, ENEMY_POWER_IDS))
       r.add(`${path}.${id}`, `is not a known enemy power (${ENEMY_POWER_IDS.join(', ')})`);
+    else if (UNSIMULATED_ENEMY_POWERS.includes(id)) r.add(`${path}.${id}`, 'is declared but not simulated yet (#275)');
     if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 1) {
       r.add(`${path}.${id}`, 'must be a whole number of at least 1');
     }

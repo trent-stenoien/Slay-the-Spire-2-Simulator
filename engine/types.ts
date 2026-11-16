@@ -149,6 +149,10 @@
  *                     .boundCardPlayedThisTurn (only 1 Bound card per turn); `enemyGainStrength.ally`
  *                     (Burn Bright for Me); EnemyDef.onAllyDeath (the Queen's pattern switch). Simulated (#374).
  *
+ * #275 Kaiser Crab  — EnemyPowerId `backAttack` (+50% damage from the claw behind the player), `crabRage`
+ *                     (survivor gains 6 Strength and 99 Block when an ally dies); CombatState.facing;
+ *                     GameEvent `face`. Declared only.
+ *
  * #5 Multi-enemy    — CombatConfig.enemyIds / RunConfig.enemyIds; CombatState.enemies (`enemy` is
  *                     the current one); StrategyView.intents; Decision / PotionUse `target`;
  *                     StrategyConfig.target + TargetPriority; `allEnemies` on applyVulnerable /
@@ -802,7 +806,18 @@ export type EnemyPowerId =
    * living enemy without `minion` is dead (a fight of Minions only is won when they are all dead). Distinct from
    * EnemyDef.difficulty 'minion' (Wriggler has that difficulty but no Minion power).
    */
-  | 'minion';
+  | 'minion'
+  /**
+   * #275 (Kaiser Crab: Crusher, Rocket): Back Attack. This enemy's attack damage on the player is ×1.5 (a final
+   * multiplier, after Strength, Weak and the player's Vulnerable) while the player is not facing it
+   * (CombatState.facing). Does not stack. Declared only.
+   */
+  | 'backAttack'
+  /**
+   * #275 (Kaiser Crab): Crab Rage. When an ally dies, this enemy gains 6 Strength and 99 Block. Does not stack
+   * (fixed amounts). Declared only.
+   */
+  | 'crabRage';
 
 /** Effects queued by a `schedule` effect. */
 export interface ScheduledEffect {
@@ -1325,6 +1340,12 @@ export interface CombatState {
   enemy: EnemyState;
   /** #5: every enemy, left to right, dead ones included (hp ≤ 0). Absent means just `enemy`. */
   enemies?: EnemyState[];
+  /**
+   * #275 (Back Attack): index into `enemies` of the enemy the player faces. Turned toward the target of any
+   * card the player plays with a single-target effect on an enemy (Attack or Skill; Trent); random-target and
+   * all-enemy effects do not turn the player. Absent in fights without `backAttack`. Declared only.
+   */
+  facing?: number;
 }
 
 /** What the enemy will do this turn, as the player sees it. */
@@ -1479,6 +1500,8 @@ export type GameEvent =
    * next `target` event. Logged only in fights with several enemies, whenever the current enemy changes.
    */
   | { t: 'target'; enemy: number }
+  /** #275: the player turned to face enemy `enemy` (index into CombatState.enemies; Back Attack fights). Declared only. */
+  | { t: 'face'; enemy: number }
   /** #333: an enemy joined mid-fight (spawnEnemies, #322), one event per enemy. `index` is its slot in CombatState.enemies. */
   | { t: 'spawn'; enemyId: string; index: number; hp: number; stunned?: boolean }
   /** #274: a multi-phase enemy revived as its next phase (`enemyId`, the new EnemyDef) with `hp` HP. */
