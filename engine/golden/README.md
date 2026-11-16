@@ -75,7 +75,7 @@ not checked. The synthetic fixtures at the end of `golden.test.ts` show every fi
 
 ## How the harness forces the game
 
-The test mocks `engine/rng.ts`: the first `int` call (the enemy HP roll) returns `enemy.startHp`,
+The test mocks `engine/rng.ts`: the first `int` calls (the enemy HP rolls, one per enemy) return each `startHp`,
 and `shuffle` orders each pile so the draws follow the recorded `hand` and `drawn` lists in order.
 Nothing in `engine/types.ts` changes. Cards added to the discard pile (Vantom's Wounds) are forced
 like any other once reshuffled. A draw that spans a reshuffle works if the recorded draws are
@@ -84,7 +84,7 @@ consistent with the piles; cards in a shuffle beyond the last recorded draw are 
 Limits: a card put into, or taken from, the draw pile between shuffles (an `addCards` to the draw
 pile, Headbutt, Stratagem) cannot be forced; the harness reports it as
 `turn N: <card> added to drawRandom (…); the shuffle mock cannot force later draws`. Record it under
-`knownDiffs` or `skip`. Other random effects (random targets such as Sword Boomerang's, or picks) are not scripted; only enemy
-moves are (`enemyMove`, `enemyMoves`).
+`knownDiffs` or `skip`. Other random effects are not scripted; only enemy moves (`enemyMove`, `enemyMoves`) and
+`rng.int` picks (`randomPicks`, such as Sword Boomerang's targets) are.
 A fixture's `enemyMove` order is forced harness-side by giving the enemy a cycle pattern in a copy of the data
 (the engine's own random pick is not exercised).
