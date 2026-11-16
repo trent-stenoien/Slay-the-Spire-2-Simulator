@@ -386,6 +386,8 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
   /** uids in hand when each turn's first decision came (the turn's draw). */
   const startHands: Record<number, Set<number>> = {};
   const afterEach: Record<number, number[]> = {};
+  // Turns on which the player ended the turn (the plays were all made); a win on such a turn came later (Poison).
+  const turnEnded = new Set<number>();
   const usedPotions = new Set<string>();
 
   /** Turn bookkeeping on the first call of each turn, and the enemy HP after the last play. */
@@ -447,6 +449,7 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
           miss(turn, 'after plays', 'unused randomPicks', 0, control.picks.length);
           control.picks = [];
         }
+        turnEnded.add(turn);
         compare(turn, 'after plays', plan.afterPlays, snapshot(view, aliases));
         return { kind: 'endTurn' };
       }
@@ -546,7 +549,10 @@ function replay(fx: Fixture, data: GameData = gameData): string[] {
   // The combat ended on a turn: check what is known from the result for that turn.
   const endTurn = result.turns;
   const lastPlan = fx.turns[endTurn - 1];
-  if (lastPlan && result.outcome === 'win') {
+  // A win during the plays is checked from the result. When the player ended the turn first (Poison kills
+  // the enemy at the start of its turn), `afterPlays` and `enemyHpAfterEachPlay` were already checked against
+  // the real HP after the plays (#394).
+  if (lastPlan && result.outcome === 'win' && !turnEnded.has(endTurn)) {
     if (lastPlan.afterPlays?.enemy?.hp !== undefined && lastPlan.afterPlays.enemy.hp !== result.enemyHpRemaining) {
       miss(endTurn, 'after plays', 'enemy.hp', lastPlan.afterPlays.enemy.hp, result.enemyHpRemaining);
     }
@@ -724,6 +730,25 @@ const choicesAndDraws = base({
     },
   ],
   result: { outcome: 'win', turns: 3, finalHp: 80, hpLost: 0 },
+});
+
+/** Poison kills the enemy at the start of its turn, after the player ended the turn (#394). */
+const poisonKill = base({
+  deck: [
+    { card: 'deadly_poison', count: 1 },
+    { card: 'strike', count: 4 },
+    { card: 'defend', count: 5 },
+  ],
+  enemy: { id: 'golden_wait', startHp: 10 },
+  turns: [
+    {
+      hand: ['deadly_poison', 'strike', 'defend', 'defend', 'defend'],
+      plays: ['deadly_poison', 'strike'],
+      enemyHpAfterEachPlay: [10, 4],
+      afterPlays: { enemy: { hp: 4, poison: 5 } },
+    },
+  ],
+  result: { outcome: 'win', turns: 1, finalHp: 80, hpLost: 0 },
 });
 
 describe('golden harness (#210, synthetic fixtures)', () => {
@@ -910,6 +935,17 @@ describe('golden harness (#210, synthetic fixtures)', () => {
       fx.turns[3]!.enemyMoves!.C = 'jab';
       expect(replay(fx)).toContain('turn 1 after enemy move: player.hp: expected 74, engine 71');
     });
+  });
+
+  it('Poison kill after the plays: enemy HP is checked after the plays, not taken from the result (#394)', () => {
+    expect(replay(poisonKill, testData())).toEqual([]);
+    const wrong = structuredClone(poisonKill);
+    wrong.turns[0]!.afterPlays = { enemy: { hp: 0 } };
+    wrong.turns[0]!.enemyHpAfterEachPlay = [10, 0];
+    expect(replay(wrong, testData())).toEqual([
+      'turn 1 after plays: enemy.hp: expected 0, engine 4',
+      'turn 1 after play 2: enemy.hp: expected 0, engine 4',
+    ]);
   });
 
   it('knownDiffs: listed mismatches pass, unlisted ones and stale entries fail', () => {
