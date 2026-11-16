@@ -140,6 +140,39 @@ describe('#266 Serpent Form', () => {
   });
 });
 
+describe('#266 Serpent Form picks a random living enemy (round-1 addition)', () => {
+  it('with two enemies the hits spread over both through the seeded Rng, and a seed repeats', () => {
+    const hitOn = (seed: number) => {
+      const r = simulateCombat(
+        data(),
+        cfg({
+          enemyId: 'dummy',
+          enemyIds: ['dummy', 'dummy'],
+          deck: deckOf(['serpent', 1], ['defend0', 12]),
+          seed,
+        }),
+        scripted((t) => (t === 1 ? ['serpent', 'defend0', 'defend0', 'defend0', 'defend0'] : [])),
+        { log: true },
+      );
+      let cur = 0;
+      const out: number[] = [];
+      for (const e of r.log ?? []) {
+        if (e.t === 'target') cur = e.enemy;
+        if (e.t === 'damage' && e.source === 'player' && e.amount === 4) out.push(cur);
+      }
+      return out;
+    };
+    const seen = new Set<number>();
+    for (let seed = 1; seed <= 6; seed++) {
+      const hits = hitOn(seed);
+      expect(hits).toHaveLength(4);
+      hits.forEach((h) => seen.add(h));
+      expect(hitOn(seed)).toEqual(hits);
+    }
+    expect(seen.size).toBe(2);
+  });
+});
+
 describe('#266 Speedster', () => {
   it('deals its damage to all enemies for every card drawn during the player turn, the turn-start draw included', () => {
     const r = run(
@@ -159,6 +192,25 @@ describe('#266 Speedster', () => {
     const draws = events(window, 'draw').length;
     expect(draws).toBe(7);
     expect(events(window, 'damage').filter((e) => e.amount === 2)).toHaveLength(draws);
+  });
+
+  it('hits EVERY living enemy for each card drawn (two enemies take the same damage; round-1 addition)', () => {
+    const r = simulateCombat(
+      data(),
+      cfg({
+        enemyId: 'dummy',
+        enemyIds: ['dummy', 'dummy'],
+        deck: deckOf(['speedster', 1], ['drawer', 1], ['strike0', 12]),
+      }),
+      scripted((t) => (t === 1 ? ['speedster', 'drawer'] : [])),
+      { log: true },
+    );
+    // Drawer draws 2 on turn 1: 2 Speedster hits on each of the two enemies (4 events of 2 damage on turn 1).
+    const log = r.log ?? [];
+    const from = log.findIndex((e) => e.t === 'play' && e.cardId === 'speedster');
+    const end = log.findIndex((e, k) => k > from && e.t === 'turnEnd' && e.side === 'player');
+    const hits = events(log.slice(from, end), 'damage').filter((e) => e.amount === 2);
+    expect(hits).toHaveLength(4);
   });
 
   it('does nothing before it is played and not on the enemy turn', () => {

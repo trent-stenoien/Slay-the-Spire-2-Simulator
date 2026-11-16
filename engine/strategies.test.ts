@@ -293,11 +293,29 @@ describe('pick helpers', () => {
     );
     expect(pickAttack([big, one, three], 2, 0, st({}, 2))!.cardId).toBe('big');
     expect(pickAttack([big, one, three], 2, 0, st({}, 1), ['ornamental_fan'])!.cardId).toBe('one_hit');
+    // round-1: the Fan's Block is exactly 4: 5 + 2 + 4 = 11 beats a 10-damage card, 5 + 2 + 3 = 10 would only tie it.
+    const big10 = makeCardInstance(
+      { ...cards[S]!, id: 'big10', cost: 2, effects: [{ type: 'attack', damage: 10, hits: 1 }] } as CardDef,
+      false,
+      4,
+    );
+    expect(pickAttack([big10, one, three], 2, 0, st({}, 1), ['ornamental_fan'])!.cardId).toBe('one_hit');
   });
 
   describe('#339 enemy-punishment factors', () => {
     const shivDef = { ...cards[S]!, id: 'shiv', cost: 0, effects: [{ type: 'attack', damage: 4, hits: 1 }] } as CardDef;
-    const decideWith = (hand: CardInstance[], powers: Record<string, number>, cardsPlayed = 0, energy = 3) => {
+    const decideWith = (
+      hand: CardInstance[],
+      powers: Record<string, number>,
+      cardsPlayed = 0,
+      energy = 3,
+      extra: {
+        playerPowers?: Record<string, number>;
+        witherLevel?: number;
+        shivsPlayed?: number;
+        enemyCount?: number;
+      } = {},
+    ) => {
       const state = {
         turn: 1,
         player: {
@@ -311,7 +329,8 @@ describe('pick helpers', () => {
           hand,
           discardPile: [],
           exhaustPile: [],
-          counters: { cardsPlayedThisCombat: cardsPlayed },
+          counters: { cardsPlayedThisCombat: cardsPlayed, shivsPlayedThisTurn: extra.shivsPlayed ?? 0 },
+          powers: extra.playerPowers ?? {},
         },
         enemy: {
           enemyId: 'x',
@@ -324,8 +343,11 @@ describe('pick helpers', () => {
           poison: 0,
           patternIndex: 0,
           powers,
+          createdCardLevels: extra.witherLevel === undefined ? undefined : { wither: extra.witherLevel },
         },
       } as unknown as CombatState;
+      if (extra.enemyCount)
+        (state as { enemies?: unknown }).enemies = Array.from({ length: extra.enemyCount }, () => state.enemy);
       const view: StrategyView = {
         state,
         intent: { moveId: 'm', name: 'm', attacks: [], totalIncoming: 0 },
@@ -351,6 +373,80 @@ describe('pick helpers', () => {
       expect(decideWith([maker, strike], { witheringPresence: 6 }, 0, 1)).toEqual({ kind: 'play', uid: 1 });
       expect(decideWith([maker, strike], { witheringPresence: 6 }, 3, 1)).toEqual({ kind: 'play', uid: 2 });
       expect(decideWith([maker, strike], {}, 3, 1)).toEqual({ kind: 'play', uid: 1 });
+    });
+    it('round-1: a Shiv maker counts Accuracy per Shiv, Phantom Blades once (before any Shiv is played) and Fan of Knives per living enemy', () => {
+      const maker = makeCardInstance(
+        {
+          ...cards[D]!,
+          id: 'two_shivs',
+          cost: 1,
+          effects: [{ type: 'addCards', source: { kind: 'card', cardId: 'shiv' }, count: 2, to: 'hand' }],
+        } as CardDef,
+        false,
+        1,
+      );
+      const strike10 = makeCardInstance(
+        { ...cards[S]!, id: 'ten', cost: 1, effects: [{ type: 'attack', damage: 10, hits: 1 }] } as CardDef,
+        false,
+        2,
+      );
+      const hand = [maker, strike10];
+      const MAKER = { kind: 'play', uid: 1 };
+      const ATTACK = { kind: 'play', uid: 2 };
+      // Plain: 2 x 4 = 8 < 10.
+      expect(decideWith(hand, {}, 0, 1)).toMatchObject(ATTACK);
+      // Accuracy 2: 2 x 6 = 12 >= 10.
+      expect(decideWith(hand, {}, 0, 1, { playerPowers: { accuracy: 2 } })).toMatchObject(MAKER);
+      // Phantom Blades 4: 8 + 4 = 12 while no Shiv was played this turn, only 8 after one.
+      expect(decideWith(hand, {}, 0, 1, { playerPowers: { phantomBlades: 4 } })).toMatchObject(MAKER);
+      expect(decideWith(hand, {}, 0, 1, { playerPowers: { phantomBlades: 4 }, shivsPlayed: 1 })).toMatchObject(ATTACK);
+      // Fan of Knives: every Shiv hits every living enemy: 8 x 2 = 16 with two enemies, 8 with one.
+      expect(decideWith(hand, {}, 0, 1, { playerPowers: { fanOfKnives: 1 }, enemyCount: 2 })).toMatchObject(MAKER);
+      expect(decideWith(hand, {}, 0, 1, { playerPowers: { fanOfKnives: 1 }, enemyCount: 1 })).toMatchObject(ATTACK);
+    });
+    it("round-1: a higher Wither level makes the Shivs' Withers cost more (3 per level, from 3)", () => {
+      const maker3 = makeCardInstance(
+        {
+          ...cards[D]!,
+          id: 'three_shivs',
+          cost: 1,
+          effects: [{ type: 'addCards', source: { kind: 'card', cardId: 'shiv' }, count: 3, to: 'hand' }],
+        } as CardDef,
+        false,
+        1,
+      );
+      const strike = makeCardInstance(cards[S]!, false, 2);
+      // 3 Shivs = 12; one Wither is added (played 2, +4 cards reaches 6). Level 0: 12 - 3 = 9 > Strike's 6; level 2: 12 - 9 = 3 < 6.
+      expect(decideWith([maker3, strike], { witheringPresence: 6 }, 2, 1, { witherLevel: 0 })).toEqual({
+        kind: 'play',
+        uid: 1,
+      });
+      expect(decideWith([maker3, strike], { witheringPresence: 6 }, 2, 1, { witherLevel: 2 })).toEqual({
+        kind: 'play',
+        uid: 2,
+      });
+    });
+    it('round-1: Storm of Steel counts Accuracy per Shiv, and only the cards it would discard', () => {
+      const storm = makeCardInstance(gameData.cards.storm_of_steel!, false, 0);
+      const big = makeCardInstance(
+        { ...cards[S]!, id: 'big15', cost: 1, effects: [{ type: 'attack', damage: 15, hits: 1 }] } as CardDef,
+        false,
+        1,
+      );
+      const d1 = makeCardInstance(cards[D]!, false, 2);
+      const d2 = makeCardInstance(cards[D]!, false, 3);
+      // Energy 1: nothing else is affordable beside Storm, so 3 cards become 3 Shivs: 12 damage < 15 for the big attack.
+      expect(decideWith([storm, big, d1, d2], {}, 0, 1)).toEqual({ kind: 'play', uid: 1 });
+      // Accuracy 2: 3 x (4 + 2) = 18 >= 15, Storm is the best attack.
+      const r = decideWith([storm, big, d1, d2], {}, 0, 1, { playerPowers: { accuracy: 2 } });
+      expect(r).toEqual({ kind: 'play', uid: 0 });
+      // Energy 2 with a costed Defend beside it: only the cards the Energy cannot pay for are discarded (1 Shiv = 4 < 7/energy).
+      const big2 = makeCardInstance(
+        { ...cards[S]!, id: 'big14', cost: 2, effects: [{ type: 'attack', damage: 14, hits: 1 }] } as CardDef,
+        false,
+        4,
+      );
+      expect(decideWith([storm, big2, d1], {}, 0, 2)).toEqual({ kind: 'play', uid: 4 });
     });
     it('Aeonglass: Storm of Steel is charged the Withers its Shivs add', () => {
       const storm = makeCardInstance(gameData.cards.storm_of_steel!, false, 0);

@@ -148,6 +148,16 @@ describe('#273 Aeonglass in combat', () => {
       return -1;
     };
     expect(gen.slice(0, 2).map((e) => turnOf(e.uid))).toEqual([2, 4]);
+    // Exactly 6 and 12 cards played before each Wither arrives (round-1: the turn alone could not tell the 5th from the 6th).
+    const playsBefore = (uid: number) => {
+      let plays = 0;
+      for (const e of r.log!) {
+        if (e.t === 'generated' && e.uid === uid) return plays;
+        if (e.t === 'play') plays++;
+      }
+      return -1;
+    };
+    expect(gen.slice(0, 2).map((e) => playsBefore(e.uid))).toEqual([6, 12]);
   });
 
   it('Withering Presence creates Withers at the level Increasing Intensity reached', () => {

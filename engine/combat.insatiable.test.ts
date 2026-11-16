@@ -186,6 +186,11 @@ describe('#272 Frantic Escape strategy rule (Trent)', () => {
     expect(turnOnePlays(4, { sandpit: 2 })).toEqual(['frantic_escape', 'strike', 'strike']);
   });
 
+  it('the boundary: Sandpit 3 is not urgent (Strikes first), Sandpit 2 is (round-1 addition)', () => {
+    expect(turnOnePlays(4, { sandpit: 3 })).toEqual(['strike', 'strike', 'strike']);
+    expect(turnOnePlays(4, { sandpit: 2 })[0]).toBe('frantic_escape');
+  });
+
   it('never plays it without Sandpit', () => {
     expect(turnOnePlays(2, {})).toEqual(['strike', 'strike']);
   });

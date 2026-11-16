@@ -12,6 +12,7 @@ interface Opts {
   incoming?: number;
   hits?: number;
   playerHp?: number;
+  draw?: string[];
 }
 
 function view(hand: string[], o: Opts = {}): StrategyView {
@@ -40,7 +41,7 @@ function view(hand: string[], o: Opts = {}): StrategyView {
         energy: 3,
         strength: 0,
         hand: inst,
-        drawPile: [],
+        drawPile: (o.draw ?? []).map((id, i) => makeCardInstance(gameData.cards[id]!, false, 100 + i)),
         discardPile: [],
         exhaustPile: [],
       },
@@ -85,6 +86,9 @@ describe('#382 Test Subject: revive and Intangible', () => {
   it('plays a card with more hits than its cost into Intangible', () => {
     expect(first(view(['twin_strike'], { powers: { intangible: 1 } }))).toBe('twin_strike');
   });
+  it('plays the multi-hit Attack into Intangible even with Block to play instead (round-1 addition)', () => {
+    expect(first(view(['twin_strike', 'defend'], { powers: { intangible: 1 }, incoming: 10 }))).toBe('twin_strike');
+  });
 });
 
 describe('#339 Test Subject: Enrage punishes Skills', () => {
@@ -100,6 +104,11 @@ describe('#339 Test Subject: Enrage punishes Skills', () => {
   });
   it('plays the Defend when the attack would be lethal', () => {
     expect(first(view(['defend'], { powers: { enrage: 2 }, incoming: 20, playerHp: 15 }))).toBe('defend');
+  });
+  it('does not hold a setup Skill (draw), only plain Block Skills (round-1 addition)', () => {
+    expect(
+      first(view(['battle_trance'], { powers: { enrage: 2 }, incoming: 20, draw: ['strike', 'strike', 'strike'] })),
+    ).toBe('battle_trance');
   });
   it('plays an Attack in phase 1 (only Skills are punished)', () => {
     expect(first(view(['strike', 'defend'], { powers: { enrage: 2 }, incoming: 20 }))).toBe('strike');

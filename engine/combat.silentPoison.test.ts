@@ -83,6 +83,28 @@ describe('Accelerant (Trent: each extra trigger also lowers Poison by 1)', () =>
     expect(poisonTicks(r).slice(2, 4)).toEqual([3, 2]);
   });
 
+  it('the extra triggers happen inside ONE enemy turn: 2 ticks the first turn, not one tick per turn (round-1 addition)', () => {
+    const r = run(
+      [
+        ['accelerant', 1],
+        ['venom5', 1],
+        ['blocker', 3],
+      ],
+      (t) => (t === 1 ? ['accelerant', 'venom5'] : []),
+    );
+    const perTurn: number[] = [];
+    let turn = 0;
+    for (const e of r.log ?? []) {
+      if (e.t === 'turnStart' && e.side === 'enemy') {
+        turn = e.turn;
+        perTurn[turn] = 0;
+      }
+      if (e.t === 'poisonDamage') perTurn[turn] = (perTurn[turn] ?? 0) + 1;
+    }
+    expect(perTurn[1]).toBe(2);
+    expect(perTurn[2]).toBe(2);
+  });
+
   it('2 extra triggers (upgraded) deal 5 + 4 + 3; stops when Poison runs out', () => {
     const r = run(
       [
